@@ -14,12 +14,11 @@ repos:
         entry: mix format --check-formatted
         language: system
         files: \.(ex|exs)$
-        exclude: message_html\.ex$
         pass_filenames: false
 
       - id: mix-credo
         name: Mix Credo
-        entry: sh -c 'mix credo --strict || true'
+        entry: mix credo --strict
         language: system
         files: \.(ex|exs)$
         pass_filenames: false

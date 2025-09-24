@@ -6,8 +6,7 @@ defmodule HelloWorldWeb.MessageHTML do
     <div class="min-h-screen bg-gray-100 py-6">
       <div class="max-w-2xl mx-auto px-4">
         <h1 class="text-3xl font-bold text-gray-900 mb-8">Hello World Messages</h1>
-
-    <!-- Message Form -->
+        <!-- Message Form -->
         <div class="bg-white rounded-lg shadow p-6 mb-6">
           <form
             action={~p"/messages"}
@@ -55,8 +54,7 @@ defmodule HelloWorldWeb.MessageHTML do
             </button>
           </form>
         </div>
-
-    <!-- Messages List -->
+        <!-- Messages List -->
         <div id="messages-list" class="space-y-4">
           <%= for message <- @messages do %>
             <.message_item message={message} />
