@@ -35,8 +35,7 @@ if config_env() == :prod do
   cacerts = for {:Certificate, cert, :not_encrypted} <- pem_entries, do: cert
 
   config :hello_world, HelloWorld.Repo,
-    ssl: true,
-    ssl_opts: [
+    ssl: [
       verify: :verify_peer,
       cacerts: cacerts
     ],
