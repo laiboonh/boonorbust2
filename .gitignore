@@ -35,3 +35,6 @@ hello_world-*.tar
 npm-debug.log
 /assets/node_modules/
 
+# Environment variables
+.envrc
+
