@@ -50,7 +50,6 @@ defmodule HelloWorldWeb do
     end
   end
 
-
   def html do
     quote do
       use Phoenix.Component

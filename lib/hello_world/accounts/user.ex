@@ -1,4 +1,8 @@
 defmodule HelloWorld.Accounts.User do
+  @moduledoc """
+  Schema and changeset functions for user accounts.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 

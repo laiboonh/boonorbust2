@@ -16,7 +16,10 @@ alias HelloWorld.{Repo, Message}
 sample_messages = [
   %Message{author: "Alice", content: "Hello, world! This is my first message."},
   %Message{author: "Bob", content: "Phoenix with HTMX is awesome!"},
-  %Message{author: "Charlie", content: "I love how interactive this feels without any JavaScript frameworks."},
+  %Message{
+    author: "Charlie",
+    content: "I love how interactive this feels without any JavaScript frameworks."
+  }
 ]
 
 Enum.each(sample_messages, &Repo.insert!/1)

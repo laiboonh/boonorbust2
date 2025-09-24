@@ -1,4 +1,8 @@
 defmodule HelloWorld.Message do
+  @moduledoc """
+  Schema and changeset functions for messages.
+  """
+
   use Ecto.Schema
   import Ecto.Changeset
 

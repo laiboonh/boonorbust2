@@ -1,7 +1,10 @@
 defmodule HelloWorldWeb.MessageController do
   use HelloWorldWeb, :controller
-  alias HelloWorld.{Repo, Message}
+
   import Ecto.Query
+
+  alias HelloWorld.Message
+  alias HelloWorld.Repo
 
   def index(conn, _params) do
     messages = Repo.all(from m in Message, order_by: [desc: m.inserted_at])
@@ -22,6 +25,7 @@ defmodule HelloWorldWeb.MessageController do
           |> put_flash(:info, "Message created successfully!")
           |> redirect(to: ~p"/messages")
         end
+
       {:error, changeset} ->
         messages = Repo.all(from m in Message, order_by: [desc: m.inserted_at])
         render(conn, :index, messages: messages, changeset: changeset)

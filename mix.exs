@@ -59,7 +59,8 @@ defmodule HelloWorld.MixProject do
       {:dns_cluster, "~> 0.2"},
       {:bandit, "~> 1.5"},
       {:ueberauth, "~> 0.10"},
-      {:ueberauth_google, "~> 0.12"}
+      {:ueberauth_google, "~> 0.12"},
+      {:credo, "~> 1.6", only: [:dev, :test], runtime: false}
     ]
   end
 

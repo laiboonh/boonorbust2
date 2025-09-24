@@ -4,8 +4,9 @@ defmodule HelloWorld.Accounts do
   """
 
   import Ecto.Query, warn: false
-  alias HelloWorld.Repo
+
   alias HelloWorld.Accounts.User
+  alias HelloWorld.Repo
 
   @doc """
   Gets a user by email.
@@ -44,6 +45,7 @@ defmodule HelloWorld.Accounts do
     case get_user_by_provider_and_uid(to_string(auth.provider), auth.uid) do
       nil ->
         create_user_from_oauth(auth)
+
       user ->
         {:ok, user}
     end
