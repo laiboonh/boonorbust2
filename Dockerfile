@@ -12,7 +12,7 @@
 #   - https://pkgs.org/ - resource for finding needed packages
 #   - Ex: hexpm/elixir:1.18.0-erlang-27.0.1-debian-bullseye-20240612-slim
 #
-FROM hexpm/elixir:1.18.0-erlang-27.0.1-ubuntu-jammy-20240808 AS builder
+FROM hexpm/elixir:1.18.0-erlang-27.0.1-debian-bullseye-20240812 AS builder
 
 # install build dependencies
 RUN apt-get update -y && apt-get install -y build-essential git \
