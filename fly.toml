@@ -1,10 +1,10 @@
-app = 'boonorbust3'
+app = 'boonorbust2'
 primary_region = 'sin'
 
 [build]
 
 [env]
-  PHX_HOST = 'boonorbust3.fly.dev'
+  PHX_HOST = 'boonorbust2.fly.dev'
 
 
 [http_service]
