@@ -12,7 +12,7 @@
 #   - https://pkgs.org/ - resource for finding needed packages
 #   - Ex: hexpm/elixir:1.18.0-erlang-27.0.1-debian-bullseye-20240612-slim
 #
-FROM hexpm/elixir:1.18.0-erlang-27.0.1-debian-bullseye-20240812 AS builder
+FROM hexpm/elixir:1.18.4-erlang-28.1-debian-bullseye-20250908-slim AS builder
 
 # install build dependencies
 RUN apt-get update -y && apt-get install -y build-essential git \
@@ -59,7 +59,7 @@ RUN mix release
 
 # start a new build stage so that the final image will only contain
 # the compiled release and other runtime necessities
-FROM debian:bullseye-20240812-slim
+FROM debian:bullseye-20250908-slim
 
 RUN apt-get update -y && apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates \
   && apt-get clean && rm -f /var/lib/apt/lists/*_* \
