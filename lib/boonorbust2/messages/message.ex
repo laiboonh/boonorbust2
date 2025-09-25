@@ -1,4 +1,4 @@
-defmodule Boonorbust2.Message do
+defmodule Boonorbust2.Messages.Message do
   @moduledoc """
   Schema and changeset functions for messages.
   """

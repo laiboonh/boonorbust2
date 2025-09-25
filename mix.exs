@@ -20,7 +20,7 @@ defmodule Boonorbust2.MixProject do
   def application do
     [
       mod: {Boonorbust2.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools, :retry]
     ]
   end
 
@@ -60,7 +60,8 @@ defmodule Boonorbust2.MixProject do
       {:bandit, "~> 1.5"},
       {:ueberauth, "~> 0.10"},
       {:ueberauth_google, "~> 0.12"},
-      {:credo, "~> 1.6", only: [:dev, :test], runtime: false}
+      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
+      {:retry, "~> 0.18"}
     ]
   end
 

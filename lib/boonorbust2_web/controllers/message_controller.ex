@@ -3,11 +3,16 @@ defmodule Boonorbust2Web.MessageController do
 
   import Ecto.Query
 
-  alias Boonorbust2.Message
+  alias Boonorbust2.Messages.Message
   alias Boonorbust2.Repo
+  alias Helper
 
   def index(conn, _params) do
-    messages = Repo.all(from m in Message, order_by: [desc: m.inserted_at])
+    messages =
+      Helper.do_retry(Boonorbust2.Messages, :get_all, [], [
+        DBConnection.ConnectionError
+      ])
+
     render(conn, :index, messages: messages)
   end
 
