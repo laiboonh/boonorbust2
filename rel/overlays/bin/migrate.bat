@@ -1,1 +1,1 @@
-call "%~dp0\hello_world" eval HelloWorld.Release.migrate
+call "%~dp0\boonorbust2" eval Boonorbust2.Release.migrate

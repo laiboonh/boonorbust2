@@ -1,4 +1,4 @@
-defmodule HelloWorld.Repo.Migrations.CreateMessages do
+defmodule Boonorbust2.Repo.Migrations.CreateMessages do
   use Ecto.Migration
 
   def change do

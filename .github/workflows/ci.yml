@@ -25,7 +25,7 @@ jobs:
 
     env:
       MIX_ENV: test
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/hello_world_test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/boonorbust2_test
 
     steps:
     - uses: actions/checkout@v4

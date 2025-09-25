@@ -1,9 +1,9 @@
-defmodule HelloWorld.MixProject do
+defmodule Boonorbust2.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :hello_world,
+      app: :boonorbust2,
       version: "0.1.0",
       elixir: "~> 1.18",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -19,7 +19,7 @@ defmodule HelloWorld.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {HelloWorld.Application, []},
+      mod: {Boonorbust2.Application, []},
       extra_applications: [:logger, :runtime_tools]
     ]
   end
@@ -77,10 +77,10 @@ defmodule HelloWorld.MixProject do
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["tailwind hello_world", "esbuild hello_world"],
+      "assets.build": ["tailwind boonorbust2", "esbuild boonorbust2"],
       "assets.deploy": [
-        "tailwind hello_world --minify",
-        "esbuild hello_world --minify",
+        "tailwind boonorbust2 --minify",
+        "esbuild boonorbust2 --minify",
         "phx.digest"
       ]
     ]

@@ -7,19 +7,19 @@
 # General application configuration
 import Config
 
-config :hello_world,
-  ecto_repos: [HelloWorld.Repo],
+config :boonorbust2,
+  ecto_repos: [Boonorbust2.Repo],
   generators: [timestamp_type: :utc_datetime]
 
 # Configures the endpoint
-config :hello_world, HelloWorldWeb.Endpoint,
+config :boonorbust2, Boonorbust2Web.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [html: HelloWorldWeb.ErrorHTML, json: HelloWorldWeb.ErrorJSON],
+    formats: [html: Boonorbust2Web.ErrorHTML, json: Boonorbust2Web.ErrorJSON],
     layout: false
   ],
-  pubsub_server: HelloWorld.PubSub,
+  pubsub_server: Boonorbust2.PubSub,
   live_view: [signing_salt: "/lFPXVWj"]
 
 # Configures the mailer
@@ -29,12 +29,12 @@ config :hello_world, HelloWorldWeb.Endpoint,
 #
 # For production it's recommended to configure a different adapter
 # at the `config/runtime.exs`.
-config :hello_world, HelloWorld.Mailer, adapter: Swoosh.Adapters.Local
+config :boonorbust2, Boonorbust2.Mailer, adapter: Swoosh.Adapters.Local
 
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.17.11",
-  hello_world: [
+  boonorbust2: [
     args:
       ~w(js/app.js --bundle --target=es2017 --outdir=../priv/static/assets --external:/fonts/* --external:/images/*),
     cd: Path.expand("../assets", __DIR__),
@@ -44,7 +44,7 @@ config :esbuild,
 # Configure tailwind (the version is required)
 config :tailwind,
   version: "3.4.3",
-  hello_world: [
+  boonorbust2: [
     args: ~w(
       --config=tailwind.config.js
       --input=css/app.css

@@ -2,4 +2,4 @@
 set -eu
 
 cd -P -- "$(dirname -- "$0")"
-exec ./hello_world eval HelloWorld.Release.migrate
+exec ./boonorbust2 eval Boonorbust2.Release.migrate
