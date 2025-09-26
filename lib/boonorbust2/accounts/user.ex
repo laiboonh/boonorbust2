@@ -6,6 +6,16 @@ defmodule Boonorbust2.Accounts.User do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{
+          id: integer() | nil,
+          name: String.t() | nil,
+          uid: String.t() | nil,
+          provider: String.t() | nil,
+          email: String.t() | nil,
+          inserted_at: NaiveDateTime.t() | nil,
+          updated_at: NaiveDateTime.t() | nil
+        }
+
   schema "users" do
     field :name, :string
     field :uid, :string
@@ -15,7 +25,7 @@ defmodule Boonorbust2.Accounts.User do
     timestamps(type: :utc_datetime)
   end
 
-  @doc false
+  @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(user, attrs) do
     user
     |> cast(attrs, [:email, :name, :provider, :uid])

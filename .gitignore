@@ -40,3 +40,6 @@ npm-debug.log
 
 # ElixirLS (Language Server)
 .elixir_ls/
+
+# Dialyzer PLT files
+/priv/plts/

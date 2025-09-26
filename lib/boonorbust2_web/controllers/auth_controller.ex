@@ -4,6 +4,7 @@ defmodule Boonorbust2Web.AuthController do
 
   alias Boonorbust2.Accounts
 
+  @spec callback(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def callback(%{assigns: %{ueberauth_auth: auth}} = conn, _params) do
     case Accounts.find_or_create_user(auth) do
       {:ok, user} ->
@@ -19,12 +20,14 @@ defmodule Boonorbust2Web.AuthController do
     end
   end
 
+  @spec callback(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def callback(%{assigns: %{ueberauth_failure: fails}} = conn, _params) do
     conn
     |> put_flash(:error, "Authentication failed: #{inspect(fails)}")
     |> redirect(to: ~p"/")
   end
 
+  @spec logout(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def logout(conn, _params) do
     conn
     |> clear_session()

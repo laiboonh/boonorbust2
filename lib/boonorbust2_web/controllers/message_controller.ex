@@ -7,6 +7,7 @@ defmodule Boonorbust2Web.MessageController do
   alias Boonorbust2.Repo
   alias Helper
 
+  @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def index(conn, _params) do
     messages =
       Helper.do_retry(Boonorbust2.Messages, :get_all, [], [
@@ -16,6 +17,7 @@ defmodule Boonorbust2Web.MessageController do
     render(conn, :index, messages: messages)
   end
 
+  @spec create(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def create(conn, %{"message" => message_params}) do
     changeset = Message.changeset(%Message{}, message_params)
 
@@ -37,6 +39,7 @@ defmodule Boonorbust2Web.MessageController do
     end
   end
 
+  @spec delete(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def delete(conn, %{"id" => id}) do
     message = Repo.get!(Message, id)
     Repo.delete!(message)

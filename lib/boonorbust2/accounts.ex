@@ -11,6 +11,7 @@ defmodule Boonorbust2.Accounts do
   @doc """
   Gets a user by email.
   """
+  @spec get_user_by_email(String.t()) :: User.t() | nil
   def get_user_by_email(email) when is_binary(email) do
     Repo.get_by(User, email: email)
   end
@@ -18,6 +19,7 @@ defmodule Boonorbust2.Accounts do
   @doc """
   Gets a user by provider and uid.
   """
+  @spec get_user_by_provider_and_uid(String.t(), String.t()) :: User.t() | nil
   def get_user_by_provider_and_uid(provider, uid) do
     Repo.get_by(User, provider: provider, uid: uid)
   end
@@ -25,6 +27,8 @@ defmodule Boonorbust2.Accounts do
   @doc """
   Creates a user from OAuth info.
   """
+  @spec create_user_from_oauth(Ueberauth.Auth.t()) ::
+          {:ok, User.t()} | {:error, Ecto.Changeset.t()}
   def create_user_from_oauth(%Ueberauth.Auth{} = auth) do
     attrs = %{
       email: auth.info.email,
@@ -41,6 +45,7 @@ defmodule Boonorbust2.Accounts do
   @doc """
   Finds or creates a user from OAuth info.
   """
+  @spec find_or_create_user(Ueberauth.Auth.t()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
   def find_or_create_user(%Ueberauth.Auth{} = auth) do
     case get_user_by_provider_and_uid(to_string(auth.provider), auth.uid) do
       nil ->
