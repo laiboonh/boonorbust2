@@ -29,7 +29,6 @@ defmodule Boonorbust2Web.MessageController do
           |> render(:message_item, message: message)
         else
           conn
-          |> put_flash(:info, "Message created successfully!")
           |> redirect(to: ~p"/messages")
         end
 
@@ -48,7 +47,6 @@ defmodule Boonorbust2Web.MessageController do
       send_resp(conn, 200, "")
     else
       conn
-      |> put_flash(:info, "Message deleted successfully!")
       |> redirect(to: ~p"/messages")
     end
   end

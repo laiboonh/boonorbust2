@@ -15,6 +15,10 @@ defmodule Boonorbust2Web.Router do
     plug :accepts, ["json"]
   end
 
+  pipeline :require_authenticated_user do
+    plug Boonorbust2Web.Auth, :require_authenticated_user
+  end
+
   scope "/auth", Boonorbust2Web do
     pipe_through :browser
 
@@ -28,6 +32,11 @@ defmodule Boonorbust2Web.Router do
     pipe_through :browser
 
     get "/", PageController, :home
+  end
+
+  scope "/", Boonorbust2Web do
+    pipe_through [:browser, :require_authenticated_user]
+
     get "/messages", MessageController, :index
     post "/messages", MessageController, :create
     delete "/messages/:id", MessageController, :delete

@@ -15,6 +15,10 @@ defmodule Boonorbust2Web.Auth do
     fetch_current_user(conn, [])
   end
 
+  def call(conn, :require_authenticated_user) do
+    require_authenticated_user(conn, [])
+  end
+
   @doc """
   Fetches the current user from the session.
   """
@@ -34,7 +38,6 @@ defmodule Boonorbust2Web.Auth do
       conn
     else
       conn
-      |> Phoenix.Controller.put_flash(:error, "You must log in to access this page.")
       |> Phoenix.Controller.redirect(to: "/")
       |> halt()
     end
