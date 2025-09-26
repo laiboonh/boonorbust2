@@ -5,6 +5,7 @@ defmodule Boonorbust2Web.Auth do
 
   import Plug.Conn
 
+  alias Boonorbust2.Accounts
   alias Boonorbust2.Accounts.User
 
   @spec init(keyword()) :: keyword()
@@ -25,7 +26,11 @@ defmodule Boonorbust2Web.Auth do
   @spec fetch_current_user(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
   def fetch_current_user(conn, _opts) do
     user_id = get_session(conn, :user_id)
-    user = user_id && Boonorbust2.Repo.get(Boonorbust2.Accounts.User, user_id)
+
+    user =
+      user_id &&
+        Helper.do_retry(Accounts, :get_user_by_id, [user_id], [DBConnection.ConnectionError])
+
     assign(conn, :current_user, user)
   end
 

@@ -8,6 +8,11 @@ defmodule Boonorbust2.Accounts do
   alias Boonorbust2.Accounts.User
   alias Boonorbust2.Repo
 
+  @spec get_user_by_id(any()) :: any()
+  def get_user_by_id(user_id) do
+    Boonorbust2.Repo.get(Boonorbust2.Accounts.User, user_id)
+  end
+
   @doc """
   Gets a user by email.
   """
