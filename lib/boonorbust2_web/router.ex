@@ -39,6 +39,7 @@ defmodule Boonorbust2Web.Router do
 
     get "/messages", MessageController, :index
     post "/messages", MessageController, :create
+    put "/messages/:id", MessageController, :update
     delete "/messages/:id", MessageController, :delete
   end
 

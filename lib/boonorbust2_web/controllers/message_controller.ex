@@ -38,6 +38,29 @@ defmodule Boonorbust2Web.MessageController do
     end
   end
 
+  @spec update(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def update(conn, %{"id" => id, "message" => message_params}) do
+    message = Repo.get!(Message, id)
+    changeset = Message.changeset(message, message_params)
+
+    case Repo.update(changeset) do
+      {:ok, updated_message} ->
+        if get_req_header(conn, "hx-request") != [] do
+          conn
+          |> put_layout(false)
+          |> render(:message_item, message: updated_message)
+        else
+          conn
+          |> redirect(to: ~p"/messages")
+        end
+
+      {:error, _changeset} ->
+        conn
+        |> put_status(:unprocessable_entity)
+        |> render(:message_item, message: message)
+    end
+  end
+
   @spec delete(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def delete(conn, %{"id" => id}) do
     message = Repo.get!(Message, id)
