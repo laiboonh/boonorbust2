@@ -13,7 +13,7 @@ defmodule Boonorbust2.MixProject do
       listeners: [Phoenix.CodeReloader],
       dialyzer: [
         plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
-        plt_add_apps: [:mix],
+        plt_add_apps: [:mix, :ex_unit],
         flags: [:error_handling, :underspecs]
       ]
     ]
