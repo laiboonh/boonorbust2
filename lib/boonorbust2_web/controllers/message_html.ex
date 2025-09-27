@@ -3,27 +3,34 @@ defmodule Boonorbust2Web.MessageHTML do
 
   def index(assigns) do
     ~H"""
-    <div class="min-h-screen bg-gray-100 py-6">
-      <div class="max-w-2xl mx-auto px-4">
-        <div class="flex justify-between items-center mb-8">
-          <h1 class="text-3xl font-bold text-gray-900">Hello World Messages</h1>
+    <div class="min-h-screen bg-gray-50">
+      <div class="px-4 py-8">
+        <div class="max-w-lg mx-auto">
+          <div class="text-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-900 mb-2">Hello World</h1>
+            <h2 class="text-xl text-gray-700 mb-4">Messages</h2>
+          </div>
+
           <button
             onclick="document.getElementById('message-modal').classList.remove('hidden')"
-            class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center gap-2"
+            class="w-full inline-flex justify-center items-center px-6 py-4 bg-blue-600 text-white text-lg font-medium rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mb-6"
           >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4">
-              </path>
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+              />
             </svg>
             Add Message
           </button>
-        </div>
-        
-    <!-- Messages List -->
-        <div id="messages-list" class="space-y-4">
-          <%= for message <- @messages do %>
-            <.message_item message={message} />
-          <% end %>
+          <!-- Messages List -->
+          <div id="messages-list" class="space-y-4">
+            <%= for message <- @messages do %>
+              <.message_item message={message} />
+            <% end %>
+          </div>
         </div>
         
     <!-- Message Modal -->
