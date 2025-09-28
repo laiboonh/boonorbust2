@@ -43,6 +43,9 @@ defmodule Boonorbust2Web.Router do
     delete "/messages/:id", MessageController, :delete
 
     resources "/assets", AssetController
+
+    get "/user/edit", UserController, :edit
+    put "/user", UserController, :update
   end
 
   # Other scopes may use custom stacks.

@@ -6,12 +6,15 @@ defmodule Boonorbust2.Accounts.User do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Boonorbust2.Currency
+
   @type t :: %__MODULE__{
           id: integer() | nil,
           name: String.t() | nil,
           uid: String.t() | nil,
           provider: String.t() | nil,
           email: String.t() | nil,
+          currency: String.t() | nil,
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -21,6 +24,7 @@ defmodule Boonorbust2.Accounts.User do
     field :uid, :string
     field :provider, :string
     field :email, :string
+    field :currency, :string, default: "SGD"
 
     timestamps(type: :utc_datetime)
   end
@@ -28,7 +32,8 @@ defmodule Boonorbust2.Accounts.User do
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(user, attrs) do
     user
-    |> cast(attrs, [:email, :name, :provider, :uid])
+    |> cast(attrs, [:email, :name, :provider, :uid, :currency])
     |> validate_required([:email, :name, :provider, :uid])
+    |> validate_inclusion(:currency, Currency.supported_currencies())
   end
 end

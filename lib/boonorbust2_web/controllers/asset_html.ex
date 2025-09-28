@@ -1,6 +1,8 @@
 defmodule Boonorbust2Web.AssetHTML do
   use Boonorbust2Web, :html
 
+  alias Boonorbust2.Currency
+
   def index(assigns) do
     ~H"""
     <.tab_content class="min-h-screen bg-gray-50">
@@ -124,12 +126,9 @@ defmodule Boonorbust2Web.AssetHTML do
                     required
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
                   >
-                    <option value="">Select currency</option>
-                    <option value="USD">USD</option>
-                    <option value="EUR">EUR</option>
-                    <option value="GBP">GBP</option>
-                    <option value="SGD">SGD</option>
-                    <option value="JPY">JPY</option>
+                    <%= for {label, value} <- Currency.currency_options_with_default() do %>
+                      <option value={value}>{label}</option>
+                    <% end %>
                   </select>
                 </div>
 
@@ -263,11 +262,9 @@ defmodule Boonorbust2Web.AssetHTML do
                   required
                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
                 >
-                  <option value="USD" selected={@asset.currency == "USD"}>USD</option>
-                  <option value="EUR" selected={@asset.currency == "EUR"}>EUR</option>
-                  <option value="GBP" selected={@asset.currency == "GBP"}>GBP</option>
-                  <option value="SGD" selected={@asset.currency == "SGD"}>SGD</option>
-                  <option value="JPY" selected={@asset.currency == "JPY"}>JPY</option>
+                  <%= for {label, value} <- Currency.currency_options() do %>
+                    <option value={value} selected={@asset.currency == value}>{label}</option>
+                  <% end %>
                 </select>
               </div>
 
@@ -423,14 +420,7 @@ defmodule Boonorbust2Web.AssetHTML do
                   type="select"
                   field={@changeset[:currency]}
                   required
-                  options={[
-                    {"Select currency", ""},
-                    {"USD", "USD"},
-                    {"EUR", "EUR"},
-                    {"GBP", "GBP"},
-                    {"SGD", "SGD"},
-                    {"JPY", "JPY"}
-                  ]}
+                  options={Currency.currency_options_with_default()}
                 />
               </div>
 
@@ -491,13 +481,7 @@ defmodule Boonorbust2Web.AssetHTML do
                   type="select"
                   field={@changeset[:currency]}
                   required
-                  options={[
-                    {"USD", "USD"},
-                    {"EUR", "EUR"},
-                    {"GBP", "GBP"},
-                    {"SGD", "SGD"},
-                    {"JPY", "JPY"}
-                  ]}
+                  options={Currency.currency_options()}
                 />
               </div>
 

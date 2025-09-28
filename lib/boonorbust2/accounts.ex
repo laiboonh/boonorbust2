@@ -60,4 +60,33 @@ defmodule Boonorbust2.Accounts do
         {:ok, user}
     end
   end
+
+  @doc """
+  Updates a user's currency preference.
+  """
+  @spec update_user_currency(User.t(), String.t()) ::
+          {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+  def update_user_currency(%User{} = user, currency) do
+    user
+    |> User.changeset(%{currency: currency})
+    |> Repo.update()
+  end
+
+  @doc """
+  Updates a user with given attributes.
+  """
+  @spec update_user(User.t(), map()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+  def update_user(%User{} = user, attrs) do
+    user
+    |> User.changeset(attrs)
+    |> Repo.update()
+  end
+
+  @doc """
+  Returns an %Ecto.Changeset{} for tracking user changes.
+  """
+  @spec change_user(User.t(), map()) :: Ecto.Changeset.t()
+  def change_user(%User{} = user, attrs \\ %{}) do
+    User.changeset(user, attrs)
+  end
 end

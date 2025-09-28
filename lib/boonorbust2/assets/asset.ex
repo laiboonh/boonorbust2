@@ -6,6 +6,8 @@ defmodule Boonorbust2.Assets.Asset do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Boonorbust2.Currency
+
   @type t :: %__MODULE__{
           id: integer() | nil,
           name: String.t() | nil,
@@ -31,6 +33,7 @@ defmodule Boonorbust2.Assets.Asset do
     |> cast(attrs, [:name, :code, :price, :currency])
     |> validate_required([:name, :code, :currency])
     |> validate_number(:price, greater_than_or_equal_to: 0)
+    |> validate_inclusion(:currency, Currency.supported_currencies())
     |> unique_constraint(:code)
   end
 end
