@@ -41,6 +41,8 @@ defmodule Boonorbust2Web.Router do
     post "/messages", MessageController, :create
     put "/messages/:id", MessageController, :update
     delete "/messages/:id", MessageController, :delete
+
+    resources "/assets", AssetController
   end
 
   # Other scopes may use custom stacks.

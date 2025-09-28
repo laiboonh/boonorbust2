@@ -1,0 +1,101 @@
+defmodule Boonorbust2Web.AssetController do
+  use Boonorbust2Web, :controller
+
+  alias Boonorbust2.Assets
+  alias Boonorbust2.Assets.Asset
+  alias Helper
+
+  @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def index(conn, _params) do
+    assets =
+      Helper.do_retry(Boonorbust2.Assets, :list_assets, [], [
+        DBConnection.ConnectionError
+      ])
+
+    render(conn, :index, assets: assets)
+  end
+
+  @spec show(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def show(conn, %{"id" => id}) do
+    asset = Assets.get_asset!(id)
+    render(conn, :show, asset: asset)
+  end
+
+  @spec new(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def new(conn, _params) do
+    changeset = Assets.change_asset(%Asset{})
+    render(conn, :new, changeset: changeset)
+  end
+
+  @spec create(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def create(conn, %{"asset" => asset_params}) do
+    case Assets.create_asset(asset_params) do
+      {:ok, asset} ->
+        if get_req_header(conn, "hx-request") != [] do
+          conn
+          |> put_layout(false)
+          |> render(:asset_item, asset: asset)
+        else
+          conn
+          |> put_flash(:info, "Asset created successfully.")
+          |> redirect(to: ~p"/assets")
+        end
+
+      {:error, changeset} ->
+        if get_req_header(conn, "hx-request") != [] do
+          assets = Assets.list_assets()
+          render(conn, :index, assets: assets, changeset: changeset)
+        else
+          render(conn, :new, changeset: changeset)
+        end
+    end
+  end
+
+  @spec edit(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def edit(conn, %{"id" => id}) do
+    asset = Assets.get_asset!(id)
+    changeset = Assets.change_asset(asset)
+    render(conn, :edit, asset: asset, changeset: changeset)
+  end
+
+  @spec update(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def update(conn, %{"id" => id, "asset" => asset_params}) do
+    asset = Assets.get_asset!(id)
+
+    case Assets.update_asset(asset, asset_params) do
+      {:ok, updated_asset} ->
+        if get_req_header(conn, "hx-request") != [] do
+          conn
+          |> put_layout(false)
+          |> render(:asset_item, asset: updated_asset)
+        else
+          conn
+          |> put_flash(:info, "Asset updated successfully.")
+          |> redirect(to: ~p"/assets/#{updated_asset}")
+        end
+
+      {:error, changeset} ->
+        if get_req_header(conn, "hx-request") != [] do
+          conn
+          |> put_status(:unprocessable_entity)
+          |> render(:asset_item, asset: asset)
+        else
+          render(conn, :edit, asset: asset, changeset: changeset)
+        end
+    end
+  end
+
+  @spec delete(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def delete(conn, %{"id" => id}) do
+    asset = Assets.get_asset!(id)
+    {:ok, _asset} = Assets.delete_asset(asset)
+
+    if get_req_header(conn, "hx-request") != [] do
+      send_resp(conn, 200, "")
+    else
+      conn
+      |> put_flash(:info, "Asset deleted successfully.")
+      |> redirect(to: ~p"/assets")
+    end
+  end
+end
