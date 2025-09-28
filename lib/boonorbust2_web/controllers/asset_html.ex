@@ -3,7 +3,7 @@ defmodule Boonorbust2Web.AssetHTML do
 
   def index(assigns) do
     ~H"""
-    <div class="min-h-screen bg-gray-50">
+    <.tab_content class="min-h-screen bg-gray-50">
       <div class="px-4 py-8">
         <div class="max-w-lg mx-auto">
           <div class="text-center mb-6">
@@ -152,8 +152,17 @@ defmodule Boonorbust2Web.AssetHTML do
             </div>
           </div>
         </div>
+
+        <.tab_bar current_tab="assets">
+          <:tab navigate={~p"/messages"} name="messages" icon="hero-chat-bubble-left">
+            Messages
+          </:tab>
+          <:tab navigate={~p"/assets"} name="assets" icon="hero-chart-bar">
+            Assets
+          </:tab>
+        </.tab_bar>
       </div>
-    </div>
+    </.tab_content>
     """
   end
 

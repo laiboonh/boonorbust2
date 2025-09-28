@@ -674,4 +674,76 @@ defmodule Boonorbust2Web.CoreComponents do
   def translate_errors(errors, field) when is_list(errors) do
     for {^field, {msg, opts}} <- errors, do: translate_error({msg, opts})
   end
+
+  @doc """
+  Renders a mobile tab bar for navigation.
+
+  ## Examples
+
+      <.tab_bar current_tab="messages">
+        <:tab navigate={~p"/messages"} name="messages" icon="hero-chat-bubble-left">
+          Messages
+        </:tab>
+        <:tab navigate={~p"/assets"} name="assets" icon="hero-chart-bar">
+          Assets
+        </:tab>
+      </.tab_bar>
+
+  """
+  attr :current_tab, :string, required: true
+
+  slot :tab, required: true do
+    attr :navigate, :string, required: true
+    attr :name, :string, required: true
+    attr :icon, :string, required: true
+  end
+
+  def tab_bar(assigns) do
+    ~H"""
+    <div
+      class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40"
+      style="padding-bottom: env(safe-area-inset-bottom, 0px);"
+    >
+      <div class="grid grid-cols-2 max-w-lg mx-auto">
+        <%= for tab <- @tab do %>
+          <.link
+            navigate={tab.navigate}
+            class={[
+              "flex flex-col items-center py-3 px-2 text-xs font-medium transition-colors duration-200",
+              if(@current_tab == tab.name,
+                do: "text-emerald-600 bg-emerald-50",
+                else: "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              )
+            ]}
+          >
+            <.icon
+              name={tab.icon}
+              class={
+                "h-6 w-6 mb-1 " <>
+                  if(@current_tab == tab.name, do: "text-emerald-600", else: "text-gray-400")
+              }
+            />
+            <span class="text-xs leading-tight">
+              {render_slot(tab)}
+            </span>
+          </.link>
+        <% end %>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Renders a tab content wrapper that adds bottom padding to account for the fixed tab bar.
+  """
+  attr :class, :string, default: ""
+  slot :inner_block, required: true
+
+  def tab_content(assigns) do
+    ~H"""
+    <div class={["pb-20", @class]}>
+      {render_slot(@inner_block)}
+    </div>
+    """
+  end
 end

@@ -3,11 +3,11 @@ defmodule Boonorbust2Web.MessageHTML do
 
   def index(assigns) do
     ~H"""
-    <div class="min-h-screen bg-gray-50">
+    <.tab_content class="min-h-screen bg-gray-50">
       <div class="px-4 py-8">
         <div class="max-w-lg mx-auto">
           <div class="text-center mb-6">
-            <h1 class="text-2xl font-bold text-gray-900 mb-2">Hello World</h1>
+            <h1 class="text-2xl font-bold text-gray-900 mb-2">BoonOrBust</h1>
             <h2 class="text-xl text-gray-700 mb-4">Messages</h2>
           </div>
 
@@ -115,8 +115,17 @@ defmodule Boonorbust2Web.MessageHTML do
             </div>
           </div>
         </div>
+
+        <.tab_bar current_tab="messages">
+          <:tab navigate={~p"/messages"} name="messages" icon="hero-chat-bubble-left">
+            Messages
+          </:tab>
+          <:tab navigate={~p"/assets"} name="assets" icon="hero-chart-bar">
+            Assets
+          </:tab>
+        </.tab_bar>
       </div>
-    </div>
+    </.tab_content>
     """
   end
 
