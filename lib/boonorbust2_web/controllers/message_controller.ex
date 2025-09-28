@@ -33,8 +33,16 @@ defmodule Boonorbust2Web.MessageController do
         end
 
       {:error, changeset} ->
-        messages = Repo.all(from m in Message, order_by: [desc: m.inserted_at])
-        render(conn, :index, messages: messages, changeset: changeset)
+        if get_req_header(conn, "hx-request") != [] do
+          conn
+          |> put_status(:unprocessable_entity)
+          |> put_layout(false)
+          |> put_view(Boonorbust2Web.CoreComponents)
+          |> render(:form_errors, changeset: changeset)
+        else
+          messages = Repo.all(from m in Message, order_by: [desc: m.inserted_at])
+          render(conn, :index, messages: messages, changeset: changeset)
+        end
     end
   end
 

@@ -8,11 +8,6 @@ defmodule Boonorbust2Web.AssetHTML do
     <.tab_content class="min-h-screen bg-gray-50">
       <div class="px-4 py-8">
         <div class="max-w-lg mx-auto">
-          <div class="text-center mb-6">
-            <h1 class="text-2xl font-bold text-gray-900 mb-2">BoonOrBust</h1>
-            <h2 class="text-xl text-gray-700 mb-4">Assets</h2>
-          </div>
-
           <button
             onclick="document.getElementById('asset-modal').classList.remove('hidden')"
             class="w-full inline-flex justify-center items-center px-6 py-4 bg-emerald-600 text-white text-lg font-medium rounded-xl hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 mb-6"
@@ -61,6 +56,8 @@ defmodule Boonorbust2Web.AssetHTML do
                 </button>
               </div>
 
+              <div id="asset-form-errors"></div>
+
               <form
                 action={~p"/assets"}
                 method="post"
@@ -68,7 +65,8 @@ defmodule Boonorbust2Web.AssetHTML do
                 hx-post={~p"/assets"}
                 hx-target="#assets-list"
                 hx-swap="afterbegin"
-                hx-on--after-request="document.getElementById('asset-form').reset(); document.getElementById('asset-modal').classList.add('hidden');"
+                hx-on--response-error="document.getElementById('asset-form-errors').innerHTML = event.detail.xhr.responseText;"
+                hx-on--after-request="if(event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) { document.getElementById('asset-form').reset(); document.getElementById('asset-modal').classList.add('hidden'); document.getElementById('asset-form-errors').innerHTML = ''; }"
                 class="space-y-4"
               >
                 <input type="hidden" name="_csrf_token" value={get_csrf_token()} />

@@ -6,11 +6,6 @@ defmodule Boonorbust2Web.MessageHTML do
     <.tab_content class="min-h-screen bg-gray-50">
       <div class="px-4 py-8">
         <div class="max-w-lg mx-auto">
-          <div class="text-center mb-6">
-            <h1 class="text-2xl font-bold text-gray-900 mb-2">BoonOrBust</h1>
-            <h2 class="text-xl text-gray-700 mb-4">Messages</h2>
-          </div>
-
           <button
             onclick="document.getElementById('message-modal').classList.remove('hidden')"
             class="w-full inline-flex justify-center items-center px-6 py-4 bg-blue-600 text-white text-lg font-medium rounded-xl hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mb-6"
@@ -58,6 +53,8 @@ defmodule Boonorbust2Web.MessageHTML do
                 </button>
               </div>
 
+              <div id="message-form-errors"></div>
+
               <form
                 action={~p"/messages"}
                 method="post"
@@ -65,7 +62,8 @@ defmodule Boonorbust2Web.MessageHTML do
                 hx-post={~p"/messages"}
                 hx-target="#messages-list"
                 hx-swap="afterbegin"
-                hx-on--after-request="document.getElementById('message-form').reset(); document.getElementById('message-modal').classList.add('hidden');"
+                hx-on--response-error="document.getElementById('message-form-errors').innerHTML = event.detail.xhr.responseText;"
+                hx-on--after-request="if(event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) { document.getElementById('message-form').reset(); document.getElementById('message-modal').classList.add('hidden'); document.getElementById('message-form-errors').innerHTML = ''; }"
                 class="space-y-4"
               >
                 <input type="hidden" name="_csrf_token" value={get_csrf_token()} />

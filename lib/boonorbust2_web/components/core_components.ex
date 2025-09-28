@@ -331,6 +331,29 @@ defmodule Boonorbust2Web.CoreComponents do
   end
 
   @doc """
+  Renders form validation errors for a changeset.
+  """
+  attr :changeset, Ecto.Changeset, required: true
+
+  def form_errors(assigns) do
+    ~H"""
+    <div class="mb-4 p-4 bg-red-50 border border-red-200 rounded-md">
+      <div class="text-sm text-red-800">
+        <ul class="list-disc list-inside space-y-1">
+          <%= for {field, messages} <- @changeset.errors do %>
+            <%= for message <- List.wrap(messages) do %>
+              <li class="capitalize">
+                {Phoenix.Naming.humanize(field)} {translate_error(message)}
+              </li>
+            <% end %>
+          <% end %>
+        </ul>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
   Renders a header with title.
   """
   attr :class, :string, default: nil
