@@ -36,9 +36,7 @@ defmodule Boonorbust2Web.AssetController do
           |> put_layout(false)
           |> render(:asset_item, asset: asset)
         else
-          conn
-          |> put_flash(:info, "Asset created successfully.")
-          |> redirect(to: ~p"/assets")
+          redirect(conn, to: ~p"/assets")
         end
 
       {:error, changeset} ->
@@ -69,9 +67,7 @@ defmodule Boonorbust2Web.AssetController do
           |> put_layout(false)
           |> render(:asset_item, asset: updated_asset)
         else
-          conn
-          |> put_flash(:info, "Asset updated successfully.")
-          |> redirect(to: ~p"/assets/#{updated_asset}")
+          redirect(conn, to: ~p"/assets/#{updated_asset}")
         end
 
       {:error, changeset} ->
@@ -93,9 +89,7 @@ defmodule Boonorbust2Web.AssetController do
     if get_req_header(conn, "hx-request") != [] do
       send_resp(conn, 200, "")
     else
-      conn
-      |> put_flash(:info, "Asset deleted successfully.")
-      |> redirect(to: ~p"/assets")
+      redirect(conn, to: ~p"/assets")
     end
   end
 end

@@ -62,17 +62,6 @@ defmodule Boonorbust2.Accounts do
   end
 
   @doc """
-  Updates a user's currency preference.
-  """
-  @spec update_user_currency(User.t(), String.t()) ::
-          {:ok, User.t()} | {:error, Ecto.Changeset.t()}
-  def update_user_currency(%User{} = user, currency) do
-    user
-    |> User.changeset(%{currency: currency})
-    |> Repo.update()
-  end
-
-  @doc """
   Updates a user with given attributes.
   """
   @spec update_user(User.t(), map()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}

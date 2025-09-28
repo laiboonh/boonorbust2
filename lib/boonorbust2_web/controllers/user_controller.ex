@@ -30,9 +30,7 @@ defmodule Boonorbust2Web.UserController do
           |> assign(:current_user, updated_user)
           |> render(:header_user_info, user: updated_user)
         else
-          conn
-          |> put_flash(:info, "Profile updated successfully.")
-          |> redirect(to: ~p"/messages")
+          redirect(conn, to: ~p"/messages")
         end
 
       {:error, changeset} ->

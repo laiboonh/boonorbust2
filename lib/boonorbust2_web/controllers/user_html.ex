@@ -107,17 +107,9 @@ defmodule Boonorbust2Web.UserHTML do
       hx-get={~p"/user/edit"}
       hx-target="body"
       hx-swap="beforeend"
-      class="flex items-center gap-1 text-sm text-emerald-600 hover:text-emerald-700 hover:underline transition-colors duration-200"
+      class="text-sm text-emerald-600 hover:text-emerald-700 underline hover:no-underline transition-all duration-200"
       title="Click to edit your profile"
     >
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="2"
-          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-        />
-      </svg>
       Hello, {@user.name}!
     </a>
     """
