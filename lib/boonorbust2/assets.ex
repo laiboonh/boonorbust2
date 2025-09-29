@@ -4,14 +4,17 @@ defmodule Boonorbust2.Assets do
   """
   import Ecto.Query, warn: false
 
-  use Boonorbust2.RetryWrapper
-
   alias Boonorbust2.Assets.Asset
   alias Boonorbust2.Repo
 
   @spec list_assets() :: [Asset.t()]
   def list_assets do
-    Repo.all(from a in Asset, order_by: a.name)
+    Helper.do_retry(
+      fn ->
+        Repo.all(from a in Asset, order_by: a.name)
+      end,
+      [DBConnection.ConnectionError]
+    )
   end
 
   @spec get_asset!(integer()) :: Asset.t()
