@@ -7,11 +7,7 @@ defmodule Boonorbust2Web.AssetController do
 
   @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def index(conn, _params) do
-    assets =
-      Helper.do_retry(Boonorbust2.Assets, :list_assets, [], [
-        DBConnection.ConnectionError
-      ])
-
+    assets = Boonorbust2.Assets.list_assets()
     render(conn, :index, assets: assets)
   end
 

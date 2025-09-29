@@ -26,11 +26,7 @@ defmodule Boonorbust2Web.Auth do
   @spec fetch_current_user(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
   def fetch_current_user(conn, _opts) do
     user_id = get_session(conn, :user_id)
-
-    user =
-      user_id &&
-        Helper.do_retry(Accounts, :get_user_by_id, [user_id], [DBConnection.ConnectionError])
-
+    user = user_id && Accounts.get_user_by_id(user_id)
     assign(conn, :current_user, user)
   end
 

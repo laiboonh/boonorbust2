@@ -4,6 +4,8 @@ defmodule Boonorbust2.Messages do
   """
   import Ecto.Query, warn: false
 
+  use Boonorbust2.RetryWrapper
+
   alias Boonorbust2.Messages.Message
   alias Boonorbust2.Repo
 

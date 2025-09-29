@@ -9,11 +9,7 @@ defmodule Boonorbust2Web.MessageController do
 
   @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def index(conn, _params) do
-    messages =
-      Helper.do_retry(Boonorbust2.Messages, :get_all, [], [
-        DBConnection.ConnectionError
-      ])
-
+    messages = Boonorbust2.Messages.get_all()
     render(conn, :index, messages: messages)
   end
 
