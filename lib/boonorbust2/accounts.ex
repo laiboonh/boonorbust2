@@ -5,12 +5,14 @@ defmodule Boonorbust2.Accounts do
 
   import Ecto.Query, warn: false
 
+  use Boonorbust2.RetryWrapper
+
   alias Boonorbust2.Accounts.User
   alias Boonorbust2.Repo
 
   @spec get_user_by_id(any()) :: any()
   def get_user_by_id(user_id) do
-    Boonorbust2.Repo.get(Boonorbust2.Accounts.User, user_id)
+    Repo.get(Boonorbust2.Accounts.User, user_id)
   end
 
   @doc """

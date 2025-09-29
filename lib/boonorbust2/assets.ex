@@ -4,6 +4,8 @@ defmodule Boonorbust2.Assets do
   """
   import Ecto.Query, warn: false
 
+  use Boonorbust2.RetryWrapper
+
   alias Boonorbust2.Assets.Asset
   alias Boonorbust2.Repo
 
