@@ -6,20 +6,37 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
     <.tab_content class="min-h-screen bg-gray-50">
       <div class="px-4 py-8">
         <div class="max-w-lg mx-auto">
-          <button
-            onclick="document.getElementById('portfolio-transaction-modal').classList.remove('hidden')"
-            class="w-full inline-flex justify-center items-center px-6 py-4 bg-emerald-600 text-white text-lg font-medium rounded-xl hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 mb-6"
-          >
-            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-              />
-            </svg>
-            Add Transaction
-          </button>
+          <div class="flex gap-3 mb-6">
+            <button
+              onclick="document.getElementById('csv-upload-modal').classList.remove('hidden')"
+              class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                />
+              </svg>
+              Import CSV
+            </button>
+
+            <button
+              onclick="document.getElementById('portfolio-transaction-modal').classList.remove('hidden')"
+              class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+            >
+              <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
+              </svg>
+              Add Transaction
+            </button>
+          </div>
           
     <!-- Portfolio Transactions List -->
           <div id="portfolio-transactions-list" class="space-y-4">
@@ -209,6 +226,97 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                   <button
                     type="button"
                     onclick="document.getElementById('portfolio-transaction-modal').classList.add('hidden')"
+                    class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+        
+    <!-- CSV Upload Modal -->
+        <div
+          id="csv-upload-modal"
+          class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+        >
+          <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+              <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-medium text-gray-900">Import CSV File</h3>
+                <button
+                  onclick="document.getElementById('csv-upload-modal').classList.add('hidden')"
+                  class="text-gray-400 hover:text-gray-600"
+                >
+                  <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M6 18L18 6M6 6l12 12"
+                    >
+                    </path>
+                  </svg>
+                </button>
+              </div>
+
+              <div id="csv-upload-errors"></div>
+              <div
+                id="csv-upload-success"
+                class="hidden mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded"
+              >
+              </div>
+
+              <form
+                action={~p"/portfolio_transactions/import_csv"}
+                method="post"
+                id="csv-upload-form"
+                enctype="multipart/form-data"
+                hx-post={~p"/portfolio_transactions/import_csv"}
+                hx-encoding="multipart/form-data"
+                hx-target="#csv-upload-success"
+                hx-swap="innerHTML"
+                hx-on--response-error="document.getElementById('csv-upload-errors').innerHTML = event.detail.xhr.responseText;"
+                hx-on--after-request="if(event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) { document.getElementById('csv-upload-form').reset(); document.getElementById('csv-upload-success').classList.remove('hidden'); document.getElementById('csv-upload-errors').innerHTML = ''; setTimeout(() => { document.getElementById('csv-upload-modal').classList.add('hidden'); document.getElementById('csv-upload-success').classList.add('hidden'); location.reload(); }, 2000); }"
+                class="space-y-4"
+              >
+                <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
+
+                <div>
+                  <label for="csv_file" class="block text-sm font-medium text-gray-700 mb-2">
+                    Select CSV File
+                  </label>
+                  <input
+                    type="file"
+                    id="csv_file"
+                    name="csv_file"
+                    accept=".csv"
+                    required
+                    class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                  />
+                </div>
+
+                <div class="text-sm text-gray-600">
+                  <p class="font-medium mb-1">CSV Format Requirements:</p>
+                  <ul class="text-xs space-y-1">
+                    <li>• Date column (YYYY-MM-DD format)</li>
+                    <li>• Stock column (asset name)</li>
+                    <li>• Transaction Type (buy/sell)</li>
+                    <li>• Quantity and Price columns</li>
+                  </ul>
+                </div>
+
+                <div class="flex gap-3 pt-4">
+                  <button
+                    type="submit"
+                    class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                  >
+                    Import CSV
+                  </button>
+                  <button
+                    type="button"
+                    onclick="document.getElementById('csv-upload-modal').classList.add('hidden')"
                     class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                   >
                     Cancel

@@ -112,4 +112,64 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
       redirect(conn, to: ~p"/portfolio_transactions")
     end
   end
+
+  @spec import_csv(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def import_csv(conn, %{"csv_file" => upload}) do
+    case upload do
+      %Plug.Upload{path: path} ->
+        handle_csv_import(conn, path)
+
+      _ ->
+        handle_missing_file(conn)
+    end
+  end
+
+  defp handle_csv_import(conn, path) do
+    case PortfolioTransactions.import_from_csv(path) do
+      {:ok, %{success: success_count, errors: error_count, total: total_count}} ->
+        message = format_success_message(success_count, error_count, total_count)
+        respond_with_success(conn, message)
+
+      {:error, reason} ->
+        respond_with_error(conn, "Import failed: #{reason}")
+    end
+  end
+
+  defp handle_missing_file(conn) do
+    respond_with_error(conn, "No file uploaded")
+  end
+
+  defp format_success_message(success_count, error_count, total_count) do
+    if error_count > 0 do
+      "Imported #{success_count} of #{total_count} transactions (#{error_count} errors)"
+    else
+      "Successfully imported #{success_count} transactions"
+    end
+  end
+
+  defp respond_with_success(conn, message) do
+    if get_req_header(conn, "hx-request") != [] do
+      conn
+      |> put_layout(false)
+      |> send_resp(200, message)
+    else
+      conn
+      |> put_flash(:info, message)
+      |> redirect(to: ~p"/portfolio_transactions")
+    end
+  end
+
+  defp respond_with_error(conn, error_message) do
+    if get_req_header(conn, "hx-request") != [] do
+      conn
+      |> put_status(:unprocessable_entity)
+      |> put_layout(false)
+      |> put_view(Boonorbust2Web.CoreComponents)
+      |> render(:form_errors, changeset: %{errors: [csv_file: error_message]})
+    else
+      conn
+      |> put_flash(:error, error_message)
+      |> redirect(to: ~p"/portfolio_transactions")
+    end
+  end
 end
