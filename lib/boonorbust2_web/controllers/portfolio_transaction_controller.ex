@@ -148,28 +148,16 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
   end
 
   defp respond_with_success(conn, message) do
-    if get_req_header(conn, "hx-request") != [] do
-      conn
-      |> put_layout(false)
-      |> send_resp(200, message)
-    else
-      conn
-      |> put_flash(:info, message)
-      |> redirect(to: ~p"/portfolio_transactions")
-    end
+    conn
+    |> put_layout(false)
+    |> send_resp(200, message)
   end
 
   defp respond_with_error(conn, error_message) do
-    if get_req_header(conn, "hx-request") != [] do
-      conn
-      |> put_status(:unprocessable_entity)
-      |> put_layout(false)
-      |> put_view(Boonorbust2Web.CoreComponents)
-      |> render(:form_errors, changeset: %{errors: [csv_file: error_message]})
-    else
-      conn
-      |> put_flash(:error, error_message)
-      |> redirect(to: ~p"/portfolio_transactions")
-    end
+    conn
+    |> put_status(:unprocessable_entity)
+    |> put_layout(false)
+    |> put_view(Boonorbust2Web.CoreComponents)
+    |> render(:form_errors, changeset: %{errors: [csv_file: error_message]})
   end
 end
