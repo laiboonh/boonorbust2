@@ -3,7 +3,7 @@ defmodule Boonorbust2.Currency do
   Utilities for handling currencies in the application.
   """
 
-  @supported_currencies ["USD", "EUR", "GBP", "SGD", "JPY"]
+  @supported_currencies ["SGD", "USD", "EUR", "GBP", "JPY", "HKD"]
 
   @doc """
   Returns a list of supported currency codes.
@@ -37,4 +37,10 @@ defmodule Boonorbust2.Currency do
   end
 
   def valid_currency?(_), do: false
+
+  @doc """
+  Returns the default currency for the application.
+  """
+  @spec default_currency() :: String.t()
+  def default_currency, do: "SGD"
 end

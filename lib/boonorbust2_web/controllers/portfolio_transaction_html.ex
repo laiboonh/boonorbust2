@@ -1,6 +1,8 @@
 defmodule Boonorbust2Web.PortfolioTransactionHTML do
   use Boonorbust2Web, :html
 
+  alias Boonorbust2.Currency
+
   def index(assigns) do
     ~H"""
     <.tab_content class="min-h-screen bg-gray-50">
@@ -202,6 +204,28 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
 
                 <div>
                   <label
+                    for="portfolio_transaction_currency"
+                    class="block text-sm font-medium text-gray-700"
+                  >
+                    Currency
+                  </label>
+                  <select
+                    id="portfolio_transaction_currency"
+                    name="portfolio_transaction[currency]"
+                    required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  >
+                    <option value="">Select Currency</option>
+                    <%= for currency <- Currency.supported_currencies() do %>
+                      <option value={currency} selected={currency == Currency.default_currency()}>
+                        {currency}
+                      </option>
+                    <% end %>
+                  </select>
+                </div>
+
+                <div>
+                  <label
                     for="portfolio_transaction_transaction_date"
                     class="block text-sm font-medium text-gray-700"
                   >
@@ -300,10 +324,10 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                 <div class="text-sm text-gray-600">
                   <p class="font-medium mb-1">CSV Format Requirements:</p>
                   <ul class="text-xs space-y-1">
-                    <li>• Date column (YYYY-MM-DD format)</li>
-                    <li>• Stock column (asset name)</li>
-                    <li>• Transaction Type (buy/sell)</li>
-                    <li>• Quantity and Price columns</li>
+                    <li>• Stock, Action, Shares, Price, Commission, Amount, Date, Currency</li>
+                    <li>• Date format: DD MMM YYYY (e.g. 26 Jul 2023)</li>
+                    <li>• Action: buy or sell</li>
+                    <li>• Currency: {Enum.join(Currency.supported_currencies(), ", ")}</li>
                   </ul>
                 </div>
 
@@ -379,16 +403,22 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
               </div>
               <div>
                 <p class="text-gray-500">Price</p>
-                <p class="font-medium">SGD {Decimal.to_string(@portfolio_transaction.price)}</p>
+                <p class="font-medium">
+                  {@portfolio_transaction.currency} {Decimal.to_string(@portfolio_transaction.price)}
+                </p>
               </div>
               <div>
                 <p class="text-gray-500">Commission</p>
-                <p class="font-medium">SGD {Decimal.to_string(@portfolio_transaction.commission)}</p>
+                <p class="font-medium">
+                  {@portfolio_transaction.currency} {Decimal.to_string(
+                    @portfolio_transaction.commission
+                  )}
+                </p>
               </div>
               <div>
                 <p class="text-gray-500">Total Amount</p>
                 <p class="font-medium text-lg text-emerald-600">
-                  SGD {Decimal.to_string(@portfolio_transaction.amount)}
+                  {@portfolio_transaction.currency} {Decimal.to_string(@portfolio_transaction.amount)}
                 </p>
               </div>
             </div>
@@ -524,6 +554,27 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
 
               <div>
                 <label
+                  for={"edit_currency_#{@portfolio_transaction.id}"}
+                  class="block text-sm font-medium text-gray-700"
+                >
+                  Currency
+                </label>
+                <select
+                  id={"edit_currency_#{@portfolio_transaction.id}"}
+                  name="portfolio_transaction[currency]"
+                  required
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                >
+                  <%= for currency <- Currency.supported_currencies() do %>
+                    <option value={currency} selected={@portfolio_transaction.currency == currency}>
+                      {currency}
+                    </option>
+                  <% end %>
+                </select>
+              </div>
+
+              <div>
+                <label
                   for={"edit_transaction_date_#{@portfolio_transaction.id}"}
                   class="block text-sm font-medium text-gray-700"
                 >
@@ -639,12 +690,16 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                 </div>
                 <div>
                   <p class="text-gray-500">Price per Share</p>
-                  <p class="font-medium">SGD {Decimal.to_string(@portfolio_transaction.price)}</p>
+                  <p class="font-medium">
+                    {@portfolio_transaction.currency} {Decimal.to_string(@portfolio_transaction.price)}
+                  </p>
                 </div>
                 <div>
                   <p class="text-gray-500">Commission</p>
                   <p class="font-medium">
-                    SGD {Decimal.to_string(@portfolio_transaction.commission)}
+                    {@portfolio_transaction.currency} {Decimal.to_string(
+                      @portfolio_transaction.commission
+                    )}
                   </p>
                 </div>
               </div>
@@ -652,7 +707,7 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
               <div class="mb-4">
                 <p class="text-gray-500">Total Amount</p>
                 <p class="text-3xl font-bold text-emerald-600">
-                  SGD {Decimal.to_string(@portfolio_transaction.amount)}
+                  {@portfolio_transaction.currency} {Decimal.to_string(@portfolio_transaction.amount)}
                 </p>
               </div>
 

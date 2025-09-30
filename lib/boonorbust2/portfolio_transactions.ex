@@ -5,6 +5,7 @@ defmodule Boonorbust2.PortfolioTransactions do
   import Ecto.Query, warn: false
 
   alias Boonorbust2.Assets
+  alias Boonorbust2.Currency
   alias Boonorbust2.PortfolioTransactions.PortfolioTransaction
   alias Boonorbust2.Repo
 
@@ -132,6 +133,7 @@ defmodule Boonorbust2.PortfolioTransactions do
       price: data.price,
       commission: data.commission,
       amount: data.amount,
+      currency: Map.get(data, :currency, Currency.default_currency()),
       transaction_date: data.date
     }
 
@@ -165,7 +167,7 @@ defmodule Boonorbust2.PortfolioTransactions do
   @spec parse_csv_data([String.t()]) :: {:ok, map()} | {:error, String.t()}
   defp parse_csv_data(fields) do
     case fields do
-      [stock, action, shares, price, commission, amount, date | _] ->
+      [stock, action, shares, price, commission, amount, date, currency] ->
         with {:ok, shares_decimal} <- parse_decimal(shares),
              {:ok, price_decimal} <- parse_decimal(price),
              {:ok, commission_decimal} <- parse_decimal(commission),
@@ -179,6 +181,7 @@ defmodule Boonorbust2.PortfolioTransactions do
              price: price_decimal,
              commission: commission_decimal,
              amount: amount_decimal,
+             currency: String.trim(currency),
              date: parsed_date
            }}
         else
@@ -186,7 +189,8 @@ defmodule Boonorbust2.PortfolioTransactions do
         end
 
       _ ->
-        {:error, "Invalid number of fields"}
+        {:error,
+         "Expected 8 fields: Stock, Action, Shares, Price, Commission, Amount, Date, Currency"}
     end
   end
 
@@ -335,7 +339,7 @@ defmodule Boonorbust2.PortfolioTransactions do
     asset_attrs = %{
       name: asset_name,
       code: generate_asset_code(asset_name),
-      currency: "SGD"
+      currency: Currency.default_currency()
     }
 
     case Assets.create_asset(asset_attrs) do
