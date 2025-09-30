@@ -88,6 +88,12 @@ mix assets.deploy
 - Header with app version, user greeting, and logout
 - Minimal content density optimized for mobile viewing
 
+### User Feedback Pattern
+- **NO FLASH MESSAGES** - This app does not use Phoenix flash messages
+- All user feedback is handled via HTMX and direct DOM updates
+- Success/error messages display in modals or dedicated UI elements
+- Real-time feedback without page redirects or flash containers
+
 ## Notes
 
 - App version: 0.1.0 (displayed in header)
