@@ -54,13 +54,18 @@ defmodule Boonorbust2.Accounts do
   """
   @spec find_or_create_user(Ueberauth.Auth.t()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
   def find_or_create_user(%Ueberauth.Auth{} = auth) do
-    case get_user_by_provider_and_uid(to_string(auth.provider), auth.uid) do
-      nil ->
-        create_user_from_oauth(auth)
+    Helper.do_retry(
+      fn ->
+        case get_user_by_provider_and_uid(to_string(auth.provider), auth.uid) do
+          nil ->
+            create_user_from_oauth(auth)
 
-      user ->
-        {:ok, user}
-    end
+          user ->
+            {:ok, user}
+        end
+      end,
+      [DBConnection.ConnectionError]
+    )
   end
 
   @doc """
