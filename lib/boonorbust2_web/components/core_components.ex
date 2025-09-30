@@ -640,12 +640,12 @@ defmodule Boonorbust2Web.CoreComponents do
       class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40"
       style="padding-bottom: env(safe-area-inset-bottom, 0px);"
     >
-      <div class="grid grid-cols-2 max-w-lg mx-auto">
+      <div class="grid grid-cols-3 max-w-lg mx-auto">
         <%= for tab <- @tab do %>
           <.link
             navigate={tab.navigate}
             class={[
-              "flex flex-col items-center py-3 px-2 text-xs font-medium transition-colors duration-200",
+              "flex flex-col items-center py-2 px-1 text-xs font-medium transition-colors duration-200",
               if(@current_tab == tab.name,
                 do: "text-emerald-600 bg-emerald-50",
                 else: "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
@@ -655,11 +655,11 @@ defmodule Boonorbust2Web.CoreComponents do
             <.icon
               name={tab.icon}
               class={
-                "h-6 w-6 mb-1 " <>
+                "h-5 w-5 mb-0.5 " <>
                   if(@current_tab == tab.name, do: "text-emerald-600", else: "text-gray-400")
               }
             />
-            <span class="text-xs leading-tight">
+            <span class="text-xs leading-tight truncate">
               {render_slot(tab)}
             </span>
           </.link>

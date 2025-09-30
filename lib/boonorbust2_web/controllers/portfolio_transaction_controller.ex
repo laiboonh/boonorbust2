@@ -1,0 +1,115 @@
+defmodule Boonorbust2Web.PortfolioTransactionController do
+  use Boonorbust2Web, :controller
+
+  alias Boonorbust2.Assets
+  alias Boonorbust2.PortfolioTransactions
+  alias Boonorbust2.PortfolioTransactions.PortfolioTransaction
+
+  @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def index(conn, _params) do
+    portfolio_transactions = PortfolioTransactions.list_portfolio_transactions()
+    render(conn, :index, portfolio_transactions: portfolio_transactions)
+  end
+
+  @spec show(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def show(conn, %{"id" => id}) do
+    portfolio_transaction = PortfolioTransactions.get_portfolio_transaction!(id)
+    render(conn, :show, portfolio_transaction: portfolio_transaction)
+  end
+
+  @spec new(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def new(conn, _params) do
+    changeset = PortfolioTransactions.change_portfolio_transaction(PortfolioTransaction.empty())
+    assets = Assets.list_assets()
+    render(conn, :new, changeset: changeset, assets: assets)
+  end
+
+  @spec create(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def create(conn, %{"portfolio_transaction" => portfolio_transaction_params}) do
+    case PortfolioTransactions.create_portfolio_transaction(portfolio_transaction_params) do
+      {:ok, portfolio_transaction} ->
+        if get_req_header(conn, "hx-request") != [] do
+          conn
+          |> put_layout(false)
+          |> render(:portfolio_transaction_item, portfolio_transaction: portfolio_transaction)
+        else
+          redirect(conn, to: ~p"/portfolio_transactions")
+        end
+
+      {:error, changeset} ->
+        if get_req_header(conn, "hx-request") != [] do
+          conn
+          |> put_status(:unprocessable_entity)
+          |> put_layout(false)
+          |> put_view(Boonorbust2Web.CoreComponents)
+          |> render(:form_errors, changeset: changeset)
+        else
+          assets = Assets.list_assets()
+          render(conn, :new, changeset: changeset, assets: assets)
+        end
+    end
+  end
+
+  @spec edit(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def edit(conn, %{"id" => id}) do
+    portfolio_transaction = PortfolioTransactions.get_portfolio_transaction!(id)
+    changeset = PortfolioTransactions.change_portfolio_transaction(portfolio_transaction)
+    assets = Assets.list_assets()
+
+    render(conn, :edit,
+      portfolio_transaction: portfolio_transaction,
+      changeset: changeset,
+      assets: assets
+    )
+  end
+
+  @spec update(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def update(conn, %{"id" => id, "portfolio_transaction" => portfolio_transaction_params}) do
+    portfolio_transaction = PortfolioTransactions.get_portfolio_transaction!(id)
+
+    case PortfolioTransactions.update_portfolio_transaction(
+           portfolio_transaction,
+           portfolio_transaction_params
+         ) do
+      {:ok, updated_portfolio_transaction} ->
+        if get_req_header(conn, "hx-request") != [] do
+          conn
+          |> put_layout(false)
+          |> render(:portfolio_transaction_item,
+            portfolio_transaction: updated_portfolio_transaction
+          )
+        else
+          redirect(conn, to: ~p"/portfolio_transactions/#{updated_portfolio_transaction}")
+        end
+
+      {:error, changeset} ->
+        if get_req_header(conn, "hx-request") != [] do
+          conn
+          |> put_status(:unprocessable_entity)
+          |> render(:portfolio_transaction_item, portfolio_transaction: portfolio_transaction)
+        else
+          assets = Assets.list_assets()
+
+          render(conn, :edit,
+            portfolio_transaction: portfolio_transaction,
+            changeset: changeset,
+            assets: assets
+          )
+        end
+    end
+  end
+
+  @spec delete(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def delete(conn, %{"id" => id}) do
+    portfolio_transaction = PortfolioTransactions.get_portfolio_transaction!(id)
+
+    {:ok, _portfolio_transaction} =
+      PortfolioTransactions.delete_portfolio_transaction(portfolio_transaction)
+
+    if get_req_header(conn, "hx-request") != [] do
+      send_resp(conn, 200, "")
+    else
+      redirect(conn, to: ~p"/portfolio_transactions")
+    end
+  end
+end

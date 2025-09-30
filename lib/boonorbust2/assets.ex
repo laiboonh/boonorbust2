@@ -26,6 +26,9 @@ defmodule Boonorbust2.Assets do
   @spec get_asset_by_code(String.t()) :: Asset.t() | nil
   def get_asset_by_code(code), do: Repo.get_by(Asset, code: code)
 
+  @spec get_asset_by_name(String.t()) :: Asset.t() | nil
+  def get_asset_by_name(name), do: Repo.get_by(Asset, name: name)
+
   @spec create_asset(map()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
   def create_asset(attrs \\ %{}) do
     %Asset{}

@@ -43,6 +43,8 @@ defmodule Boonorbust2Web.Router do
 
     resources "/assets", AssetController
 
+    resources "/portfolio_transactions", PortfolioTransactionController
+
     get "/user/edit", UserController, :edit
     put "/user", UserController, :update
   end

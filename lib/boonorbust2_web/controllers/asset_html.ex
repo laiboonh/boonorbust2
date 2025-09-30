@@ -157,6 +157,9 @@ defmodule Boonorbust2Web.AssetHTML do
           <:tab navigate={~p"/assets"} name="assets" icon="hero-chart-bar">
             Assets
           </:tab>
+          <:tab navigate={~p"/portfolio_transactions"} name="portfolio" icon="hero-document-text">
+            Transactions
+          </:tab>
         </.tab_bar>
       </div>
     </.tab_content>
