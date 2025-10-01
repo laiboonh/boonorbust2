@@ -9,15 +9,40 @@ defmodule Boonorbust2.PortfolioTransactions do
   alias Boonorbust2.PortfolioTransactions.PortfolioTransaction
   alias Boonorbust2.Repo
 
-  @spec list_portfolio_transactions() :: [PortfolioTransaction.t()]
-  def list_portfolio_transactions do
+  @spec list_portfolio_transactions(keyword()) :: %{
+          entries: [PortfolioTransaction.t()],
+          page_number: non_neg_integer(),
+          page_size: non_neg_integer(),
+          total_entries: non_neg_integer(),
+          total_pages: non_neg_integer()
+        }
+  def list_portfolio_transactions(opts \\ []) do
+    page = Keyword.get(opts, :page, 1)
+    page_size = Keyword.get(opts, :page_size, 10)
+
     Helper.do_retry(
       fn ->
-        Repo.all(
+        query =
           from pt in PortfolioTransaction,
             order_by: [desc: pt.transaction_date],
             preload: [:asset]
-        )
+
+        total_entries = Repo.aggregate(query, :count, :id)
+        total_pages = ceil(total_entries / page_size)
+
+        entries =
+          query
+          |> limit(^page_size)
+          |> offset(^((page - 1) * page_size))
+          |> Repo.all()
+
+        %{
+          entries: entries,
+          page_number: page,
+          page_size: page_size,
+          total_entries: total_entries,
+          total_pages: total_pages
+        }
       end,
       [DBConnection.ConnectionError]
     )

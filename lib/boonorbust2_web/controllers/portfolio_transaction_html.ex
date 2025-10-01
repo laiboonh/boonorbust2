@@ -46,6 +46,41 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
               <.portfolio_transaction_item portfolio_transaction={portfolio_transaction} />
             <% end %>
           </div>
+          
+    <!-- Pagination -->
+          <%= if @total_pages > 1 do %>
+            <div class="mt-6 flex justify-center items-center gap-2">
+              <%= if @page_number > 1 do %>
+                <a
+                  href={~p"/portfolio_transactions?page=#{@page_number - 1}"}
+                  class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Previous
+                </a>
+              <% else %>
+                <span class="px-3 py-2 text-sm font-medium text-gray-400 bg-gray-100 border border-gray-300 rounded-md cursor-not-allowed">
+                  Previous
+                </span>
+              <% end %>
+
+              <span class="px-4 py-2 text-sm text-gray-700">
+                Page {@page_number} of {@total_pages}
+              </span>
+
+              <%= if @page_number < @total_pages do %>
+                <a
+                  href={~p"/portfolio_transactions?page=#{@page_number + 1}"}
+                  class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Next
+                </a>
+              <% else %>
+                <span class="px-3 py-2 text-sm font-medium text-gray-400 bg-gray-100 border border-gray-300 rounded-md cursor-not-allowed">
+                  Next
+                </span>
+              <% end %>
+            </div>
+          <% end %>
         </div>
         
     <!-- Portfolio Transaction Modal -->
