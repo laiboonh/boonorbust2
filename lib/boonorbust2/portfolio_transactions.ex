@@ -19,13 +19,17 @@ defmodule Boonorbust2.PortfolioTransactions do
   def list_portfolio_transactions(opts \\ []) do
     page = Keyword.get(opts, :page, 1)
     page_size = Keyword.get(opts, :page_size, 10)
+    filter = Keyword.get(opts, :filter, nil)
 
     Helper.do_retry(
       fn ->
         query =
           from pt in PortfolioTransaction,
+            join: a in assoc(pt, :asset),
             order_by: [desc: pt.transaction_date],
             preload: [:asset]
+
+        query = apply_filter(query, filter)
 
         total_entries = Repo.aggregate(query, :count, :id)
         total_pages = ceil(total_entries / page_size)
@@ -46,6 +50,17 @@ defmodule Boonorbust2.PortfolioTransactions do
       end,
       [DBConnection.ConnectionError]
     )
+  end
+
+  @spec apply_filter(Ecto.Query.t(), String.t() | nil) :: Ecto.Query.t()
+  defp apply_filter(query, nil), do: query
+  defp apply_filter(query, ""), do: query
+
+  defp apply_filter(query, filter) when is_binary(filter) do
+    filter_pattern = "%#{filter}%"
+
+    from [pt, a] in query,
+      where: ilike(a.name, ^filter_pattern) or ilike(a.code, ^filter_pattern)
   end
 
   @spec get_portfolio_transaction!(integer()) :: PortfolioTransaction.t()

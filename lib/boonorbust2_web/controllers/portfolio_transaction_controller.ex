@@ -8,12 +8,20 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
   @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def index(conn, params) do
     page = parse_page_param(params)
-    pagination = PortfolioTransactions.list_portfolio_transactions(page: page, page_size: 10)
+    filter = Map.get(params, "filter", "")
+
+    pagination =
+      PortfolioTransactions.list_portfolio_transactions(
+        page: page,
+        page_size: 10,
+        filter: filter
+      )
 
     render(conn, :index,
       portfolio_transactions: pagination.entries,
       page_number: pagination.page_number,
-      total_pages: pagination.total_pages
+      total_pages: pagination.total_pages,
+      filter: filter
     )
   end
 

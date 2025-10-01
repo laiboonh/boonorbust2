@@ -40,6 +40,33 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
             </button>
           </div>
           
+    <!-- Filter Form -->
+          <form method="get" action={~p"/portfolio_transactions"} class="mb-4">
+            <div class="flex gap-2">
+              <input
+                type="text"
+                name="filter"
+                value={@filter}
+                placeholder="Search by asset name or code..."
+                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+              <button
+                type="submit"
+                class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+              >
+                Filter
+              </button>
+              <%= if @filter != "" do %>
+                <a
+                  href={~p"/portfolio_transactions"}
+                  class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Clear
+                </a>
+              <% end %>
+            </div>
+          </form>
+          
     <!-- Portfolio Transactions List -->
           <div id="portfolio-transactions-list" class="space-y-4">
             <%= for portfolio_transaction <- @portfolio_transactions do %>
@@ -52,7 +79,11 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
             <div class="mt-6 flex justify-center items-center gap-2">
               <%= if @page_number > 1 do %>
                 <a
-                  href={~p"/portfolio_transactions?page=#{@page_number - 1}"}
+                  href={
+                    if @filter != "",
+                      do: ~p"/portfolio_transactions?page=#{@page_number - 1}&filter=#{@filter}",
+                      else: ~p"/portfolio_transactions?page=#{@page_number - 1}"
+                  }
                   class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                 >
                   Previous
@@ -69,7 +100,11 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
 
               <%= if @page_number < @total_pages do %>
                 <a
-                  href={~p"/portfolio_transactions?page=#{@page_number + 1}"}
+                  href={
+                    if @filter != "",
+                      do: ~p"/portfolio_transactions?page=#{@page_number + 1}&filter=#{@filter}",
+                      else: ~p"/portfolio_transactions?page=#{@page_number + 1}"
+                  }
                   class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
                 >
                   Next
