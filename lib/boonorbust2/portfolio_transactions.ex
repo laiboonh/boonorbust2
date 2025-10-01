@@ -37,6 +37,10 @@ defmodule Boonorbust2.PortfolioTransactions do
     %PortfolioTransaction{}
     |> PortfolioTransaction.changeset(attrs)
     |> Repo.insert()
+    |> case do
+      {:ok, transaction} -> {:ok, Repo.preload(transaction, :asset)}
+      error -> error
+    end
   end
 
   @spec update_portfolio_transaction(PortfolioTransaction.t(), map()) ::
@@ -45,6 +49,10 @@ defmodule Boonorbust2.PortfolioTransactions do
     portfolio_transaction
     |> PortfolioTransaction.changeset(attrs)
     |> Repo.update()
+    |> case do
+      {:ok, transaction} -> {:ok, Repo.preload(transaction, :asset, force: true)}
+      error -> error
+    end
   end
 
   @spec delete_portfolio_transaction(PortfolioTransaction.t()) ::
@@ -126,15 +134,16 @@ defmodule Boonorbust2.PortfolioTransactions do
   @spec create_transaction_from_data(map(), Assets.Asset.t()) ::
           {:ok, PortfolioTransaction.t()} | {:error, String.t()}
   defp create_transaction_from_data(data, asset) do
+    currency = String.upcase(String.trim(data.currency))
+
     transaction_attrs = %{
       asset_id: asset.id,
       action: String.downcase(data.action),
-      shares: data.shares,
-      price: data.price,
-      commission: data.commission,
-      amount: data.amount,
-      currency: Map.get(data, :currency, Currency.default_currency()),
+      quantity: data.quantity,
+      price: %{amount: data.price, currency: currency},
+      commission: %{amount: data.commission, currency: currency},
       transaction_date: data.date
+      # amount will be calculated from quantity * price + commission
     }
 
     case create_portfolio_transaction(transaction_attrs) do
@@ -167,20 +176,18 @@ defmodule Boonorbust2.PortfolioTransactions do
   @spec parse_csv_data([String.t()]) :: {:ok, map()} | {:error, String.t()}
   defp parse_csv_data(fields) do
     case fields do
-      [stock, action, shares, price, commission, amount, date, currency] ->
-        with {:ok, shares_decimal} <- parse_decimal(shares),
+      [stock, action, quantity, price, commission, date, currency] ->
+        with {:ok, quantity_decimal} <- parse_decimal(quantity),
              {:ok, price_decimal} <- parse_decimal(price),
              {:ok, commission_decimal} <- parse_decimal(commission),
-             {:ok, amount_decimal} <- parse_decimal(amount),
              {:ok, parsed_date} <- parse_date(date) do
           {:ok,
            %{
              stock: String.trim(stock),
              action: String.trim(action),
-             shares: shares_decimal,
+             quantity: quantity_decimal,
              price: price_decimal,
              commission: commission_decimal,
-             amount: amount_decimal,
              currency: String.trim(currency),
              date: parsed_date
            }}
@@ -189,8 +196,7 @@ defmodule Boonorbust2.PortfolioTransactions do
         end
 
       _ ->
-        {:error,
-         "Expected 8 fields: Stock, Action, Shares, Price, Commission, Amount, Date, Currency"}
+        {:error, "Expected 7 fields: Stock, Action, Quantity, Price, Commission, Date, Currency"}
     end
   end
 

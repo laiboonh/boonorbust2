@@ -61,6 +61,10 @@ config :logger, :console,
 # Use Jason for JSON parsing in Phoenix
 config :phoenix, :json_library, Jason
 
+# Configure ex_money
+config :ex_money,
+  default_cldr_backend: Boonorbust2.Cldr
+
 # Configure Ueberauth for OAuth providers
 config :ueberauth, Ueberauth,
   providers: [

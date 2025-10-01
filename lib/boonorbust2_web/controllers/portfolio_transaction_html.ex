@@ -129,21 +129,42 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
 
                 <div>
                   <label
-                    for="portfolio_transaction_shares"
+                    for="portfolio_transaction_quantity"
                     class="block text-sm font-medium text-gray-700"
                   >
-                    Shares
+                    Quantity
                   </label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
-                    id="portfolio_transaction_shares"
-                    name="portfolio_transaction[shares]"
+                    id="portfolio_transaction_quantity"
+                    name="portfolio_transaction[quantity]"
                     required
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
                     placeholder="e.g. 1000"
                   />
+                </div>
+
+                <div>
+                  <label
+                    for="portfolio_transaction_currency"
+                    class="block text-sm font-medium text-gray-700"
+                  >
+                    Currency
+                  </label>
+                  <select
+                    id="portfolio_transaction_currency"
+                    name="portfolio_transaction[currency]"
+                    required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  >
+                    <%= for currency <- Currency.supported_currencies() do %>
+                      <option value={currency} selected={currency == Currency.default_currency()}>
+                        {currency}
+                      </option>
+                    <% end %>
+                  </select>
                 </div>
 
                 <div>
@@ -178,50 +199,11 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                     min="0"
                     id="portfolio_transaction_commission"
                     name="portfolio_transaction[commission]"
+                    required
+                    value="0"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
                     placeholder="e.g. 5.00"
                   />
-                </div>
-
-                <div>
-                  <label
-                    for="portfolio_transaction_amount"
-                    class="block text-sm font-medium text-gray-700"
-                  >
-                    Total Amount
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    id="portfolio_transaction_amount"
-                    name="portfolio_transaction[amount]"
-                    required
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                    placeholder="e.g. 1505.00"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    for="portfolio_transaction_currency"
-                    class="block text-sm font-medium text-gray-700"
-                  >
-                    Currency
-                  </label>
-                  <select
-                    id="portfolio_transaction_currency"
-                    name="portfolio_transaction[currency]"
-                    required
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                  >
-                    <option value="">Select Currency</option>
-                    <%= for currency <- Currency.supported_currencies() do %>
-                      <option value={currency} selected={currency == Currency.default_currency()}>
-                        {currency}
-                      </option>
-                    <% end %>
-                  </select>
                 </div>
 
                 <div>
@@ -324,10 +306,13 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                 <div class="text-sm text-gray-600">
                   <p class="font-medium mb-1">CSV Format Requirements:</p>
                   <ul class="text-xs space-y-1">
-                    <li>• Stock, Action, Shares, Price, Commission, Amount, Date, Currency</li>
+                    <li>• Stock, Action, Quantity, Price, Commission, Date, Currency</li>
                     <li>• Date format: DD MMM YYYY (e.g. 26 Jul 2023)</li>
                     <li>• Action: buy or sell</li>
                     <li>• Currency: {Enum.join(Currency.supported_currencies(), ", ")}</li>
+                    <li class="text-gray-500 italic">
+                      • Amount is calculated automatically (quantity × price + commission)
+                    </li>
                   </ul>
                 </div>
 
@@ -398,27 +383,25 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
 
             <div class="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p class="text-gray-500">Shares</p>
-                <p class="font-medium">{Decimal.to_string(@portfolio_transaction.shares)}</p>
+                <p class="text-gray-500">Quantity</p>
+                <p class="font-medium">{Decimal.to_string(@portfolio_transaction.quantity)}</p>
               </div>
               <div>
                 <p class="text-gray-500">Price</p>
                 <p class="font-medium">
-                  {@portfolio_transaction.currency} {Decimal.to_string(@portfolio_transaction.price)}
+                  {Money.to_string!(@portfolio_transaction.price)}
                 </p>
               </div>
               <div>
                 <p class="text-gray-500">Commission</p>
                 <p class="font-medium">
-                  {@portfolio_transaction.currency} {Decimal.to_string(
-                    @portfolio_transaction.commission
-                  )}
+                  {Money.to_string!(@portfolio_transaction.commission)}
                 </p>
               </div>
               <div>
                 <p class="text-gray-500">Total Amount</p>
                 <p class="font-medium text-lg text-emerald-600">
-                  {@portfolio_transaction.currency} {Decimal.to_string(@portfolio_transaction.amount)}
+                  {Money.to_string!(@portfolio_transaction.amount)}
                 </p>
               </div>
             </div>
@@ -479,74 +462,18 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
 
               <div>
                 <label
-                  for={"edit_shares_#{@portfolio_transaction.id}"}
+                  for={"edit_quantity_#{@portfolio_transaction.id}"}
                   class="block text-sm font-medium text-gray-700"
                 >
-                  Shares
+                  Quantity
                 </label>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
-                  id={"edit_shares_#{@portfolio_transaction.id}"}
-                  name="portfolio_transaction[shares]"
-                  value={Decimal.to_string(@portfolio_transaction.shares)}
-                  required
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label
-                  for={"edit_price_#{@portfolio_transaction.id}"}
-                  class="block text-sm font-medium text-gray-700"
-                >
-                  Price per Share
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  id={"edit_price_#{@portfolio_transaction.id}"}
-                  name="portfolio_transaction[price]"
-                  value={Decimal.to_string(@portfolio_transaction.price)}
-                  required
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label
-                  for={"edit_commission_#{@portfolio_transaction.id}"}
-                  class="block text-sm font-medium text-gray-700"
-                >
-                  Commission
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  id={"edit_commission_#{@portfolio_transaction.id}"}
-                  name="portfolio_transaction[commission]"
-                  value={Decimal.to_string(@portfolio_transaction.commission)}
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label
-                  for={"edit_amount_#{@portfolio_transaction.id}"}
-                  class="block text-sm font-medium text-gray-700"
-                >
-                  Total Amount
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  id={"edit_amount_#{@portfolio_transaction.id}"}
-                  name="portfolio_transaction[amount]"
-                  value={Decimal.to_string(@portfolio_transaction.amount)}
+                  id={"edit_quantity_#{@portfolio_transaction.id}"}
+                  name="portfolio_transaction[quantity]"
+                  value={Decimal.to_string(@portfolio_transaction.quantity)}
                   required
                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
                 />
@@ -566,11 +493,51 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
                 >
                   <%= for currency <- Currency.supported_currencies() do %>
-                    <option value={currency} selected={@portfolio_transaction.currency == currency}>
+                    <option
+                      value={currency}
+                      selected={@portfolio_transaction.price.currency == String.to_atom(currency)}
+                    >
                       {currency}
                     </option>
                   <% end %>
                 </select>
+              </div>
+
+              <div>
+                <label
+                  for={"edit_price_#{@portfolio_transaction.id}"}
+                  class="block text-sm font-medium text-gray-700"
+                >
+                  Price per Share
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  id={"edit_price_#{@portfolio_transaction.id}"}
+                  name="portfolio_transaction[price]"
+                  value={Decimal.to_string(@portfolio_transaction.price.amount)}
+                  required
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                />
+              </div>
+
+              <div>
+                <label
+                  for={"edit_commission_#{@portfolio_transaction.id}"}
+                  class="block text-sm font-medium text-gray-700"
+                >
+                  Commission
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  id={"edit_commission_#{@portfolio_transaction.id}"}
+                  name="portfolio_transaction[commission]"
+                  value={Decimal.to_string(@portfolio_transaction.commission.amount)}
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                />
               </div>
 
               <div>
@@ -685,21 +652,19 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                   <p class="font-medium">{@portfolio_transaction.asset.code}</p>
                 </div>
                 <div>
-                  <p class="text-gray-500">Shares</p>
-                  <p class="font-medium">{Decimal.to_string(@portfolio_transaction.shares)}</p>
+                  <p class="text-gray-500">Quantity</p>
+                  <p class="font-medium">{Decimal.to_string(@portfolio_transaction.quantity)}</p>
                 </div>
                 <div>
                   <p class="text-gray-500">Price per Share</p>
                   <p class="font-medium">
-                    {@portfolio_transaction.currency} {Decimal.to_string(@portfolio_transaction.price)}
+                    {Money.to_string!(@portfolio_transaction.price)}
                   </p>
                 </div>
                 <div>
                   <p class="text-gray-500">Commission</p>
                   <p class="font-medium">
-                    {@portfolio_transaction.currency} {Decimal.to_string(
-                      @portfolio_transaction.commission
-                    )}
+                    {Money.to_string!(@portfolio_transaction.commission)}
                   </p>
                 </div>
               </div>
@@ -707,7 +672,7 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
               <div class="mb-4">
                 <p class="text-gray-500">Total Amount</p>
                 <p class="text-3xl font-bold text-emerald-600">
-                  {@portfolio_transaction.currency} {Decimal.to_string(@portfolio_transaction.amount)}
+                  {Money.to_string!(@portfolio_transaction.amount)}
                 </p>
               </div>
 
@@ -781,8 +746,8 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
               </div>
 
               <div>
-                <.label for="portfolio_transaction_shares">Shares</.label>
-                <.input type="number" step="0.01" min="0" field={@changeset[:shares]} required />
+                <.label for="portfolio_transaction_quantity">Quantity</.label>
+                <.input type="number" step="0.01" min="0" field={@changeset[:quantity]} required />
               </div>
 
               <div>
@@ -867,8 +832,8 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
               </div>
 
               <div>
-                <.label for="portfolio_transaction_shares">Shares</.label>
-                <.input type="number" step="0.01" min="0" field={@changeset[:shares]} required />
+                <.label for="portfolio_transaction_quantity">Quantity</.label>
+                <.input type="number" step="0.01" min="0" field={@changeset[:quantity]} required />
               </div>
 
               <div>

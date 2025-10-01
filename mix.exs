@@ -65,6 +65,8 @@ defmodule Boonorbust2.MixProject do
       {:bandit, "~> 1.5"},
       {:ueberauth, "~> 0.10"},
       {:ueberauth_google, "~> 0.12"},
+      {:ex_money, "~> 5.17"},
+      {:ex_money_sql, "~> 1.0"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:retry, "~> 0.18"}
