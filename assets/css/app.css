@@ -3,3 +3,16 @@
 @import "tailwindcss/utilities";
 
 /* This file is for your main application CSS */
+
+/* HTMX indicator - hidden by default, shown during requests */
+.htmx-indicator {
+  display: none;
+}
+
+.htmx-request .htmx-indicator {
+  display: inline-block;
+}
+
+.htmx-request.htmx-indicator {
+  display: inline-block;
+}

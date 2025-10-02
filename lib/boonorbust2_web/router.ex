@@ -42,6 +42,7 @@ defmodule Boonorbust2Web.Router do
     delete "/messages/:id", MessageController, :delete
 
     resources "/assets", AssetController
+    get "/assets/:id/positions", AssetController, :positions
 
     resources "/portfolio_transactions", PortfolioTransactionController
     post "/portfolio_transactions/import_csv", PortfolioTransactionController, :import_csv

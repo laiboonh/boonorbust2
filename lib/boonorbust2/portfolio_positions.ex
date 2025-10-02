@@ -165,13 +165,14 @@ defmodule Boonorbust2.PortfolioPositions do
   end
 
   @doc """
-  Gets all positions for a given asset, ordered chronologically.
+  Gets all positions for a given asset, ordered by transaction date descending.
   """
   @spec get_positions_for_asset(integer()) :: [PortfolioPosition.t()]
   def get_positions_for_asset(asset_id) do
     from(pp in PortfolioPosition,
+      join: pt in assoc(pp, :portfolio_transaction),
       where: pp.asset_id == ^asset_id,
-      order_by: [asc: pp.updated_at],
+      order_by: [desc: pt.transaction_date, desc: pp.id],
       preload: [:asset, :portfolio_transaction]
     )
     |> Repo.all()

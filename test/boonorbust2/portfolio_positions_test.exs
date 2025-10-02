@@ -64,7 +64,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       positions = PortfolioPositions.get_positions_for_asset(asset.id)
       assert length(positions) == 2
 
-      [pos1, pos2] = positions
+      [pos2, pos1] = positions
 
       # First position: 100 shares at average of 150.10
       assert pos1.portfolio_transaction_id == txn1.id
@@ -104,7 +104,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       positions = PortfolioPositions.get_positions_for_asset(asset.id)
       assert length(positions) == 2
 
-      [pos1, pos2] = positions
+      [pos2, pos1] = positions
 
       # First position: 100 shares
       assert pos1.portfolio_transaction_id == txn1.id
@@ -161,7 +161,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       positions = PortfolioPositions.get_positions_for_asset(asset.id)
       assert length(positions) == 4
 
-      [pos1, pos2, pos3, pos4] = positions
+      [pos4, pos3, pos2, pos1] = positions
 
       # Position 1: 100 shares @ avg 200.10
       assert Decimal.equal?(pos1.quantity_on_hand, Decimal.new("100"))
@@ -206,7 +206,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       positions = PortfolioPositions.get_positions_for_asset(asset.id)
       assert length(positions) == 2
 
-      [_pos1, pos2] = positions
+      [pos2, _pos1] = positions
 
       # Final position: 0 shares remaining
       assert Decimal.equal?(pos2.quantity_on_hand, Decimal.new("0"))
@@ -249,7 +249,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       positions = PortfolioPositions.get_positions_for_asset(asset.id)
       assert length(positions) == 3
 
-      [pos1, pos2, pos3] = positions
+      [pos3, pos2, pos1] = positions
 
       # Position 1: 100 @ 300.10
       assert Decimal.equal?(pos1.quantity_on_hand, Decimal.new("100"))
@@ -372,7 +372,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert length(positions_after) == 2
 
       # First position should still have same transaction ID
-      [pos1, _pos2] = positions_after
+      [_pos2, pos1] = positions_after
       assert pos1.portfolio_transaction_id == txn1.id
     end
 
@@ -412,7 +412,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert length(positions) == 20
 
       # Final position should have 200 shares (10 * 20)
-      final_position = List.last(positions)
+      final_position = List.first(positions)
       assert Decimal.equal?(final_position.quantity_on_hand, Decimal.new("200"))
     end
 
