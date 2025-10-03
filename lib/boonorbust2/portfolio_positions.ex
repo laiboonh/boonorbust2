@@ -184,21 +184,28 @@ defmodule Boonorbust2.PortfolioPositions do
   end
 
   @doc """
-  Lists the latest position for each asset.
+  Lists the latest position for each asset based on transaction date.
   """
   @spec list_latest_positions() :: [PortfolioPosition.t()]
   def list_latest_positions do
-    # Get the latest position for each asset using a subquery
+    # Get the latest position for each asset based on transaction date
     latest_positions_subquery =
       from(pp in PortfolioPosition,
+        join: pt in assoc(pp, :portfolio_transaction),
         group_by: pp.asset_id,
-        select: %{asset_id: pp.asset_id, max_updated_at: max(pp.updated_at)}
+        select: %{
+          asset_id: pp.asset_id,
+          max_transaction_date: max(pt.transaction_date),
+          max_id: max(pp.id)
+        }
       )
 
     from(pp in PortfolioPosition,
+      join: pt in assoc(pp, :portfolio_transaction),
       join: lp in subquery(latest_positions_subquery),
-      on: pp.asset_id == lp.asset_id and pp.updated_at == lp.max_updated_at,
-      order_by: [desc: pp.updated_at],
+      on: pp.asset_id == lp.asset_id and pt.transaction_date == lp.max_transaction_date,
+      order_by: [desc: pt.transaction_date, desc: pp.id],
+      distinct: pp.asset_id,
       preload: [:asset, :portfolio_transaction]
     )
     |> Repo.all()
