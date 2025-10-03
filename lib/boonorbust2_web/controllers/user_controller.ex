@@ -30,7 +30,7 @@ defmodule Boonorbust2Web.UserController do
           |> assign(:current_user, updated_user)
           |> render(:header_user_info, user: updated_user)
         else
-          redirect(conn, to: ~p"/messages")
+          redirect(conn, to: ~p"/dashboard")
         end
 
       {:error, changeset} ->

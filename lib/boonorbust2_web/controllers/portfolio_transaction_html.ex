@@ -407,8 +407,8 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
         </div>
 
         <.tab_bar current_tab="portfolio">
-          <:tab navigate={~p"/messages"} name="messages" icon="hero-chat-bubble-left">
-            Messages
+          <:tab navigate={~p"/dashboard"} name="dashboard" icon="hero-home">
+            Dashboard
           </:tab>
           <:tab navigate={~p"/assets"} name="assets" icon="hero-chart-bar">
             Assets

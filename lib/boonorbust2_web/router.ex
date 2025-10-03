@@ -36,10 +36,7 @@ defmodule Boonorbust2Web.Router do
   scope "/", Boonorbust2Web do
     pipe_through [:browser, :require_authenticated_user]
 
-    get "/messages", MessageController, :index
-    post "/messages", MessageController, :create
-    put "/messages/:id", MessageController, :update
-    delete "/messages/:id", MessageController, :delete
+    get "/dashboard", DashboardController, :index
 
     resources "/assets", AssetController
     get "/assets/:id/positions", AssetController, :positions

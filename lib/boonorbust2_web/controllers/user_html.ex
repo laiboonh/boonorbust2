@@ -121,7 +121,7 @@ defmodule Boonorbust2Web.UserHTML do
       <div class="px-4 py-8">
         <div class="max-w-lg mx-auto">
           <div class="mb-6">
-            <a href={~p"/messages"} class="text-emerald-600 hover:text-emerald-800 mb-4 inline-block">
+            <a href={~p"/dashboard"} class="text-emerald-600 hover:text-emerald-800 mb-4 inline-block">
               ← Back
             </a>
             <h1 class="text-2xl font-bold text-gray-900">Edit Profile</h1>
@@ -149,7 +149,7 @@ defmodule Boonorbust2Web.UserHTML do
                   Save Changes
                 </.button>
                 <a
-                  href={~p"/messages"}
+                  href={~p"/dashboard"}
                   class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg text-center"
                 >
                   Cancel

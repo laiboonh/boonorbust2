@@ -17,7 +17,7 @@ defmodule Boonorbust2Web.AuthController do
       {:ok, user} ->
         conn
         |> put_session(:user_id, user.id)
-        |> redirect(to: ~p"/messages")
+        |> redirect(to: ~p"/dashboard")
 
       {:error, _reason} ->
         conn
