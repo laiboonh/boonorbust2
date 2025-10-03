@@ -206,7 +206,7 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                   </label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="any"
                     min="0"
                     id="portfolio_transaction_quantity"
                     name="portfolio_transaction[quantity]"
@@ -246,7 +246,7 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                   </label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="any"
                     min="0"
                     id="portfolio_transaction_price"
                     name="portfolio_transaction[price]"
@@ -265,7 +265,7 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                   </label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="any"
                     min="0"
                     id="portfolio_transaction_commission"
                     name="portfolio_transaction[commission]"
@@ -539,7 +539,7 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                 </label>
                 <input
                   type="number"
-                  step="0.01"
+                  step="any"
                   min="0"
                   id={"edit_quantity_#{@portfolio_transaction.id}"}
                   name="portfolio_transaction[quantity]"
@@ -582,7 +582,7 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                 </label>
                 <input
                   type="number"
-                  step="0.01"
+                  step="any"
                   min="0"
                   id={"edit_price_#{@portfolio_transaction.id}"}
                   name="portfolio_transaction[price]"
@@ -601,7 +601,7 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                 </label>
                 <input
                   type="number"
-                  step="0.01"
+                  step="any"
                   min="0"
                   id={"edit_commission_#{@portfolio_transaction.id}"}
                   name="portfolio_transaction[commission]"
@@ -817,22 +817,22 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
 
               <div>
                 <.label for="portfolio_transaction_quantity">Quantity</.label>
-                <.input type="number" step="0.01" min="0" field={@changeset[:quantity]} required />
+                <.input type="number" step="any" min="0" field={@changeset[:quantity]} required />
               </div>
 
               <div>
                 <.label for="portfolio_transaction_price">Price per Share</.label>
-                <.input type="number" step="0.01" min="0" field={@changeset[:price]} required />
+                <.input type="number" step="any" min="0" field={@changeset[:price]} required />
               </div>
 
               <div>
                 <.label for="portfolio_transaction_commission">Commission</.label>
-                <.input type="number" step="0.01" min="0" field={@changeset[:commission]} />
+                <.input type="number" step="any" min="0" field={@changeset[:commission]} />
               </div>
 
               <div>
                 <.label for="portfolio_transaction_amount">Total Amount</.label>
-                <.input type="number" step="0.01" min="0" field={@changeset[:amount]} required />
+                <.input type="number" step="any" min="0" field={@changeset[:amount]} required />
               </div>
 
               <div>
@@ -903,22 +903,22 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
 
               <div>
                 <.label for="portfolio_transaction_quantity">Quantity</.label>
-                <.input type="number" step="0.01" min="0" field={@changeset[:quantity]} required />
+                <.input type="number" step="any" min="0" field={@changeset[:quantity]} required />
               </div>
 
               <div>
                 <.label for="portfolio_transaction_price">Price per Share</.label>
-                <.input type="number" step="0.01" min="0" field={@changeset[:price]} required />
+                <.input type="number" step="any" min="0" field={@changeset[:price]} required />
               </div>
 
               <div>
                 <.label for="portfolio_transaction_commission">Commission</.label>
-                <.input type="number" step="0.01" min="0" field={@changeset[:commission]} />
+                <.input type="number" step="any" min="0" field={@changeset[:commission]} />
               </div>
 
               <div>
                 <.label for="portfolio_transaction_amount">Total Amount</.label>
-                <.input type="number" step="0.01" min="0" field={@changeset[:amount]} required />
+                <.input type="number" step="any" min="0" field={@changeset[:amount]} required />
               </div>
 
               <div>

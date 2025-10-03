@@ -65,11 +65,15 @@ defmodule Boonorbust2.PortfolioPositions do
           {new_avg_price, new_qty_on_hand} =
             calculate_new_position(transaction, avg_price, qty_on_hand)
 
+          # Calculate amount_on_hand here
+          {:ok, new_amount_on_hand} = Money.mult(new_avg_price, new_qty_on_hand)
+
           result =
             upsert_position(
               transaction.asset_id,
               new_avg_price,
               new_qty_on_hand,
+              new_amount_on_hand,
               transaction.id
             )
 
@@ -122,13 +126,14 @@ defmodule Boonorbust2.PortfolioPositions do
     end
   end
 
-  @spec upsert_position(integer(), Money.t(), Decimal.t(), integer()) ::
+  @spec upsert_position(integer(), Money.t(), Decimal.t(), Money.t(), integer()) ::
           {:ok, PortfolioPosition.t()} | {:error, Ecto.Changeset.t()}
-  defp upsert_position(asset_id, average_price, quantity_on_hand, transaction_id) do
+  defp upsert_position(asset_id, average_price, quantity_on_hand, amount_on_hand, transaction_id) do
     attrs = %{
       asset_id: asset_id,
       average_price: average_price,
       quantity_on_hand: quantity_on_hand,
+      amount_on_hand: amount_on_hand,
       portfolio_transaction_id: transaction_id
     }
 

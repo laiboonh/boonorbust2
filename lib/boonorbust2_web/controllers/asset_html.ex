@@ -105,7 +105,7 @@ defmodule Boonorbust2Web.AssetHTML do
                   </label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="any"
                     min="0"
                     id="asset_price"
                     name="asset[price]"
@@ -241,7 +241,7 @@ defmodule Boonorbust2Web.AssetHTML do
                 </label>
                 <input
                   type="number"
-                  step="0.01"
+                  step="any"
                   min="0"
                   id={"edit_price_#{@asset.id}"}
                   name="asset[price]"
@@ -456,7 +456,7 @@ defmodule Boonorbust2Web.AssetHTML do
                 <.label for="asset_price">Price</.label>
                 <.input
                   type="number"
-                  step="0.01"
+                  step="any"
                   min="0"
                   field={@changeset[:price]}
                   placeholder="e.g. 150.00"
@@ -521,7 +521,7 @@ defmodule Boonorbust2Web.AssetHTML do
 
               <div>
                 <.label for="asset_price">Price</.label>
-                <.input type="number" step="0.01" min="0" field={@changeset[:price]} />
+                <.input type="number" step="any" min="0" field={@changeset[:price]} />
               </div>
 
               <div>
@@ -600,7 +600,7 @@ defmodule Boonorbust2Web.AssetHTML do
                       Qty
                     </th>
                     <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Value
+                      Amount
                     </th>
                   </tr>
                 </thead>
@@ -637,10 +637,7 @@ defmodule Boonorbust2Web.AssetHTML do
                         {Decimal.to_string(position.quantity_on_hand)}
                       </td>
                       <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-semibold text-emerald-600">
-                        {case Money.mult(position.average_price, position.quantity_on_hand) do
-                          {:ok, value} -> Money.to_string!(value)
-                          _ -> "N/A"
-                        end}
+                        {Money.to_string!(position.amount_on_hand)}
                       </td>
                     </tr>
                   <% end %>

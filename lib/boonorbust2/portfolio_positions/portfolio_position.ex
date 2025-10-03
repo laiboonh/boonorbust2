@@ -18,6 +18,7 @@ defmodule Boonorbust2.PortfolioPositions.PortfolioPosition do
           portfolio_transaction: PortfolioTransaction.t() | nil,
           average_price: Money.t() | nil,
           quantity_on_hand: Decimal.t() | nil,
+          amount_on_hand: Money.t() | nil,
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -27,6 +28,7 @@ defmodule Boonorbust2.PortfolioPositions.PortfolioPosition do
     belongs_to :portfolio_transaction, PortfolioTransaction
     field :average_price, Money.Ecto.Composite.Type
     field :quantity_on_hand, :decimal
+    field :amount_on_hand, Money.Ecto.Composite.Type
 
     timestamps(type: :utc_datetime)
   end
@@ -38,15 +40,18 @@ defmodule Boonorbust2.PortfolioPositions.PortfolioPosition do
       :asset_id,
       :portfolio_transaction_id,
       :average_price,
-      :quantity_on_hand
+      :quantity_on_hand,
+      :amount_on_hand
     ])
     |> validate_required([
       :asset_id,
       :average_price,
-      :quantity_on_hand
+      :quantity_on_hand,
+      :amount_on_hand
     ])
     |> validate_number(:quantity_on_hand, greater_than_or_equal_to: 0)
     |> validate_money(:average_price, greater_than: 0)
+    |> validate_money(:amount_on_hand, greater_than_or_equal_to: 0)
     |> unique_constraint(:portfolio_transaction_id)
     |> foreign_key_constraint(:asset_id)
     |> foreign_key_constraint(:portfolio_transaction_id)

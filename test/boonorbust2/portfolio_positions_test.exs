@@ -36,6 +36,8 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert Decimal.equal?(position.quantity_on_hand, Decimal.new("100"))
       # Average price = (150 * 100 + 10) / 100 = 150.10
       assert Money.equal?(position.average_price, Money.new(:SGD, "150.10"))
+      # Amount on hand = 150.10 * 100 = 15010.00
+      assert Money.equal?(position.amount_on_hand, Money.new(:SGD, "15010.00"))
     end
 
     test "creates multiple positions for multiple buy transactions" do
@@ -70,12 +72,15 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert pos1.portfolio_transaction_id == txn1.id
       assert Decimal.equal?(pos1.quantity_on_hand, Decimal.new("100"))
       assert Money.equal?(pos1.average_price, Money.new(:SGD, "150.10"))
+      assert Money.equal?(pos1.amount_on_hand, Money.new(:SGD, "15010.00"))
 
       # Second position: 150 shares total
       # Average price = (150.10 * 100 + 8005) / 150 = 153.4333 (rounded to 4 decimals)
       assert pos2.portfolio_transaction_id == txn2.id
       assert Decimal.equal?(pos2.quantity_on_hand, Decimal.new("150"))
       assert Money.equal?(pos2.average_price, Money.new(:SGD, "153.4333"))
+      # Amount on hand = 153.4333 * 150 = 23014.995 (rounded to 23015.0000)
+      assert Money.equal?(pos2.amount_on_hand, Money.new(:SGD, "23015.0000"))
     end
 
     test "creates position for buy then sell transaction (average price unchanged on sell)" do
@@ -110,11 +115,14 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert pos1.portfolio_transaction_id == txn1.id
       assert Decimal.equal?(pos1.quantity_on_hand, Decimal.new("100"))
       assert Money.equal?(pos1.average_price, Money.new(:SGD, "150.10"))
+      assert Money.equal?(pos1.amount_on_hand, Money.new(:SGD, "15010.00"))
 
       # Second position after sell: 70 shares remaining, same average price
       assert pos2.portfolio_transaction_id == txn2.id
       assert Decimal.equal?(pos2.quantity_on_hand, Decimal.new("70"))
       assert Money.equal?(pos2.average_price, Money.new(:SGD, "150.10"))
+      # Amount on hand = 150.10 * 70 = 10507.00
+      assert Money.equal?(pos2.amount_on_hand, Money.new(:SGD, "10507.00"))
     end
 
     test "handles multiple buys and sells maintaining correct average price" do
