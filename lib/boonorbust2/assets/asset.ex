@@ -34,5 +34,19 @@ defmodule Boonorbust2.Assets.Asset do
     |> validate_required([:name, :currency])
     |> validate_number(:price, greater_than_or_equal_to: 0)
     |> validate_inclusion(:currency, Currency.supported_currencies())
+    |> validate_url(:price_url)
+  end
+
+  @spec validate_url(Ecto.Changeset.t(), atom()) :: Ecto.Changeset.t()
+  defp validate_url(changeset, field) do
+    validate_change(changeset, field, fn _, value ->
+      uri = URI.parse(value)
+
+      if uri.scheme in ["http", "https"] do
+        []
+      else
+        [{field, "must be a valid URL starting with http:// or https://"}]
+      end
+    end)
   end
 end

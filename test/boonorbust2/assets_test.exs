@@ -172,5 +172,33 @@ defmodule Boonorbust2.AssetsTest do
       reloaded_asset = Assets.get_asset!(asset.id)
       assert reloaded_asset.price_url == nil
     end
+
+    test "validates price_url must be a valid URL" do
+      # Attempt to create asset with invalid URL
+      {:error, changeset} =
+        Assets.create_asset(%{
+          name: "Invalid URL Asset",
+          price_url: "not-a-url",
+          currency: "USD"
+        })
+
+      # Assert error is on price_url field
+      assert %{price_url: ["must be a valid URL starting with http:// or https://"]} =
+               errors_on(changeset)
+
+      # Mock for valid URL test
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: %{"data" => [%{"close" => 100.0}]}}}
+      end)
+
+      # Valid URLs should work
+      {:ok, _asset} =
+        Assets.create_asset(%{
+          name: "Valid URL Asset",
+          price_url: "https://api.example.com/price",
+          currency: "USD"
+        })
+    end
   end
 end
