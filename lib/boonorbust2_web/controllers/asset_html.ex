@@ -233,108 +233,118 @@ defmodule Boonorbust2Web.AssetHTML do
           <div id={"asset-edit-#{@asset.id}"} class="hidden">
             <div id={"asset-edit-errors-#{@asset.id}"}></div>
 
-            <form
-              id={"asset-edit-form-#{@asset.id}"}
-              hx-put={~p"/assets/#{@asset.id}"}
-              hx-target={"#asset-#{@asset.id}"}
-              hx-swap="outerHTML"
-              hx-indicator={"#asset-edit-spinner-#{@asset.id}"}
-              hx-on::response-error={"document.getElementById('asset-edit-errors-#{@asset.id}').innerHTML = event.detail.xhr.responseText;"}
-              hx-headers={Jason.encode!(%{"x-csrf-token" => get_csrf_token()})}
-              class="space-y-3"
-            >
-              <div>
-                <label
-                  for={"edit_name_#{@asset.id}"}
-                  class="block text-sm font-medium text-gray-700"
-                >
-                  Name
-                </label>
-                <input
-                  type="text"
-                  id={"edit_name_#{@asset.id}"}
-                  name="asset[name]"
-                  value={@asset.name}
-                  required
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label
-                  for={"edit_price_url_#{@asset.id}"}
-                  class="block text-sm font-medium text-gray-700"
-                >
-                  Price URL
-                </label>
-                <input
-                  type="text"
-                  id={"edit_price_url_#{@asset.id}"}
-                  name="asset[price_url]"
-                  value={@asset.price_url}
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label
-                  for={"edit_currency_#{@asset.id}"}
-                  class="block text-sm font-medium text-gray-700"
-                >
-                  Currency
-                </label>
-                <select
-                  id={"edit_currency_#{@asset.id}"}
-                  name="asset[currency]"
-                  required
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                >
-                  <%= for {label, value} <- Currency.currency_options() do %>
-                    <option value={value} selected={@asset.currency == value}>{label}</option>
-                  <% end %>
-                </select>
-              </div>
-
-              <div class="flex gap-2">
-                <button
-                  type="submit"
-                  class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-1 px-3 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 relative"
-                >
-                  <span class="htmx-indicator inline-block" id={"asset-edit-spinner-#{@asset.id}"}>
-                    <svg
-                      class="h-4 w-4 animate-spin text-white"
-                      xmlns="http://www.w3.org/2000/svg"
-                      fill="none"
-                      viewBox="0 0 24 24"
+            <div class="relative">
+              <!-- Loading overlay -->
+              <div
+                id={"asset-edit-overlay-#{@asset.id}"}
+                class="htmx-indicator absolute inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center rounded-lg z-10"
+              >
+                <div class="text-center">
+                  <svg
+                    class="h-8 w-8 animate-spin text-emerald-600 mx-auto mb-2"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      class="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      stroke-width="4"
                     >
-                      <circle
-                        class="opacity-25"
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        stroke-width="4"
-                      >
-                      </circle>
-                      <path
-                        class="opacity-75"
-                        fill="currentColor"
-                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                      >
-                      </path>
-                    </svg>
-                  </span>
-                  <span class="htmx-indicator:opacity-0">Save</span>
-                </button>
-                <button
-                  type="button"
-                  onclick={"document.getElementById('asset-view-#{@asset.id}').classList.remove('hidden'); document.getElementById('asset-edit-#{@asset.id}').classList.add('hidden');"}
-                  class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-1 px-3 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-                >
-                  Cancel
-                </button>
+                    </circle>
+                    <path
+                      class="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    >
+                    </path>
+                  </svg>
+                  <p class="text-sm text-gray-700">Saving asset...</p>
+                </div>
               </div>
-            </form>
+
+              <form
+                id={"asset-edit-form-#{@asset.id}"}
+                hx-put={~p"/assets/#{@asset.id}"}
+                hx-target={"#asset-#{@asset.id}"}
+                hx-swap="outerHTML"
+                hx-indicator={"#asset-edit-overlay-#{@asset.id}"}
+                hx-on::response-error={"document.getElementById('asset-edit-errors-#{@asset.id}').innerHTML = event.detail.xhr.responseText;"}
+                hx-headers={Jason.encode!(%{"x-csrf-token" => get_csrf_token()})}
+                class="space-y-3"
+              >
+                <div>
+                  <label
+                    for={"edit_name_#{@asset.id}"}
+                    class="block text-sm font-medium text-gray-700"
+                  >
+                    Name
+                  </label>
+                  <input
+                    type="text"
+                    id={"edit_name_#{@asset.id}"}
+                    name="asset[name]"
+                    value={@asset.name}
+                    required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    for={"edit_price_url_#{@asset.id}"}
+                    class="block text-sm font-medium text-gray-700"
+                  >
+                    Price URL
+                  </label>
+                  <input
+                    type="text"
+                    id={"edit_price_url_#{@asset.id}"}
+                    name="asset[price_url]"
+                    value={@asset.price_url}
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    for={"edit_currency_#{@asset.id}"}
+                    class="block text-sm font-medium text-gray-700"
+                  >
+                    Currency
+                  </label>
+                  <select
+                    id={"edit_currency_#{@asset.id}"}
+                    name="asset[currency]"
+                    required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  >
+                    <%= for {label, value} <- Currency.currency_options() do %>
+                      <option value={value} selected={@asset.currency == value}>{label}</option>
+                    <% end %>
+                  </select>
+                </div>
+
+                <div class="flex gap-2">
+                  <button
+                    type="submit"
+                    class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-1 px-3 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onclick={"document.getElementById('asset-view-#{@asset.id}').classList.remove('hidden'); document.getElementById('asset-edit-#{@asset.id}').classList.add('hidden');"}
+                    class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-1 px-3 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
 
