@@ -353,7 +353,8 @@ defmodule Boonorbust2Web.AssetHTML do
             hx-get={~p"/assets/#{@asset.id}/positions"}
             hx-target={"#positions-modal-#{@asset.id}"}
             hx-swap="innerHTML"
-            hx-indicator={"#positions-spinner-#{@asset.id}"}
+            hx-on::before-request={"document.getElementById('positions-icon-#{@asset.id}').classList.add('hidden'); document.getElementById('positions-spinner-#{@asset.id}').classList.remove('hidden');"}
+            hx-on::after-request={"document.getElementById('positions-spinner-#{@asset.id}').classList.add('hidden'); document.getElementById('positions-icon-#{@asset.id}').classList.remove('hidden');"}
             onclick={"document.getElementById('positions-modal-#{@asset.id}').classList.remove('hidden')"}
             class="text-blue-600 hover:text-blue-800"
             title="View positions"
@@ -375,7 +376,7 @@ defmodule Boonorbust2Web.AssetHTML do
             </svg>
             <svg
               id={"positions-spinner-#{@asset.id}"}
-              class="htmx-indicator w-5 h-5 animate-spin text-blue-600"
+              class="hidden w-5 h-5 animate-spin text-blue-600"
               fill="none"
               viewBox="0 0 24 24"
             >
@@ -430,7 +431,7 @@ defmodule Boonorbust2Web.AssetHTML do
       <div
         id={"positions-modal-#{@asset.id}"}
         class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
-        onclick={"if(event.target.id === 'positions-modal-#{@asset.id}') { this.classList.add('hidden') }"}
+        onclick={"if(event.target.id === 'positions-modal-#{@asset.id}') { this.classList.add('hidden'); document.getElementById('positions-spinner-#{@asset.id}').classList.add('hidden'); document.getElementById('positions-icon-#{@asset.id}').classList.remove('hidden'); }"}
       >
       </div>
     </div>
@@ -607,7 +608,7 @@ defmodule Boonorbust2Web.AssetHTML do
             Portfolio Positions - {@asset.name}
           </h2>
           <button
-            onclick={"document.getElementById('positions-modal-#{@asset.id}').classList.add('hidden')"}
+            onclick={"document.getElementById('positions-modal-#{@asset.id}').classList.add('hidden'); document.getElementById('positions-spinner-#{@asset.id}').classList.add('hidden'); document.getElementById('positions-icon-#{@asset.id}').classList.remove('hidden');"}
             class="text-gray-400 hover:text-gray-600 ml-2"
           >
             <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
