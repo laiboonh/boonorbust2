@@ -384,7 +384,6 @@ defmodule Boonorbust2.PortfolioTransactions do
   defp create_new_asset(asset_name) do
     asset_attrs = %{
       name: asset_name,
-      code: generate_asset_code(asset_name),
       currency: Currency.default_currency()
     }
 
@@ -395,19 +394,6 @@ defmodule Boonorbust2.PortfolioTransactions do
       {:error, changeset} ->
         errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _opts} -> msg end)
         {:error, inspect(errors)}
-    end
-  end
-
-  @spec generate_asset_code(String.t()) :: String.t()
-  defp generate_asset_code(name) do
-    # Generate a simple code from the name
-    name
-    |> String.upcase()
-    |> String.replace(~r/[^A-Z0-9]/, "")
-    |> String.slice(0, 10)
-    |> case do
-      "" -> "ASSET"
-      code -> code
     end
   end
 end

@@ -69,7 +69,9 @@ defmodule Boonorbust2.MixProject do
       {:ex_money_sql, "~> 1.0"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:retry, "~> 0.18"}
+      {:retry, "~> 0.18"},
+      {:req, "~> 0.5"},
+      {:mox, "~> 1.0", only: :test}
     ]
   end
 

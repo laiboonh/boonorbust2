@@ -11,7 +11,7 @@ defmodule Boonorbust2.Assets.Asset do
   @type t :: %__MODULE__{
           id: integer() | nil,
           name: String.t() | nil,
-          code: String.t() | nil,
+          price_url: String.t() | nil,
           price: Decimal.t() | nil,
           currency: String.t() | nil,
           inserted_at: NaiveDateTime.t() | nil,
@@ -20,7 +20,7 @@ defmodule Boonorbust2.Assets.Asset do
 
   schema "assets" do
     field :name, :string
-    field :code, :string
+    field :price_url, :string
     field :price, :decimal
     field :currency, :string
 
@@ -30,10 +30,9 @@ defmodule Boonorbust2.Assets.Asset do
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(asset, attrs) do
     asset
-    |> cast(attrs, [:name, :code, :price, :currency])
-    |> validate_required([:name, :code, :currency])
+    |> cast(attrs, [:name, :price_url, :price, :currency])
+    |> validate_required([:name, :currency])
     |> validate_number(:price, greater_than_or_equal_to: 0)
     |> validate_inclusion(:currency, Currency.supported_currencies())
-    |> unique_constraint(:code)
   end
 end

@@ -86,31 +86,15 @@ defmodule Boonorbust2Web.AssetHTML do
                 </div>
 
                 <div>
-                  <label for="asset_code" class="block text-sm font-medium text-gray-700">
-                    Code
+                  <label for="asset_price_url" class="block text-sm font-medium text-gray-700">
+                    Price URL
                   </label>
                   <input
                     type="text"
-                    id="asset_code"
-                    name="asset[code]"
-                    required
+                    id="asset_price_url"
+                    name="asset[price_url]"
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                    placeholder="e.g. AAPL"
-                  />
-                </div>
-
-                <div>
-                  <label for="asset_price" class="block text-sm font-medium text-gray-700">
-                    Price
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    id="asset_price"
-                    name="asset[price]"
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                    placeholder="e.g. 150.00"
+                    placeholder="e.g. https://example.com/price"
                   />
                 </div>
 
@@ -172,11 +156,8 @@ defmodule Boonorbust2Web.AssetHTML do
       <div class="flex justify-between items-start">
         <div class="flex-1">
           <div id={"asset-view-#{@asset.id}"}>
-            <div class="flex justify-between items-start mb-2">
+            <div class="mb-2">
               <h3 class="font-semibold text-gray-900">{@asset.name}</h3>
-              <span class="bg-emerald-100 text-emerald-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                {@asset.code}
-              </span>
             </div>
             <%= if @asset.price do %>
               <p class="text-xl font-bold text-emerald-600">
@@ -217,35 +198,16 @@ defmodule Boonorbust2Web.AssetHTML do
 
               <div>
                 <label
-                  for={"edit_code_#{@asset.id}"}
+                  for={"edit_price_url_#{@asset.id}"}
                   class="block text-sm font-medium text-gray-700"
                 >
-                  Code
+                  Price URL
                 </label>
                 <input
                   type="text"
-                  id={"edit_code_#{@asset.id}"}
-                  name="asset[code]"
-                  value={@asset.code}
-                  required
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label
-                  for={"edit_price_#{@asset.id}"}
-                  class="block text-sm font-medium text-gray-700"
-                >
-                  Price
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  min="0"
-                  id={"edit_price_#{@asset.id}"}
-                  name="asset[price]"
-                  value={if @asset.price, do: Decimal.to_string(@asset.price), else: ""}
+                  id={"edit_price_url_#{@asset.id}"}
+                  name="asset[price_url]"
+                  value={@asset.price_url}
                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
                 />
               </div>
@@ -387,11 +349,8 @@ defmodule Boonorbust2Web.AssetHTML do
               ← Back to Assets
             </a>
             <div class="bg-white rounded-lg shadow p-6">
-              <div class="flex justify-between items-start mb-4">
+              <div class="mb-4">
                 <h1 class="text-2xl font-bold text-gray-900">{@asset.name}</h1>
-                <span class="bg-emerald-100 text-emerald-800 text-sm font-medium px-3 py-1 rounded">
-                  {@asset.code}
-                </span>
               </div>
               <%= if @asset.price do %>
                 <p class="text-3xl font-bold text-emerald-600 mb-4">
@@ -448,18 +407,11 @@ defmodule Boonorbust2Web.AssetHTML do
               </div>
 
               <div>
-                <.label for="asset_code">Code</.label>
-                <.input type="text" field={@changeset[:code]} required placeholder="e.g. AAPL" />
-              </div>
-
-              <div>
-                <.label for="asset_price">Price</.label>
+                <.label for="asset_price_url">Price URL</.label>
                 <.input
-                  type="number"
-                  step="any"
-                  min="0"
-                  field={@changeset[:price]}
-                  placeholder="e.g. 150.00"
+                  type="text"
+                  field={@changeset[:price_url]}
+                  placeholder="e.g. https://example.com/price"
                 />
               </div>
 
@@ -515,13 +467,8 @@ defmodule Boonorbust2Web.AssetHTML do
               </div>
 
               <div>
-                <.label for="asset_code">Code</.label>
-                <.input type="text" field={@changeset[:code]} required />
-              </div>
-
-              <div>
-                <.label for="asset_price">Price</.label>
-                <.input type="number" step="any" min="0" field={@changeset[:price]} />
+                <.label for="asset_price_url">Price URL</.label>
+                <.input type="text" field={@changeset[:price_url]} />
               </div>
 
               <div>
