@@ -7,8 +7,6 @@ defmodule Boonorbust2.HTTPClient.ReqAdapter do
 
   @impl true
   def get(url, opts \\ []) do
-    IO.puts("-----------------------------REQ-------------------------------")
-
     case Req.get(url, opts) do
       {:ok, %Req.Response{status: status, body: body}} ->
         {:ok, %{status: status, body: body}}
