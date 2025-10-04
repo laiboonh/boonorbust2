@@ -123,5 +123,54 @@ defmodule Boonorbust2.AssetsTest do
       # Price should be nil
       assert asset.price == nil
     end
+
+    test "returns error changeset when price fetch fails on create" do
+      # Mock for creation - simulate API failure
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 500}}
+      end)
+
+      # Attempt to create asset with price_url
+      {:error, changeset} =
+        Assets.create_asset(%{
+          name: "Failed Asset",
+          price_url: "https://api.example.com/price",
+          currency: "USD"
+        })
+
+      # Assert error is on price_url field
+      assert %{price_url: ["Failed to fetch price: HTTP request failed with status 500"]} =
+               errors_on(changeset)
+
+      # Asset should not be created in database
+      assert Assets.get_asset_by_name("Failed Asset") == nil
+    end
+
+    test "returns error changeset when price fetch fails on update" do
+      # Create asset without price_url first
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "Test Asset",
+          currency: "USD"
+        })
+
+      # Mock for update - simulate API failure
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:error, :timeout}
+      end)
+
+      # Attempt to update with price_url
+      {:error, changeset} =
+        Assets.update_asset(asset, %{price_url: "https://api.example.com/price"})
+
+      # Assert error is on price_url field
+      assert %{price_url: [_error]} = errors_on(changeset)
+
+      # Asset should not be updated in database
+      reloaded_asset = Assets.get_asset!(asset.id)
+      assert reloaded_asset.price_url == nil
+    end
   end
 end

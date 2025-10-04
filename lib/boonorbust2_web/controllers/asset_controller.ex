@@ -74,7 +74,9 @@ defmodule Boonorbust2Web.AssetController do
         if get_req_header(conn, "hx-request") != [] do
           conn
           |> put_status(:unprocessable_entity)
-          |> render(:asset_item, asset: asset)
+          |> put_layout(false)
+          |> put_view(Boonorbust2Web.CoreComponents)
+          |> render(:form_errors, changeset: changeset)
         else
           render(conn, :edit, asset: asset, changeset: changeset)
         end

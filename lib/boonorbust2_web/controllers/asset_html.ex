@@ -65,8 +65,8 @@ defmodule Boonorbust2Web.AssetHTML do
                 hx-post={~p"/assets"}
                 hx-target="#assets-list"
                 hx-swap="afterbegin"
-                hx-on--response-error="document.getElementById('asset-form-errors').innerHTML = event.detail.xhr.responseText;"
-                hx-on--after-request="if(event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) { document.getElementById('asset-form').reset(); document.getElementById('asset-modal').classList.add('hidden'); document.getElementById('asset-form-errors').innerHTML = ''; }"
+                hx-on::response-error="document.getElementById('asset-form-errors').innerHTML = event.detail.xhr.responseText;"
+                hx-on::after-request="if(event.detail.successful) { document.getElementById('asset-form').reset(); document.getElementById('asset-modal').classList.add('hidden'); document.getElementById('asset-form-errors').innerHTML = ''; }"
                 class="space-y-4"
               >
                 <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
@@ -172,10 +172,14 @@ defmodule Boonorbust2Web.AssetHTML do
           </div>
 
           <div id={"asset-edit-#{@asset.id}"} class="hidden">
+            <div id={"asset-edit-errors-#{@asset.id}"}></div>
+
             <form
+              id={"asset-edit-form-#{@asset.id}"}
               hx-put={~p"/assets/#{@asset.id}"}
               hx-target={"#asset-#{@asset.id}"}
               hx-swap="outerHTML"
+              hx-on::response-error={"document.getElementById('asset-edit-errors-#{@asset.id}').innerHTML = event.detail.xhr.responseText;"}
               hx-headers={Jason.encode!(%{"x-csrf-token" => get_csrf_token()})}
               class="space-y-3"
             >

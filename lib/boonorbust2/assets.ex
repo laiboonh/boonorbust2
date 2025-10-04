@@ -31,25 +31,46 @@ defmodule Boonorbust2.Assets do
 
   @spec create_asset(map()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
   def create_asset(attrs \\ %{}) do
-    with {:ok, asset} <- %Asset{} |> Asset.changeset(attrs) |> Repo.insert() do
-      maybe_update_price_from_url(asset)
-    end
+    Repo.transaction(fn ->
+      with {:ok, asset} <- %Asset{} |> Asset.changeset(attrs) |> Repo.insert(),
+           {:ok, updated_asset} <- maybe_update_price_from_url(asset) do
+        updated_asset
+      else
+        {:error, changeset} -> Repo.rollback(changeset)
+      end
+    end)
   end
 
   @spec update_asset(Asset.t(), map()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
   def update_asset(%Asset{} = asset, attrs) do
+    # Check if price_url is being added/changed
+    price_url_changed? = Map.has_key?(attrs, :price_url) or Map.has_key?(attrs, "price_url")
+
     # Check if we should update price BEFORE updating the record
     # (because update will change updated_at timestamp)
-    should_fetch_price = should_update_price?(asset)
+    should_fetch_price = price_url_changed? or should_update_price?(asset)
 
-    with {:ok, updated_asset} <- asset |> Asset.changeset(attrs) |> Repo.update() do
-      if should_fetch_price do
-        fetch_and_update_price(updated_asset)
-      else
-        {:ok, updated_asset}
-      end
+    Repo.transaction(fn ->
+      do_update_asset(asset, attrs, should_fetch_price)
+    end)
+  end
+
+  @spec do_update_asset(Asset.t(), map(), boolean()) :: Asset.t()
+  defp do_update_asset(asset, attrs, should_fetch_price) do
+    with {:ok, updated_asset} <- asset |> Asset.changeset(attrs) |> Repo.update(),
+         {:ok, final_asset} <- maybe_fetch_price(updated_asset, should_fetch_price) do
+      final_asset
+    else
+      {:error, changeset} -> Repo.rollback(changeset)
     end
   end
+
+  @spec maybe_fetch_price(Asset.t(), boolean()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
+  defp maybe_fetch_price(asset, true) when not is_nil(asset.price_url) do
+    fetch_and_update_price(asset)
+  end
+
+  defp maybe_fetch_price(asset, _), do: {:ok, asset}
 
   @spec delete_asset(Asset.t()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
   def delete_asset(%Asset{} = asset) do
@@ -112,8 +133,13 @@ defmodule Boonorbust2.Assets do
         |> Asset.changeset(%{price: price_value})
         |> Repo.update()
 
-      {:error, _reason} ->
-        {:ok, asset}
+      {:error, reason} ->
+        changeset =
+          asset
+          |> Asset.changeset(%{})
+          |> Ecto.Changeset.add_error(:price_url, "Failed to fetch price: #{reason}")
+
+        {:error, changeset}
     end
   end
 
