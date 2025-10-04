@@ -9,7 +9,7 @@ defmodule Boonorbust2.Accounts.User do
   alias Boonorbust2.Currency
 
   @type t :: %__MODULE__{
-          id: integer() | nil,
+          id: Ecto.UUID.t() | nil,
           name: String.t() | nil,
           uid: String.t() | nil,
           provider: String.t() | nil,
@@ -19,6 +19,7 @@ defmodule Boonorbust2.Accounts.User do
           updated_at: NaiveDateTime.t() | nil
         }
 
+  @primary_key {:id, :binary_id, autogenerate: true}
   schema "users" do
     field :name, :string
     field :uid, :string
