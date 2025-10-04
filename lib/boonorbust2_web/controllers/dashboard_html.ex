@@ -46,7 +46,6 @@ defmodule Boonorbust2Web.DashboardHTML do
       <div class="flex justify-between items-start mb-4">
         <div>
           <h3 class="text-lg font-semibold text-gray-900">{@position.asset.name}</h3>
-          <span class="text-sm text-gray-500">{@position.asset.code}</span>
         </div>
         <span class="bg-emerald-100 text-emerald-800 text-xs font-medium px-2.5 py-0.5 rounded">
           {String.upcase(@position.portfolio_transaction.action)}
@@ -69,12 +68,24 @@ defmodule Boonorbust2Web.DashboardHTML do
       </div>
 
       <div class="mt-4 pt-4 border-t border-gray-200">
-        <div class="flex justify-between items-center">
-          <p class="text-sm text-gray-500">Total Value</p>
-          <p class="text-2xl font-bold text-emerald-600">
+        <div class="flex justify-between items-center mb-2">
+          <p class="text-sm text-gray-500">Total Cost</p>
+          <p class="text-xl font-bold text-gray-900">
             {Money.to_string!(@position.amount_on_hand)}
           </p>
         </div>
+        <%= if @position.asset.price do %>
+          <div class="flex justify-between items-center">
+            <p class="text-sm text-gray-500">Total Value</p>
+            <p class="text-2xl font-bold text-emerald-600">
+              {Money.new!(
+                Decimal.mult(@position.quantity_on_hand, @position.asset.price),
+                @position.amount_on_hand.currency
+              )
+              |> Money.to_string!()}
+            </p>
+          </div>
+        <% end %>
       </div>
 
       <p class="text-xs text-gray-400 mt-4">

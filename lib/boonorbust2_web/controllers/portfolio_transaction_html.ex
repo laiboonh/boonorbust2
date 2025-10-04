@@ -47,7 +47,7 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                 type="text"
                 name="filter"
                 value={@filter}
-                placeholder="Search by asset name or code..."
+                placeholder="Search by asset name..."
                 class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               />
               <button
@@ -173,7 +173,7 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                   >
                     <option value="">Select an asset</option>
                     <%= for asset <- Boonorbust2.Assets.list_assets() do %>
-                      <option value={asset.id}>{asset.name} ({asset.code})</option>
+                      <option value={asset.id}>{asset.name}</option>
                     <% end %>
                   </select>
                 </div>
@@ -434,9 +434,6 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
             <div class="flex justify-between items-start mb-2">
               <div class="flex-1">
                 <h3 class="font-semibold text-gray-900">{@portfolio_transaction.asset.name}</h3>
-                <span class="bg-emerald-100 text-emerald-800 text-xs font-medium px-2.5 py-0.5 rounded">
-                  {@portfolio_transaction.asset.code}
-                </span>
               </div>
               <div class="text-right">
                 <span class={[
@@ -504,7 +501,7 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                 >
                   <%= for asset <- Boonorbust2.Assets.list_assets() do %>
                     <option value={asset.id} selected={@portfolio_transaction.asset_id == asset.id}>
-                      {asset.name} ({asset.code})
+                      {asset.name}
                     </option>
                   <% end %>
                 </select>
@@ -718,10 +715,6 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
 
               <div class="grid grid-cols-2 gap-4 mb-4">
                 <div>
-                  <p class="text-gray-500">Asset Code</p>
-                  <p class="font-medium">{@portfolio_transaction.asset.code}</p>
-                </div>
-                <div>
                   <p class="text-gray-500">Quantity</p>
                   <p class="font-medium">{Decimal.to_string(@portfolio_transaction.quantity)}</p>
                 </div>
@@ -800,7 +793,7 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                   required
                   options={
                     [{"Select an asset", ""}] ++
-                      Enum.map(@assets, &{&1.name <> " (" <> &1.code <> ")", &1.id})
+                      Enum.map(@assets, &{&1.name, &1.id})
                   }
                 />
               </div>
@@ -887,7 +880,7 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                   type="select"
                   field={@changeset[:asset_id]}
                   required
-                  options={Enum.map(@assets, &{&1.name <> " (" <> &1.code <> ")", &1.id})}
+                  options={Enum.map(@assets, &{&1.name, &1.id})}
                 />
               </div>
 

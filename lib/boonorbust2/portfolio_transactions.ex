@@ -60,7 +60,7 @@ defmodule Boonorbust2.PortfolioTransactions do
     filter_pattern = "%#{filter}%"
 
     from [pt, a] in query,
-      where: ilike(a.name, ^filter_pattern) or ilike(a.code, ^filter_pattern)
+      where: ilike(a.name, ^filter_pattern)
   end
 
   @spec get_portfolio_transaction!(integer()) :: PortfolioTransaction.t()
