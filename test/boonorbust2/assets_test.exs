@@ -173,6 +173,36 @@ defmodule Boonorbust2.AssetsTest do
       assert reloaded_asset.price_url == nil
     end
 
+    test "does not fetch price when updating other fields without changing price_url" do
+      # Mock for initial creation
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: %{"data" => [%{"close" => 50.0}]}}}
+      end)
+
+      # Create asset with a price_url
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "Test Asset",
+          price_url: "https://api.example.com/price",
+          currency: "USD"
+        })
+
+      # Update only the name, keeping same price_url (within 24 hours)
+      # Simulate what the form does - send all fields including unchanged price_url
+      # No mock expectation means HTTP client should not be called
+      {:ok, updated_asset} =
+        Assets.update_asset(asset, %{
+          name: "Updated Name",
+          price_url: asset.price_url,
+          currency: asset.currency
+        })
+
+      # Assert only name changed, price unchanged
+      assert updated_asset.name == "Updated Name"
+      assert Decimal.eq?(updated_asset.price, Decimal.new("50.0"))
+    end
+
     test "validates price_url must be a valid URL" do
       # Attempt to create asset with invalid URL
       {:error, changeset} =

@@ -43,8 +43,16 @@ defmodule Boonorbust2.Assets do
 
   @spec update_asset(Asset.t(), map()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
   def update_asset(%Asset{} = asset, attrs) do
-    # Check if price_url is being added/changed
-    price_url_changed? = Map.has_key?(attrs, :price_url) or Map.has_key?(attrs, "price_url")
+    # Check if price_url value has actually changed
+    new_price_url = Map.get(attrs, :price_url) || Map.get(attrs, "price_url")
+    current_price_url = asset.price_url
+
+    price_url_changed? =
+      case new_price_url do
+        nil -> false
+        ^current_price_url -> false
+        _ -> true
+      end
 
     # Check if we should update price BEFORE updating the record
     # (because update will change updated_at timestamp)
@@ -117,12 +125,11 @@ defmodule Boonorbust2.Assets do
   end
 
   @spec maybe_update_price_from_url(Asset.t()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
+  defp maybe_update_price_from_url(%Asset{price_url: nil} = asset), do: {:ok, asset}
+
   defp maybe_update_price_from_url(%Asset{} = asset) do
-    if should_update_price?(asset) do
-      fetch_and_update_price(asset)
-    else
-      {:ok, asset}
-    end
+    # For CREATE, always fetch the price if price_url is set
+    fetch_and_update_price(asset)
   end
 
   @spec fetch_and_update_price(Asset.t()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
@@ -147,18 +154,11 @@ defmodule Boonorbust2.Assets do
   defp should_update_price?(%Asset{price_url: nil}), do: false
   defp should_update_price?(%Asset{updated_at: nil}), do: true
 
-  defp should_update_price?(%Asset{inserted_at: inserted_at, updated_at: updated_at}) do
-    # Fetch price if this is a new record (inserted_at == updated_at)
-    # or if the record is more than 24 hours old
-    is_new_record = DateTime.compare(inserted_at, updated_at) == :eq
-
-    if is_new_record do
-      true
-    else
-      now = DateTime.utc_now()
-      diff_seconds = DateTime.diff(now, updated_at, :second)
-      # 24 hours = 86400 seconds
-      diff_seconds >= 86_400
-    end
+  defp should_update_price?(%Asset{updated_at: updated_at}) do
+    # Fetch price if the record is more than 24 hours old
+    now = DateTime.utc_now()
+    diff_seconds = DateTime.diff(now, updated_at, :second)
+    # 24 hours = 86400 seconds
+    diff_seconds >= 86_400
   end
 end
