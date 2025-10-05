@@ -97,12 +97,13 @@ defmodule Boonorbust2Web.AssetController do
 
   @spec positions(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def positions(conn, %{"id" => id}) do
+    %{id: user_id} = conn.assigns.current_user
     asset = Assets.get_asset!(id)
 
     # Calculate and upsert positions before fetching
-    PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id)
+    PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user_id)
 
-    positions = PortfolioPositions.get_positions_for_asset(asset.id)
+    positions = PortfolioPositions.get_positions_for_asset(asset.id, user_id)
 
     conn
     |> put_layout(false)

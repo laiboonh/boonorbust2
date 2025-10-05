@@ -32,6 +32,16 @@ defmodule Boonorbust2.Accounts do
   end
 
   @doc """
+  Creates a user with given attributes.
+  """
+  @spec create_user(map()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
+  def create_user(attrs) do
+    %User{}
+    |> User.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
   Creates a user from OAuth info.
   """
   @spec create_user_from_oauth(Ueberauth.Auth.t()) ::
@@ -44,9 +54,7 @@ defmodule Boonorbust2.Accounts do
       uid: auth.uid
     }
 
-    %User{}
-    |> User.changeset(attrs)
-    |> Repo.insert()
+    create_user(attrs)
   end
 
   @doc """

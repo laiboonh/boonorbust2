@@ -7,11 +7,14 @@ defmodule Boonorbust2.PortfolioPositions.PortfolioPosition do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Boonorbust2.Accounts.User
   alias Boonorbust2.Assets.Asset
   alias Boonorbust2.PortfolioTransactions.PortfolioTransaction
 
   @type t :: %__MODULE__{
           id: integer() | nil,
+          user_id: Ecto.UUID.t() | nil,
+          user: User.t() | nil,
           asset_id: integer() | nil,
           asset: Asset.t() | nil,
           portfolio_transaction_id: integer() | nil,
@@ -24,6 +27,7 @@ defmodule Boonorbust2.PortfolioPositions.PortfolioPosition do
         }
 
   schema "portfolio_positions" do
+    belongs_to :user, User, type: :binary_id
     belongs_to :asset, Asset
     belongs_to :portfolio_transaction, PortfolioTransaction
     field :average_price, Money.Ecto.Composite.Type
@@ -37,6 +41,7 @@ defmodule Boonorbust2.PortfolioPositions.PortfolioPosition do
   def changeset(portfolio_position, attrs) do
     portfolio_position
     |> cast(attrs, [
+      :user_id,
       :asset_id,
       :portfolio_transaction_id,
       :average_price,
@@ -44,6 +49,7 @@ defmodule Boonorbust2.PortfolioPositions.PortfolioPosition do
       :amount_on_hand
     ])
     |> validate_required([
+      :user_id,
       :asset_id,
       :average_price,
       :quantity_on_hand,
@@ -53,6 +59,7 @@ defmodule Boonorbust2.PortfolioPositions.PortfolioPosition do
     |> validate_money(:average_price, greater_than: 0)
     |> validate_money(:amount_on_hand, greater_than_or_equal_to: 0)
     |> unique_constraint(:portfolio_transaction_id)
+    |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:asset_id)
     |> foreign_key_constraint(:portfolio_transaction_id)
   end

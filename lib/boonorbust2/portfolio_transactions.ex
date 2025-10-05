@@ -20,12 +20,14 @@ defmodule Boonorbust2.PortfolioTransactions do
     page = Keyword.get(opts, :page, 1)
     page_size = Keyword.get(opts, :page_size, 10)
     filter = Keyword.get(opts, :filter, nil)
+    user_id = Keyword.fetch!(opts, :user_id)
 
     Helper.do_retry(
       fn ->
         query =
           from pt in PortfolioTransaction,
             join: a in assoc(pt, :asset),
+            where: pt.user_id == ^user_id,
             order_by: [desc: pt.transaction_date],
             preload: [:asset]
 
@@ -63,13 +65,23 @@ defmodule Boonorbust2.PortfolioTransactions do
       where: ilike(a.name, ^filter_pattern)
   end
 
-  @spec get_portfolio_transaction!(integer()) :: PortfolioTransaction.t()
-  def get_portfolio_transaction!(id),
-    do: Repo.get!(PortfolioTransaction, id) |> Repo.preload(:asset)
+  @spec get_portfolio_transaction!(integer(), String.t()) :: PortfolioTransaction.t()
+  def get_portfolio_transaction!(id, user_id) do
+    from(pt in PortfolioTransaction,
+      where: pt.id == ^id and pt.user_id == ^user_id,
+      preload: [:asset]
+    )
+    |> Repo.one!()
+  end
 
-  @spec get_portfolio_transaction(integer()) :: PortfolioTransaction.t() | nil
-  def get_portfolio_transaction(id),
-    do: Repo.get(PortfolioTransaction, id) |> Repo.preload(:asset)
+  @spec get_portfolio_transaction(integer(), String.t()) :: PortfolioTransaction.t() | nil
+  def get_portfolio_transaction(id, user_id) do
+    from(pt in PortfolioTransaction,
+      where: pt.id == ^id and pt.user_id == ^user_id,
+      preload: [:asset]
+    )
+    |> Repo.one()
+  end
 
   @spec create_portfolio_transaction(map()) ::
           {:ok, PortfolioTransaction.t()} | {:error, Ecto.Changeset.t()}
@@ -110,7 +122,7 @@ defmodule Boonorbust2.PortfolioTransactions do
   Imports portfolio transactions from a CSV file.
 
   Expected CSV format:
-  Stock,Action,Shares,Price,Commission,Amount,Date,Reason
+  Stock,Action,Shares,Price,Commission,Date,Reason
 
   The function will:
   - Parse each row
@@ -118,18 +130,18 @@ defmodule Boonorbust2.PortfolioTransactions do
   - Create portfolio transactions
   - Return a summary of the import
   """
-  @spec import_from_csv(String.t()) :: {:ok, map()} | {:error, String.t()}
-  def import_from_csv(file_path) do
+  @spec import_from_csv(String.t(), String.t()) :: {:ok, map()} | {:error, String.t()}
+  def import_from_csv(file_path, user_id) do
     case File.read(file_path) do
       {:ok, content} ->
-        process_csv_content(content)
+        process_csv_content(content, user_id)
 
       {:error, reason} ->
         {:error, "Failed to read file: #{reason}"}
     end
   end
 
-  @spec process_csv_content(String.t()) ::
+  @spec process_csv_content(String.t(), String.t()) ::
           {:ok,
            %{
              total: non_neg_integer(),
@@ -137,12 +149,12 @@ defmodule Boonorbust2.PortfolioTransactions do
              errors: non_neg_integer(),
              error_details: [String.t()]
            }}
-  defp process_csv_content(content) do
+  defp process_csv_content(content, user_id) do
     lines = String.split(content, "\n", trim: true)
 
     case lines do
       [_header | data_lines] ->
-        results = Enum.map(data_lines, &process_csv_row/1)
+        results = Enum.map(data_lines, &process_csv_row(&1, user_id))
 
         successes = Enum.filter(results, fn {status, _} -> status == :ok end)
         errors = Enum.filter(results, fn {status, _} -> status == :error end)
@@ -160,23 +172,25 @@ defmodule Boonorbust2.PortfolioTransactions do
     end
   end
 
-  @spec process_csv_row(String.t()) :: {:ok, PortfolioTransaction.t()} | {:error, String.t()}
-  defp process_csv_row(line) do
+  @spec process_csv_row(String.t(), String.t()) ::
+          {:ok, PortfolioTransaction.t()} | {:error, String.t()}
+  defp process_csv_row(line, user_id) do
     with {:ok, data} <- parse_csv_line(line),
          {:ok, asset} <- find_or_create_asset(data.stock),
-         {:ok, transaction} <- create_transaction_from_data(data, asset) do
+         {:ok, transaction} <- create_transaction_from_data(data, asset, user_id) do
       {:ok, transaction}
     else
       {:error, reason} -> {:error, reason}
     end
   end
 
-  @spec create_transaction_from_data(map(), Assets.Asset.t()) ::
+  @spec create_transaction_from_data(map(), Assets.Asset.t(), String.t()) ::
           {:ok, PortfolioTransaction.t()} | {:error, String.t()}
-  defp create_transaction_from_data(data, asset) do
+  defp create_transaction_from_data(data, asset, user_id) do
     currency = String.upcase(String.trim(data.currency))
 
     transaction_attrs = %{
+      user_id: user_id,
       asset_id: asset.id,
       action: String.downcase(data.action),
       quantity: data.quantity,

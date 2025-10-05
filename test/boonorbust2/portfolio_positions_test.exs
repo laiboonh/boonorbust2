@@ -1,23 +1,39 @@
 defmodule Boonorbust2.PortfolioPositionsTest do
   use Boonorbust2.DataCase, async: true
 
+  alias Boonorbust2.Accounts
   alias Boonorbust2.Assets
   alias Boonorbust2.PortfolioPositions
   alias Boonorbust2.PortfolioTransactions
 
-  describe "calculate_and_upsert_positions_for_asset/1" do
-    test "returns {:ok, 0} when asset has no transactions" do
+  setup do
+    {:ok, user} =
+      Accounts.create_user(%{
+        email: "test@example.com",
+        name: "Test User",
+        provider: "google",
+        uid: "test123",
+        currency: "SGD"
+      })
+
+    %{user: user}
+  end
+
+  describe "calculate_and_upsert_positions_for_asset/2" do
+    test "returns {:ok, 0} when asset has no transactions", %{user: user} do
       asset = create_asset("AAPL", "Apple Inc.")
 
-      assert {:ok, 0} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id)
-      assert [] = PortfolioPositions.get_positions_for_asset(asset.id)
+      assert {:ok, 0} =
+               PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
+
+      assert [] = PortfolioPositions.get_positions_for_asset(asset.id, user.id)
     end
 
-    test "creates single position for single buy transaction" do
+    test "creates single position for single buy transaction", %{user: user} do
       asset = create_asset("AAPL", "Apple Inc.")
 
       transaction =
-        create_transaction(asset.id, %{
+        create_transaction(user.id, asset.id, %{
           action: "buy",
           quantity: "100",
           price_amount: "150.00",
@@ -25,9 +41,10 @@ defmodule Boonorbust2.PortfolioPositionsTest do
           transaction_date: ~U[2024-01-01 00:00:00Z]
         })
 
-      assert {:ok, 1} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id)
+      assert {:ok, 1} =
+               PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
 
-      positions = PortfolioPositions.get_positions_for_asset(asset.id)
+      positions = PortfolioPositions.get_positions_for_asset(asset.id, user.id)
       assert length(positions) == 1
 
       [position] = positions
@@ -40,11 +57,11 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert Money.equal?(position.amount_on_hand, Money.new(:SGD, "15010.00"))
     end
 
-    test "creates multiple positions for multiple buy transactions" do
+    test "creates multiple positions for multiple buy transactions", %{user: user} do
       asset = create_asset("AAPL", "Apple Inc.")
 
       txn1 =
-        create_transaction(asset.id, %{
+        create_transaction(user.id, asset.id, %{
           action: "buy",
           quantity: "100",
           price_amount: "150.00",
@@ -53,7 +70,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
         })
 
       txn2 =
-        create_transaction(asset.id, %{
+        create_transaction(user.id, asset.id, %{
           action: "buy",
           quantity: "50",
           price_amount: "160.00",
@@ -61,9 +78,10 @@ defmodule Boonorbust2.PortfolioPositionsTest do
           transaction_date: ~U[2024-01-15 00:00:00Z]
         })
 
-      assert {:ok, 2} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id)
+      assert {:ok, 2} =
+               PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
 
-      positions = PortfolioPositions.get_positions_for_asset(asset.id)
+      positions = PortfolioPositions.get_positions_for_asset(asset.id, user.id)
       assert length(positions) == 2
 
       [pos2, pos1] = positions
@@ -83,11 +101,13 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert Money.equal?(pos2.amount_on_hand, Money.new(:SGD, "23015.0000"))
     end
 
-    test "creates position for buy then sell transaction (average price unchanged on sell)" do
+    test "creates position for buy then sell transaction (average price unchanged on sell)", %{
+      user: user
+    } do
       asset = create_asset("AAPL", "Apple Inc.")
 
       txn1 =
-        create_transaction(asset.id, %{
+        create_transaction(user.id, asset.id, %{
           action: "buy",
           quantity: "100",
           price_amount: "150.00",
@@ -96,7 +116,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
         })
 
       txn2 =
-        create_transaction(asset.id, %{
+        create_transaction(user.id, asset.id, %{
           action: "sell",
           quantity: "30",
           price_amount: "160.00",
@@ -104,9 +124,10 @@ defmodule Boonorbust2.PortfolioPositionsTest do
           transaction_date: ~U[2024-01-15 00:00:00Z]
         })
 
-      assert {:ok, 2} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id)
+      assert {:ok, 2} =
+               PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
 
-      positions = PortfolioPositions.get_positions_for_asset(asset.id)
+      positions = PortfolioPositions.get_positions_for_asset(asset.id, user.id)
       assert length(positions) == 2
 
       [pos2, pos1] = positions
@@ -125,11 +146,11 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert Money.equal?(pos2.amount_on_hand, Money.new(:SGD, "10507.00"))
     end
 
-    test "handles multiple buys and sells maintaining correct average price" do
+    test "handles multiple buys and sells maintaining correct average price", %{user: user} do
       asset = create_asset("TSLA", "Tesla Inc.")
 
       # Buy 100 @ 200
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "buy",
         quantity: "100",
         price_amount: "200.00",
@@ -138,7 +159,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       })
 
       # Buy 50 @ 220
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "buy",
         quantity: "50",
         price_amount: "220.00",
@@ -147,7 +168,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       })
 
       # Sell 60
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "sell",
         quantity: "60",
         price_amount: "250.00",
@@ -156,7 +177,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       })
 
       # Buy 40 @ 180
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "buy",
         quantity: "40",
         price_amount: "180.00",
@@ -164,9 +185,10 @@ defmodule Boonorbust2.PortfolioPositionsTest do
         transaction_date: ~U[2024-04-01 00:00:00Z]
       })
 
-      assert {:ok, 4} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id)
+      assert {:ok, 4} =
+               PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
 
-      positions = PortfolioPositions.get_positions_for_asset(asset.id)
+      positions = PortfolioPositions.get_positions_for_asset(asset.id, user.id)
       assert length(positions) == 4
 
       [pos4, pos3, pos2, pos1] = positions
@@ -190,10 +212,10 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert Money.equal?(pos4.average_price, Money.new(:SGD, "198.5769"))
     end
 
-    test "handles sell reducing position to zero" do
+    test "handles sell reducing position to zero", %{user: user} do
       asset = create_asset("NVDA", "NVIDIA Corp.")
 
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "buy",
         quantity: "50",
         price_amount: "500.00",
@@ -201,7 +223,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
         transaction_date: ~U[2024-01-01 00:00:00Z]
       })
 
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "sell",
         quantity: "50",
         price_amount: "600.00",
@@ -209,9 +231,10 @@ defmodule Boonorbust2.PortfolioPositionsTest do
         transaction_date: ~U[2024-06-01 00:00:00Z]
       })
 
-      assert {:ok, 2} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id)
+      assert {:ok, 2} =
+               PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
 
-      positions = PortfolioPositions.get_positions_for_asset(asset.id)
+      positions = PortfolioPositions.get_positions_for_asset(asset.id, user.id)
       assert length(positions) == 2
 
       [pos2, _pos1] = positions
@@ -222,11 +245,13 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert Money.equal?(pos2.average_price, Money.new(:SGD, "500.30"))
     end
 
-    test "handles position going to zero then buying again (resets average price)" do
+    test "handles position going to zero then buying again (resets average price)", %{
+      user: user
+    } do
       asset = create_asset("MSFT", "Microsoft Corp.")
 
       # Buy 100
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "buy",
         quantity: "100",
         price_amount: "300.00",
@@ -235,7 +260,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       })
 
       # Sell all 100
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "sell",
         quantity: "100",
         price_amount: "350.00",
@@ -244,7 +269,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       })
 
       # Buy 80 again (should reset average price)
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "buy",
         quantity: "80",
         price_amount: "320.00",
@@ -252,9 +277,10 @@ defmodule Boonorbust2.PortfolioPositionsTest do
         transaction_date: ~U[2024-06-01 00:00:00Z]
       })
 
-      assert {:ok, 3} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id)
+      assert {:ok, 3} =
+               PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
 
-      positions = PortfolioPositions.get_positions_for_asset(asset.id)
+      positions = PortfolioPositions.get_positions_for_asset(asset.id, user.id)
       assert length(positions) == 3
 
       [pos3, pos2, pos1] = positions
@@ -271,10 +297,10 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert Money.equal?(pos3.average_price, Money.new(:SGD, "320.10"))
     end
 
-    test "raises exception when mixing different currencies for same asset" do
+    test "raises exception when mixing different currencies for same asset", %{user: user} do
       asset = create_asset("GOOGL", "Alphabet Inc.")
 
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "buy",
         quantity: "100",
         price_amount: "100.00",
@@ -284,7 +310,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       })
 
       # Second transaction with different currency - this should cause an error
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "buy",
         quantity: "50",
         price_amount: "110.00",
@@ -296,14 +322,14 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       # Money.add will return error when trying to add USD and SGD
       # causing a MatchError in the pattern match
       assert_raise MatchError, fn ->
-        PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id)
+        PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
       end
     end
 
-    test "function is idempotent - calling multiple times produces same results" do
+    test "function is idempotent - calling multiple times produces same results", %{user: user} do
       asset = create_asset("META", "Meta Platforms")
 
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "buy",
         quantity: "100",
         price_amount: "300.00",
@@ -311,7 +337,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
         transaction_date: ~U[2024-01-01 00:00:00Z]
       })
 
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "buy",
         quantity: "50",
         price_amount: "320.00",
@@ -320,12 +346,16 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       })
 
       # First calculation
-      assert {:ok, 2} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id)
-      positions_first = PortfolioPositions.get_positions_for_asset(asset.id)
+      assert {:ok, 2} =
+               PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
+
+      positions_first = PortfolioPositions.get_positions_for_asset(asset.id, user.id)
 
       # Second calculation (idempotent - should update existing records)
-      assert {:ok, 2} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id)
-      positions_second = PortfolioPositions.get_positions_for_asset(asset.id)
+      assert {:ok, 2} =
+               PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
+
+      positions_second = PortfolioPositions.get_positions_for_asset(asset.id, user.id)
 
       assert length(positions_first) == 2
       assert length(positions_second) == 2
@@ -346,11 +376,11 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       end
     end
 
-    test "updates existing positions when recalculating" do
+    test "updates existing positions when recalculating", %{user: user} do
       asset = create_asset("AMD", "AMD Inc.")
 
       txn1 =
-        create_transaction(asset.id, %{
+        create_transaction(user.id, asset.id, %{
           action: "buy",
           quantity: "100",
           price_amount: "80.00",
@@ -359,13 +389,14 @@ defmodule Boonorbust2.PortfolioPositionsTest do
         })
 
       # First calculation
-      assert {:ok, 1} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id)
+      assert {:ok, 1} =
+               PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
 
-      positions_before = PortfolioPositions.get_positions_for_asset(asset.id)
+      positions_before = PortfolioPositions.get_positions_for_asset(asset.id, user.id)
       assert length(positions_before) == 1
 
       # Add another transaction
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "buy",
         quantity: "50",
         price_amount: "90.00",
@@ -374,9 +405,10 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       })
 
       # Recalculate - should update existing position and add new one
-      assert {:ok, 2} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id)
+      assert {:ok, 2} =
+               PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
 
-      positions_after = PortfolioPositions.get_positions_for_asset(asset.id)
+      positions_after = PortfolioPositions.get_positions_for_asset(asset.id, user.id)
       assert length(positions_after) == 2
 
       # First position should still have same transaction ID
@@ -384,10 +416,10 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert pos1.portfolio_transaction_id == txn1.id
     end
 
-    test "raises exception when selling without prior buy transaction" do
+    test "raises exception when selling without prior buy transaction", %{user: user} do
       asset = create_asset("INTC", "Intel Corp.")
 
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "sell",
         quantity: "50",
         price_amount: "40.00",
@@ -396,16 +428,16 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       })
 
       assert_raise ArgumentError, ~r/Cannot sell asset without a prior buy transaction/, fn ->
-        PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id)
+        PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
       end
     end
 
-    test "handles many transactions efficiently" do
+    test "handles many transactions efficiently", %{user: user} do
       asset = create_asset("SPY", "S&P 500 ETF")
 
       # Create 20 buy transactions
       for i <- 1..20 do
-        create_transaction(asset.id, %{
+        create_transaction(user.id, asset.id, %{
           action: "buy",
           quantity: "10",
           price_amount: "#{400 + i}.00",
@@ -414,9 +446,10 @@ defmodule Boonorbust2.PortfolioPositionsTest do
         })
       end
 
-      assert {:ok, 20} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id)
+      assert {:ok, 20} =
+               PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
 
-      positions = PortfolioPositions.get_positions_for_asset(asset.id)
+      positions = PortfolioPositions.get_positions_for_asset(asset.id, user.id)
       assert length(positions) == 20
 
       # Final position should have 200 shares (10 * 20)
@@ -424,10 +457,10 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert Decimal.equal?(final_position.quantity_on_hand, Decimal.new("200"))
     end
 
-    test "get_latest_position_for_asset returns most recent position" do
+    test "get_latest_position_for_asset returns most recent position", %{user: user} do
       asset = create_asset("BTC", "Bitcoin")
 
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "buy",
         quantity: "1",
         price_amount: "50000.00",
@@ -435,7 +468,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
         transaction_date: ~U[2024-01-01 00:00:00Z]
       })
 
-      create_transaction(asset.id, %{
+      create_transaction(user.id, asset.id, %{
         action: "buy",
         quantity: "0.5",
         price_amount: "55000.00",
@@ -443,19 +476,20 @@ defmodule Boonorbust2.PortfolioPositionsTest do
         transaction_date: ~U[2024-02-01 00:00:00Z]
       })
 
-      assert {:ok, 2} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id)
+      assert {:ok, 2} =
+               PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
 
-      latest_position = PortfolioPositions.get_latest_position_for_asset(asset.id)
+      latest_position = PortfolioPositions.get_latest_position_for_asset(asset.id, user.id)
       assert latest_position != nil
       assert Decimal.equal?(latest_position.quantity_on_hand, Decimal.new("1.5"))
     end
 
-    test "list_latest_positions returns one position per asset" do
+    test "list_latest_positions returns one position per asset", %{user: user} do
       asset1 = create_asset("AAPL", "Apple Inc.")
       asset2 = create_asset("MSFT", "Microsoft Corp.")
 
       # Create transactions for both assets
-      create_transaction(asset1.id, %{
+      create_transaction(user.id, asset1.id, %{
         action: "buy",
         quantity: "100",
         price_amount: "150.00",
@@ -463,7 +497,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
         transaction_date: ~U[2024-01-01 00:00:00Z]
       })
 
-      create_transaction(asset2.id, %{
+      create_transaction(user.id, asset2.id, %{
         action: "buy",
         quantity: "50",
         price_amount: "300.00",
@@ -471,10 +505,10 @@ defmodule Boonorbust2.PortfolioPositionsTest do
         transaction_date: ~U[2024-01-01 00:00:00Z]
       })
 
-      PortfolioPositions.calculate_and_upsert_positions_for_asset(asset1.id)
-      PortfolioPositions.calculate_and_upsert_positions_for_asset(asset2.id)
+      PortfolioPositions.calculate_and_upsert_positions_for_asset(asset1.id, user.id)
+      PortfolioPositions.calculate_and_upsert_positions_for_asset(asset2.id, user.id)
 
-      latest_positions = PortfolioPositions.list_latest_positions()
+      latest_positions = PortfolioPositions.list_latest_positions(user.id)
       assert length(latest_positions) == 2
 
       asset_ids = Enum.map(latest_positions, & &1.asset_id) |> Enum.sort()
@@ -495,12 +529,13 @@ defmodule Boonorbust2.PortfolioPositionsTest do
     asset
   end
 
-  defp create_transaction(asset_id, attrs) do
+  defp create_transaction(user_id, asset_id, attrs) do
     currency = Map.get(attrs, :currency, "SGD")
 
     # Create transaction params in the same format as the web controller
     # (string keys, string/decimal values, separate currency field)
     transaction_attrs = %{
+      "user_id" => user_id,
       "asset_id" => asset_id,
       "action" => attrs.action,
       "quantity" => attrs.quantity,

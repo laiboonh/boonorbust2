@@ -6,10 +6,13 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Boonorbust2.Accounts.User
   alias Boonorbust2.Assets.Asset
 
   @type t :: %__MODULE__{
           id: integer() | nil,
+          user_id: Ecto.UUID.t() | nil,
+          user: User.t() | nil,
           asset_id: integer() | nil,
           asset: Asset.t() | nil,
           action: String.t() | nil,
@@ -23,6 +26,7 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
         }
 
   schema "portfolio_transactions" do
+    belongs_to :user, User, type: :binary_id
     belongs_to :asset, Asset
     field :action, :string
     field :quantity, :decimal
@@ -40,6 +44,7 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
 
     portfolio_transaction
     |> cast(attrs, [
+      :user_id,
       :asset_id,
       :action,
       :quantity,
@@ -48,6 +53,7 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
       :transaction_date
     ])
     |> validate_required([
+      :user_id,
       :asset_id,
       :action,
       :quantity,
@@ -60,6 +66,7 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
     |> validate_money(:price)
     |> validate_money(:commission, greater_than_or_equal_to: 0)
     |> calculate_amount()
+    |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:asset_id)
   end
 
@@ -140,6 +147,8 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
   def empty,
     do: %__MODULE__{
       id: nil,
+      user_id: nil,
+      user: nil,
       asset_id: nil,
       asset: nil,
       action: nil,

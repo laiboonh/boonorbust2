@@ -23,12 +23,12 @@ defmodule Boonorbust2.PortfolioPositions do
 
   Returns {:ok, count} where count is the number of positions created/updated.
   """
-  @spec calculate_and_upsert_positions_for_asset(integer()) ::
+  @spec calculate_and_upsert_positions_for_asset(integer(), String.t()) ::
           {:ok, non_neg_integer()} | {:error, Ecto.Changeset.t()}
-  def calculate_and_upsert_positions_for_asset(asset_id) do
+  def calculate_and_upsert_positions_for_asset(asset_id, user_id) do
     transactions =
       from(pt in PortfolioTransaction,
-        where: pt.asset_id == ^asset_id,
+        where: pt.asset_id == ^asset_id and pt.user_id == ^user_id,
         order_by: [asc: pt.transaction_date]
       )
       |> Repo.all()
@@ -129,7 +129,11 @@ defmodule Boonorbust2.PortfolioPositions do
   @spec upsert_position(integer(), Money.t(), Decimal.t(), Money.t(), integer()) ::
           {:ok, PortfolioPosition.t()} | {:error, Ecto.Changeset.t()}
   defp upsert_position(asset_id, average_price, quantity_on_hand, amount_on_hand, transaction_id) do
+    # Get user_id from the transaction
+    transaction = Repo.get!(PortfolioTransaction, transaction_id)
+
     attrs = %{
+      user_id: transaction.user_id,
       asset_id: asset_id,
       average_price: average_price,
       quantity_on_hand: quantity_on_hand,
@@ -157,11 +161,11 @@ defmodule Boonorbust2.PortfolioPositions do
   Gets the latest (most recent) position for a given asset.
   This represents the current state of the position after all transactions.
   """
-  @spec get_latest_position_for_asset(integer()) :: PortfolioPosition.t() | nil
-  def get_latest_position_for_asset(asset_id) do
+  @spec get_latest_position_for_asset(integer(), String.t()) :: PortfolioPosition.t() | nil
+  def get_latest_position_for_asset(asset_id, user_id) do
     from(pp in PortfolioPosition,
       join: pt in assoc(pp, :portfolio_transaction),
-      where: pp.asset_id == ^asset_id,
+      where: pp.asset_id == ^asset_id and pp.user_id == ^user_id,
       order_by: [desc: pt.transaction_date, desc: pp.id],
       limit: 1,
       preload: [:asset, :portfolio_transaction]
@@ -172,11 +176,11 @@ defmodule Boonorbust2.PortfolioPositions do
   @doc """
   Gets all positions for a given asset, ordered by transaction date descending.
   """
-  @spec get_positions_for_asset(integer()) :: [PortfolioPosition.t()]
-  def get_positions_for_asset(asset_id) do
+  @spec get_positions_for_asset(integer(), String.t()) :: [PortfolioPosition.t()]
+  def get_positions_for_asset(asset_id, user_id) do
     from(pp in PortfolioPosition,
       join: pt in assoc(pp, :portfolio_transaction),
-      where: pp.asset_id == ^asset_id,
+      where: pp.asset_id == ^asset_id and pp.user_id == ^user_id,
       order_by: [desc: pt.transaction_date, desc: pp.id],
       preload: [:asset, :portfolio_transaction]
     )
@@ -186,12 +190,13 @@ defmodule Boonorbust2.PortfolioPositions do
   @doc """
   Lists the latest position for each asset based on transaction date.
   """
-  @spec list_latest_positions() :: [PortfolioPosition.t()]
-  def list_latest_positions do
+  @spec list_latest_positions(String.t()) :: [PortfolioPosition.t()]
+  def list_latest_positions(user_id) do
     # Get the latest position for each asset based on transaction date
     latest_positions_subquery =
       from(pp in PortfolioPosition,
         join: pt in assoc(pp, :portfolio_transaction),
+        where: pp.user_id == ^user_id,
         group_by: pp.asset_id,
         select: %{
           asset_id: pp.asset_id,
@@ -204,6 +209,7 @@ defmodule Boonorbust2.PortfolioPositions do
       join: pt in assoc(pp, :portfolio_transaction),
       join: lp in subquery(latest_positions_subquery),
       on: pp.asset_id == lp.asset_id and pt.transaction_date == lp.max_transaction_date,
+      where: pp.user_id == ^user_id,
       order_by: [desc: pt.transaction_date, desc: pp.id],
       distinct: pp.asset_id,
       preload: [:asset, :portfolio_transaction]

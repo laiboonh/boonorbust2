@@ -9,12 +9,14 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
   def index(conn, params) do
     page = parse_page_param(params)
     filter = Map.get(params, "filter", "")
+    %{id: user_id} = conn.assigns.current_user
 
     pagination =
       PortfolioTransactions.list_portfolio_transactions(
         page: page,
         page_size: 10,
-        filter: filter
+        filter: filter,
+        user_id: user_id
       )
 
     render(conn, :index,
@@ -36,7 +38,8 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
 
   @spec show(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def show(conn, %{"id" => id}) do
-    portfolio_transaction = PortfolioTransactions.get_portfolio_transaction!(id)
+    %{id: user_id} = conn.assigns.current_user
+    portfolio_transaction = PortfolioTransactions.get_portfolio_transaction!(id, user_id)
     render(conn, :show, portfolio_transaction: portfolio_transaction)
   end
 
@@ -49,7 +52,10 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
 
   @spec create(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def create(conn, %{"portfolio_transaction" => portfolio_transaction_params}) do
-    case PortfolioTransactions.create_portfolio_transaction(portfolio_transaction_params) do
+    %{id: user_id} = conn.assigns.current_user
+    params = Map.put(portfolio_transaction_params, "user_id", user_id)
+
+    case PortfolioTransactions.create_portfolio_transaction(params) do
       {:ok, portfolio_transaction} ->
         if get_req_header(conn, "hx-request") != [] do
           conn
@@ -75,7 +81,8 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
 
   @spec edit(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def edit(conn, %{"id" => id}) do
-    portfolio_transaction = PortfolioTransactions.get_portfolio_transaction!(id)
+    %{id: user_id} = conn.assigns.current_user
+    portfolio_transaction = PortfolioTransactions.get_portfolio_transaction!(id, user_id)
     changeset = PortfolioTransactions.change_portfolio_transaction(portfolio_transaction)
     assets = Assets.list_assets()
 
@@ -88,7 +95,8 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
 
   @spec update(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def update(conn, %{"id" => id, "portfolio_transaction" => portfolio_transaction_params}) do
-    portfolio_transaction = PortfolioTransactions.get_portfolio_transaction!(id)
+    %{id: user_id} = conn.assigns.current_user
+    portfolio_transaction = PortfolioTransactions.get_portfolio_transaction!(id, user_id)
 
     case PortfolioTransactions.update_portfolio_transaction(
            portfolio_transaction,
@@ -124,7 +132,8 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
 
   @spec delete(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def delete(conn, %{"id" => id}) do
-    portfolio_transaction = PortfolioTransactions.get_portfolio_transaction!(id)
+    %{id: user_id} = conn.assigns.current_user
+    portfolio_transaction = PortfolioTransactions.get_portfolio_transaction!(id, user_id)
 
     {:ok, _portfolio_transaction} =
       PortfolioTransactions.delete_portfolio_transaction(portfolio_transaction)
@@ -148,7 +157,9 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
   end
 
   defp handle_csv_import(conn, path) do
-    case PortfolioTransactions.import_from_csv(path) do
+    %{id: user_id} = conn.assigns.current_user
+
+    case PortfolioTransactions.import_from_csv(path, user_id) do
       {:ok, %{success: success_count, errors: error_count, total: total_count}} ->
         message = format_success_message(success_count, error_count, total_count)
         respond_with_success(conn, message)
