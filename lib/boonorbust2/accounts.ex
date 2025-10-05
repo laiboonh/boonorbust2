@@ -49,7 +49,7 @@ defmodule Boonorbust2.Accounts do
   def create_user_from_oauth(%Ueberauth.Auth{} = auth) do
     attrs = %{
       email: auth.info.email,
-      name: auth.info.name,
+      name: auth.info.name || "World",
       provider: to_string(auth.provider),
       uid: auth.uid
     }
