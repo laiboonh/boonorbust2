@@ -5,7 +5,6 @@ defmodule Boonorbust2.PortfolioTransactions do
   import Ecto.Query, warn: false
 
   alias Boonorbust2.Assets
-  alias Boonorbust2.Currency
   alias Boonorbust2.PortfolioTransactions.PortfolioTransaction
   alias Boonorbust2.Repo
 
@@ -184,7 +183,7 @@ defmodule Boonorbust2.PortfolioTransactions do
           {:ok, PortfolioTransaction.t()} | {:error, String.t()}
   defp process_csv_row(line, user_id) do
     with {:ok, data} <- parse_csv_line(line),
-         {:ok, asset} <- find_or_create_asset(data.stock),
+         {:ok, asset} <- find_or_create_asset(data.stock, data.currency),
          {:ok, transaction} <- create_transaction_from_data(data, asset, user_id) do
       {:ok, transaction}
     else
@@ -394,19 +393,21 @@ defmodule Boonorbust2.PortfolioTransactions do
     end
   end
 
-  @spec find_or_create_asset(String.t()) :: {:ok, Assets.Asset.t()} | {:error, String.t()}
-  defp find_or_create_asset(asset_name) do
+  @spec find_or_create_asset(String.t(), String.t()) ::
+          {:ok, Assets.Asset.t()} | {:error, String.t()}
+  defp find_or_create_asset(asset_name, currency) do
     case Assets.get_asset_by_name(asset_name) do
-      nil -> create_new_asset(asset_name)
+      nil -> create_new_asset(asset_name, currency)
       asset -> {:ok, asset}
     end
   end
 
-  @spec create_new_asset(String.t()) :: {:ok, Assets.Asset.t()} | {:error, String.t()}
-  defp create_new_asset(asset_name) do
+  @spec create_new_asset(String.t(), String.t()) ::
+          {:ok, Assets.Asset.t()} | {:error, String.t()}
+  defp create_new_asset(asset_name, currency) do
     asset_attrs = %{
       name: asset_name,
-      currency: Currency.default_currency()
+      currency: String.upcase(String.trim(currency))
     }
 
     case Assets.create_asset(asset_attrs) do
