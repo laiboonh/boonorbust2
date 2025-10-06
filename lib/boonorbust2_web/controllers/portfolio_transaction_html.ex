@@ -145,169 +145,204 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
 
               <div id="portfolio-transaction-form-errors"></div>
 
-              <form
-                action={~p"/portfolio_transactions"}
-                method="post"
-                id="portfolio-transaction-form"
-                hx-post={~p"/portfolio_transactions"}
-                hx-target="#portfolio-transactions-list"
-                hx-swap="afterbegin"
-                hx-on--response-error="document.getElementById('portfolio-transaction-form-errors').innerHTML = event.detail.xhr.responseText;"
-                hx-on--after-request="if(event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) { document.getElementById('portfolio-transaction-form').reset(); document.getElementById('portfolio-transaction-modal').classList.add('hidden'); document.getElementById('portfolio-transaction-form-errors').innerHTML = ''; }"
-                class="space-y-4"
-              >
-                <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
-
-                <div>
-                  <label
-                    for="portfolio_transaction_asset_id"
-                    class="block text-sm font-medium text-gray-700"
-                  >
-                    Asset
-                  </label>
-                  <select
-                    id="portfolio_transaction_asset_id"
-                    name="portfolio_transaction[asset_id]"
-                    required
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                  >
-                    <option value="">Select an asset</option>
-                    <%= for asset <- Boonorbust2.Assets.list_assets() do %>
-                      <option value={asset.id}>{asset.name}</option>
-                    <% end %>
-                  </select>
+              <div class="relative">
+                <!-- Loading overlay -->
+                <div
+                  id="portfolio-transaction-form-overlay"
+                  class="htmx-indicator absolute inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center rounded-lg z-10"
+                >
+                  <div class="text-center">
+                    <svg
+                      class="h-8 w-8 animate-spin text-emerald-600 mx-auto mb-2"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        class="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        stroke-width="4"
+                      >
+                      </circle>
+                      <path
+                        class="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      >
+                      </path>
+                    </svg>
+                    <p class="text-sm text-gray-700">Saving transaction...</p>
+                  </div>
                 </div>
 
-                <div>
-                  <label
-                    for="portfolio_transaction_action"
-                    class="block text-sm font-medium text-gray-700"
-                  >
-                    Action
-                  </label>
-                  <select
-                    id="portfolio_transaction_action"
-                    name="portfolio_transaction[action]"
-                    required
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                  >
-                    <option value="">Select action</option>
-                    <option value="buy">Buy</option>
-                    <option value="sell">Sell</option>
-                  </select>
-                </div>
+                <form
+                  action={~p"/portfolio_transactions"}
+                  method="post"
+                  id="portfolio-transaction-form"
+                  hx-post={~p"/portfolio_transactions"}
+                  hx-target="#portfolio-transactions-list"
+                  hx-swap="afterbegin"
+                  hx-indicator="#portfolio-transaction-form-overlay"
+                  hx-on--response-error="document.getElementById('portfolio-transaction-form-errors').innerHTML = event.detail.xhr.responseText;"
+                  hx-on--after-request="if(event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) { document.getElementById('portfolio-transaction-form').reset(); document.getElementById('portfolio-transaction-modal').classList.add('hidden'); document.getElementById('portfolio-transaction-form-errors').innerHTML = ''; }"
+                  class="space-y-4"
+                >
+                  <input type="hidden" name="_csrf_token" value={get_csrf_token()} />
 
-                <div>
-                  <label
-                    for="portfolio_transaction_quantity"
-                    class="block text-sm font-medium text-gray-700"
-                  >
-                    Quantity
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    id="portfolio_transaction_quantity"
-                    name="portfolio_transaction[quantity]"
-                    required
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                    placeholder="e.g. 1000"
-                  />
-                </div>
+                  <div>
+                    <label
+                      for="portfolio_transaction_asset_id"
+                      class="block text-sm font-medium text-gray-700"
+                    >
+                      Asset
+                    </label>
+                    <select
+                      id="portfolio_transaction_asset_id"
+                      name="portfolio_transaction[asset_id]"
+                      required
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                    >
+                      <option value="">Select an asset</option>
+                      <%= for asset <- Boonorbust2.Assets.list_assets() do %>
+                        <option value={asset.id}>{asset.name}</option>
+                      <% end %>
+                    </select>
+                  </div>
 
-                <div>
-                  <label
-                    for="portfolio_transaction_currency"
-                    class="block text-sm font-medium text-gray-700"
-                  >
-                    Currency
-                  </label>
-                  <select
-                    id="portfolio_transaction_currency"
-                    name="portfolio_transaction[currency]"
-                    required
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                  >
-                    <%= for currency <- Currency.supported_currencies() do %>
-                      <option value={currency} selected={currency == Currency.default_currency()}>
-                        {currency}
-                      </option>
-                    <% end %>
-                  </select>
-                </div>
+                  <div>
+                    <label
+                      for="portfolio_transaction_action"
+                      class="block text-sm font-medium text-gray-700"
+                    >
+                      Action
+                    </label>
+                    <select
+                      id="portfolio_transaction_action"
+                      name="portfolio_transaction[action]"
+                      required
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                    >
+                      <option value="">Select action</option>
+                      <option value="buy">Buy</option>
+                      <option value="sell">Sell</option>
+                    </select>
+                  </div>
 
-                <div>
-                  <label
-                    for="portfolio_transaction_price"
-                    class="block text-sm font-medium text-gray-700"
-                  >
-                    Price per Share
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    id="portfolio_transaction_price"
-                    name="portfolio_transaction[price]"
-                    required
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                    placeholder="e.g. 1.50"
-                  />
-                </div>
+                  <div>
+                    <label
+                      for="portfolio_transaction_quantity"
+                      class="block text-sm font-medium text-gray-700"
+                    >
+                      Quantity
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      id="portfolio_transaction_quantity"
+                      name="portfolio_transaction[quantity]"
+                      required
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                      placeholder="e.g. 1000"
+                    />
+                  </div>
 
-                <div>
-                  <label
-                    for="portfolio_transaction_commission"
-                    class="block text-sm font-medium text-gray-700"
-                  >
-                    Commission
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    min="0"
-                    id="portfolio_transaction_commission"
-                    name="portfolio_transaction[commission]"
-                    required
-                    value="0"
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                    placeholder="e.g. 5.00"
-                  />
-                </div>
+                  <div>
+                    <label
+                      for="portfolio_transaction_currency"
+                      class="block text-sm font-medium text-gray-700"
+                    >
+                      Currency
+                    </label>
+                    <select
+                      id="portfolio_transaction_currency"
+                      name="portfolio_transaction[currency]"
+                      required
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                    >
+                      <%= for currency <- Currency.supported_currencies() do %>
+                        <option value={currency} selected={currency == Currency.default_currency()}>
+                          {currency}
+                        </option>
+                      <% end %>
+                    </select>
+                  </div>
 
-                <div>
-                  <label
-                    for="portfolio_transaction_transaction_date"
-                    class="block text-sm font-medium text-gray-700"
-                  >
-                    Transaction Date
-                  </label>
-                  <input
-                    type="datetime-local"
-                    id="portfolio_transaction_transaction_date"
-                    name="portfolio_transaction[transaction_date]"
-                    required
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                  />
-                </div>
+                  <div>
+                    <label
+                      for="portfolio_transaction_price"
+                      class="block text-sm font-medium text-gray-700"
+                    >
+                      Price per Share
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      id="portfolio_transaction_price"
+                      name="portfolio_transaction[price]"
+                      required
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                      placeholder="e.g. 1.50"
+                    />
+                  </div>
 
-                <div class="flex gap-3 pt-4">
-                  <button
-                    type="submit"
-                    class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-                  >
-                    Add Transaction
-                  </button>
-                  <button
-                    type="button"
-                    onclick="document.getElementById('portfolio-transaction-modal').classList.add('hidden')"
-                    class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
+                  <div>
+                    <label
+                      for="portfolio_transaction_commission"
+                      class="block text-sm font-medium text-gray-700"
+                    >
+                      Commission
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      min="0"
+                      id="portfolio_transaction_commission"
+                      name="portfolio_transaction[commission]"
+                      required
+                      value="0"
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                      placeholder="e.g. 5.00"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      for="portfolio_transaction_transaction_date"
+                      class="block text-sm font-medium text-gray-700"
+                    >
+                      Transaction Date
+                    </label>
+                    <input
+                      type="datetime-local"
+                      id="portfolio_transaction_transaction_date"
+                      name="portfolio_transaction[transaction_date]"
+                      required
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                    />
+                  </div>
+
+                  <div class="flex gap-3 pt-4">
+                    <button
+                      type="submit"
+                      class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                    >
+                      Add Transaction
+                    </button>
+                    <button
+                      type="button"
+                      onclick="document.getElementById('portfolio-transaction-modal').classList.add('hidden')"
+                      class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
             </div>
           </div>
         </div>
@@ -479,170 +514,209 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
           </div>
 
           <div id={"portfolio-transaction-edit-#{@portfolio_transaction.id}"} class="hidden">
-            <form
-              hx-put={~p"/portfolio_transactions/#{@portfolio_transaction.id}"}
-              hx-target={"#portfolio-transaction-#{@portfolio_transaction.id}"}
-              hx-swap="outerHTML"
-              hx-headers={Jason.encode!(%{"x-csrf-token" => get_csrf_token()})}
-              class="space-y-3"
-            >
-              <div>
-                <label
-                  for={"edit_asset_id_#{@portfolio_transaction.id}"}
-                  class="block text-sm font-medium text-gray-700"
-                >
-                  Asset
-                </label>
-                <select
-                  id={"edit_asset_id_#{@portfolio_transaction.id}"}
-                  name="portfolio_transaction[asset_id]"
-                  required
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                >
-                  <%= for asset <- Boonorbust2.Assets.list_assets() do %>
-                    <option value={asset.id} selected={@portfolio_transaction.asset_id == asset.id}>
-                      {asset.name}
-                    </option>
-                  <% end %>
-                </select>
-              </div>
+            <div id={"portfolio-transaction-edit-errors-#{@portfolio_transaction.id}"}></div>
 
-              <div>
-                <label
-                  for={"edit_action_#{@portfolio_transaction.id}"}
-                  class="block text-sm font-medium text-gray-700"
-                >
-                  Action
-                </label>
-                <select
-                  id={"edit_action_#{@portfolio_transaction.id}"}
-                  name="portfolio_transaction[action]"
-                  required
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                >
-                  <option value="buy" selected={@portfolio_transaction.action == "buy"}>Buy</option>
-                  <option value="sell" selected={@portfolio_transaction.action == "sell"}>
-                    Sell
-                  </option>
-                </select>
-              </div>
-
-              <div>
-                <label
-                  for={"edit_quantity_#{@portfolio_transaction.id}"}
-                  class="block text-sm font-medium text-gray-700"
-                >
-                  Quantity
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  min="0"
-                  id={"edit_quantity_#{@portfolio_transaction.id}"}
-                  name="portfolio_transaction[quantity]"
-                  value={Decimal.to_string(@portfolio_transaction.quantity)}
-                  required
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label
-                  for={"edit_currency_#{@portfolio_transaction.id}"}
-                  class="block text-sm font-medium text-gray-700"
-                >
-                  Currency
-                </label>
-                <select
-                  id={"edit_currency_#{@portfolio_transaction.id}"}
-                  name="portfolio_transaction[currency]"
-                  required
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                >
-                  <%= for currency <- Currency.supported_currencies() do %>
-                    <option
-                      value={currency}
-                      selected={@portfolio_transaction.price.currency == String.to_atom(currency)}
+            <div class="relative">
+              <!-- Loading overlay -->
+              <div
+                id={"portfolio-transaction-edit-overlay-#{@portfolio_transaction.id}"}
+                class="htmx-indicator absolute inset-0 bg-gray-100 bg-opacity-75 flex items-center justify-center rounded-lg z-10"
+              >
+                <div class="text-center">
+                  <svg
+                    class="h-8 w-8 animate-spin text-emerald-600 mx-auto mb-2"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      class="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      stroke-width="4"
                     >
-                      {currency}
+                    </circle>
+                    <path
+                      class="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    >
+                    </path>
+                  </svg>
+                  <p class="text-sm text-gray-700">Saving transaction...</p>
+                </div>
+              </div>
+
+              <form
+                id={"portfolio-transaction-edit-form-#{@portfolio_transaction.id}"}
+                hx-put={~p"/portfolio_transactions/#{@portfolio_transaction.id}"}
+                hx-target={"#portfolio-transaction-#{@portfolio_transaction.id}"}
+                hx-swap="outerHTML"
+                hx-indicator={"#portfolio-transaction-edit-overlay-#{@portfolio_transaction.id}"}
+                hx-on::response-error={"document.getElementById('portfolio-transaction-edit-errors-#{@portfolio_transaction.id}').innerHTML = event.detail.xhr.responseText;"}
+                hx-headers={Jason.encode!(%{"x-csrf-token" => get_csrf_token()})}
+                class="space-y-3"
+              >
+                <div>
+                  <label
+                    for={"edit_asset_id_#{@portfolio_transaction.id}"}
+                    class="block text-sm font-medium text-gray-700"
+                  >
+                    Asset
+                  </label>
+                  <select
+                    id={"edit_asset_id_#{@portfolio_transaction.id}"}
+                    name="portfolio_transaction[asset_id]"
+                    required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  >
+                    <%= for asset <- Boonorbust2.Assets.list_assets() do %>
+                      <option value={asset.id} selected={@portfolio_transaction.asset_id == asset.id}>
+                        {asset.name}
+                      </option>
+                    <% end %>
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    for={"edit_action_#{@portfolio_transaction.id}"}
+                    class="block text-sm font-medium text-gray-700"
+                  >
+                    Action
+                  </label>
+                  <select
+                    id={"edit_action_#{@portfolio_transaction.id}"}
+                    name="portfolio_transaction[action]"
+                    required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  >
+                    <option value="buy" selected={@portfolio_transaction.action == "buy"}>Buy</option>
+                    <option value="sell" selected={@portfolio_transaction.action == "sell"}>
+                      Sell
                     </option>
-                  <% end %>
-                </select>
-              </div>
+                  </select>
+                </div>
 
-              <div>
-                <label
-                  for={"edit_price_#{@portfolio_transaction.id}"}
-                  class="block text-sm font-medium text-gray-700"
-                >
-                  Price per Share
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  min="0"
-                  id={"edit_price_#{@portfolio_transaction.id}"}
-                  name="portfolio_transaction[price]"
-                  value={Decimal.to_string(@portfolio_transaction.price.amount)}
-                  required
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                />
-              </div>
+                <div>
+                  <label
+                    for={"edit_quantity_#{@portfolio_transaction.id}"}
+                    class="block text-sm font-medium text-gray-700"
+                  >
+                    Quantity
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    id={"edit_quantity_#{@portfolio_transaction.id}"}
+                    name="portfolio_transaction[quantity]"
+                    value={Decimal.to_string(@portfolio_transaction.quantity)}
+                    required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  />
+                </div>
 
-              <div>
-                <label
-                  for={"edit_commission_#{@portfolio_transaction.id}"}
-                  class="block text-sm font-medium text-gray-700"
-                >
-                  Commission
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  min="0"
-                  id={"edit_commission_#{@portfolio_transaction.id}"}
-                  name="portfolio_transaction[commission]"
-                  value={Decimal.to_string(@portfolio_transaction.commission.amount)}
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                />
-              </div>
+                <div>
+                  <label
+                    for={"edit_currency_#{@portfolio_transaction.id}"}
+                    class="block text-sm font-medium text-gray-700"
+                  >
+                    Currency
+                  </label>
+                  <select
+                    id={"edit_currency_#{@portfolio_transaction.id}"}
+                    name="portfolio_transaction[currency]"
+                    required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  >
+                    <%= for currency <- Currency.supported_currencies() do %>
+                      <option
+                        value={currency}
+                        selected={@portfolio_transaction.price.currency == String.to_atom(currency)}
+                      >
+                        {currency}
+                      </option>
+                    <% end %>
+                  </select>
+                </div>
 
-              <div>
-                <label
-                  for={"edit_transaction_date_#{@portfolio_transaction.id}"}
-                  class="block text-sm font-medium text-gray-700"
-                >
-                  Transaction Date
-                </label>
-                <input
-                  type="datetime-local"
-                  id={"edit_transaction_date_#{@portfolio_transaction.id}"}
-                  name="portfolio_transaction[transaction_date]"
-                  value={
-                    DateTime.to_naive(@portfolio_transaction.transaction_date)
-                    |> NaiveDateTime.to_iso8601()
-                  }
-                  required
-                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                />
-              </div>
+                <div>
+                  <label
+                    for={"edit_price_#{@portfolio_transaction.id}"}
+                    class="block text-sm font-medium text-gray-700"
+                  >
+                    Price per Share
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    id={"edit_price_#{@portfolio_transaction.id}"}
+                    name="portfolio_transaction[price]"
+                    value={Decimal.to_string(@portfolio_transaction.price.amount)}
+                    required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  />
+                </div>
 
-              <div class="flex gap-2">
-                <button
-                  type="submit"
-                  class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-1 px-3 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
-                >
-                  Save
-                </button>
-                <button
-                  type="button"
-                  onclick={"document.getElementById('portfolio-transaction-view-#{@portfolio_transaction.id}').classList.remove('hidden'); document.getElementById('portfolio-transaction-edit-#{@portfolio_transaction.id}').classList.add('hidden');"}
-                  class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-1 px-3 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+                <div>
+                  <label
+                    for={"edit_commission_#{@portfolio_transaction.id}"}
+                    class="block text-sm font-medium text-gray-700"
+                  >
+                    Commission
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    id={"edit_commission_#{@portfolio_transaction.id}"}
+                    name="portfolio_transaction[commission]"
+                    value={Decimal.to_string(@portfolio_transaction.commission.amount)}
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    for={"edit_transaction_date_#{@portfolio_transaction.id}"}
+                    class="block text-sm font-medium text-gray-700"
+                  >
+                    Transaction Date
+                  </label>
+                  <input
+                    type="datetime-local"
+                    id={"edit_transaction_date_#{@portfolio_transaction.id}"}
+                    name="portfolio_transaction[transaction_date]"
+                    value={
+                      DateTime.to_naive(@portfolio_transaction.transaction_date)
+                      |> NaiveDateTime.to_iso8601()
+                    }
+                    required
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  />
+                </div>
+
+                <div class="flex gap-2">
+                  <button
+                    type="submit"
+                    class="bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-1 px-3 rounded text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    onclick={"document.getElementById('portfolio-transaction-view-#{@portfolio_transaction.id}').classList.remove('hidden'); document.getElementById('portfolio-transaction-edit-#{@portfolio_transaction.id}').classList.add('hidden');"}
+                    class="bg-gray-600 hover:bg-gray-700 text-white font-medium py-1 px-3 rounded text-sm focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
 
