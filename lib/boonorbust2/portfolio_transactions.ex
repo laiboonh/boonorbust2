@@ -147,7 +147,8 @@ defmodule Boonorbust2.PortfolioTransactions do
              total: non_neg_integer(),
              success: non_neg_integer(),
              errors: non_neg_integer(),
-             error_details: [String.t()]
+             error_details: [String.t()],
+             affected_asset_ids: [integer()]
            }}
   defp process_csv_content(content, user_id) do
     lines = String.split(content, "\n", trim: true)
@@ -159,16 +160,23 @@ defmodule Boonorbust2.PortfolioTransactions do
         successes = Enum.filter(results, fn {status, _} -> status == :ok end)
         errors = Enum.filter(results, fn {status, _} -> status == :error end)
 
+        # Extract unique asset IDs from successful transactions
+        affected_asset_ids =
+          successes
+          |> Enum.map(fn {:ok, transaction} -> transaction.asset_id end)
+          |> Enum.uniq()
+
         {:ok,
          %{
            total: length(data_lines),
            success: length(successes),
            errors: length(errors),
-           error_details: Enum.map(errors, fn {:error, msg} -> msg end)
+           error_details: Enum.map(errors, fn {:error, msg} -> msg end),
+           affected_asset_ids: affected_asset_ids
          }}
 
       [] ->
-        {:ok, %{total: 0, success: 0, errors: 0, error_details: []}}
+        {:ok, %{total: 0, success: 0, errors: 0, error_details: [], affected_asset_ids: []}}
     end
   end
 

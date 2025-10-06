@@ -2,6 +2,7 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
   use Boonorbust2Web, :controller
 
   alias Boonorbust2.Assets
+  alias Boonorbust2.PortfolioPositions
   alias Boonorbust2.PortfolioTransactions
   alias Boonorbust2.PortfolioTransactions.PortfolioTransaction
 
@@ -58,7 +59,7 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
     case PortfolioTransactions.create_portfolio_transaction(params) do
       {:ok, portfolio_transaction} ->
         # Recalculate positions for the affected asset
-        Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(
+        PortfolioPositions.calculate_and_upsert_positions_for_asset(
           portfolio_transaction.asset_id,
           user_id
         )
@@ -110,7 +111,7 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
          ) do
       {:ok, updated_portfolio_transaction} ->
         # Recalculate positions for the affected asset
-        Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(
+        PortfolioPositions.calculate_and_upsert_positions_for_asset(
           updated_portfolio_transaction.asset_id,
           user_id
         )
@@ -152,7 +153,7 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
       PortfolioTransactions.delete_portfolio_transaction(portfolio_transaction)
 
     # Recalculate positions for the affected asset
-    Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(asset_id, user_id)
+    PortfolioPositions.calculate_and_upsert_positions_for_asset(asset_id, user_id)
 
     if get_req_header(conn, "hx-request") != [] do
       send_resp(conn, 200, "")
@@ -176,7 +177,18 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
     %{id: user_id} = conn.assigns.current_user
 
     case PortfolioTransactions.import_from_csv(path, user_id) do
-      {:ok, %{success: success_count, errors: error_count, total: total_count}} ->
+      {:ok,
+       %{
+         success: success_count,
+         errors: error_count,
+         total: total_count,
+         affected_asset_ids: asset_ids
+       }} ->
+        # Recalculate positions for all affected assets
+        Enum.each(asset_ids, fn asset_id ->
+          PortfolioPositions.calculate_and_upsert_positions_for_asset(asset_id, user_id)
+        end)
+
         message = format_success_message(success_count, error_count, total_count)
         respond_with_success(conn, message)
 
