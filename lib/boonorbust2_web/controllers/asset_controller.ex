@@ -3,7 +3,6 @@ defmodule Boonorbust2Web.AssetController do
 
   alias Boonorbust2.Assets
   alias Boonorbust2.Assets.Asset
-  alias Boonorbust2.PortfolioPositions
   alias Helper
 
   @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
@@ -93,17 +92,5 @@ defmodule Boonorbust2Web.AssetController do
     else
       redirect(conn, to: ~p"/assets")
     end
-  end
-
-  @spec positions(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  def positions(conn, %{"id" => id}) do
-    %{id: user_id} = conn.assigns.current_user
-    asset = Assets.get_asset!(id)
-
-    positions = PortfolioPositions.get_positions_for_asset(asset.id, user_id)
-
-    conn
-    |> put_layout(false)
-    |> render(:positions_modal_content, asset: asset, positions: positions)
   end
 end

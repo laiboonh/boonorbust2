@@ -44,12 +44,55 @@ defmodule Boonorbust2Web.DashboardHTML do
     ~H"""
     <div class="bg-white rounded-lg shadow p-6">
       <div class="flex justify-between items-start mb-4">
-        <div>
+        <div class="flex-1">
           <h3 class="text-lg font-semibold text-gray-900">{@position.asset.name}</h3>
         </div>
-        <span class="bg-emerald-100 text-emerald-800 text-xs font-medium px-2.5 py-0.5 rounded">
-          {String.upcase(@position.portfolio_transaction.action)}
-        </span>
+        <div class="flex items-center gap-2">
+          <button
+            hx-get={~p"/dashboard/positions/#{@position.asset.id}"}
+            hx-target={"#positions-modal-#{@position.asset.id}"}
+            hx-swap="innerHTML"
+            hx-on::before-request={"document.getElementById('positions-icon-#{@position.asset.id}').classList.add('hidden'); document.getElementById('positions-spinner-#{@position.asset.id}').classList.remove('hidden');"}
+            hx-on::after-request={"document.getElementById('positions-spinner-#{@position.asset.id}').classList.add('hidden'); document.getElementById('positions-icon-#{@position.asset.id}').classList.remove('hidden');"}
+            onclick={"document.getElementById('positions-modal-#{@position.asset.id}').classList.remove('hidden')"}
+            class="text-blue-600 hover:text-blue-800"
+            title="View positions"
+          >
+            <svg
+              id={"positions-icon-#{@position.asset.id}"}
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+              >
+              </path>
+            </svg>
+            <svg
+              id={"positions-spinner-#{@position.asset.id}"}
+              class="hidden w-5 h-5 animate-spin text-blue-600"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+              </circle>
+              <path
+                class="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              >
+              </path>
+            </svg>
+          </button>
+          <span class="bg-emerald-100 text-emerald-800 text-xs font-medium px-2.5 py-0.5 rounded">
+            {String.upcase(@position.portfolio_transaction.action)}
+          </span>
+        </div>
       </div>
 
       <div class="grid grid-cols-2 gap-4">
@@ -94,6 +137,112 @@ defmodule Boonorbust2Web.DashboardHTML do
           "%B %d, %Y"
         )}
       </p>
+      
+    <!-- Positions Modal -->
+      <div
+        id={"positions-modal-#{@position.asset.id}"}
+        class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+        onclick={"if(event.target.id === 'positions-modal-#{@position.asset.id}') { this.classList.add('hidden'); document.getElementById('positions-spinner-#{@position.asset.id}').classList.add('hidden'); document.getElementById('positions-icon-#{@position.asset.id}').classList.remove('hidden'); }"}
+      >
+      </div>
+    </div>
+    """
+  end
+
+  def positions_modal_content(assigns) do
+    ~H"""
+    <div class="relative p-2 sm:p-4">
+      <div class="bg-white rounded-lg shadow-xl max-w-full sm:max-w-4xl mx-auto mt-4 sm:mt-20">
+        <div class="flex justify-between items-center p-3 sm:p-6 border-b">
+          <h2 class="text-lg sm:text-2xl font-bold text-gray-900">
+            Portfolio Positions - {@asset.name}
+          </h2>
+          <button
+            onclick={"document.getElementById('positions-modal-#{@asset.id}').classList.add('hidden'); document.getElementById('positions-spinner-#{@asset.id}').classList.add('hidden'); document.getElementById('positions-icon-#{@asset.id}').classList.remove('hidden');"}
+            class="text-gray-400 hover:text-gray-600 ml-2"
+          >
+            <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              >
+              </path>
+            </svg>
+          </button>
+        </div>
+
+        <div class="p-3 sm:p-6">
+          <%= if Enum.empty?(@positions) do %>
+            <p class="text-gray-500 text-center py-8">
+              No positions found for this asset.
+            </p>
+          <% else %>
+            <div class="overflow-x-auto -mx-3 sm:mx-0">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Avg Price
+                    </th>
+                    <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Qty
+                    </th>
+                    <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Amount
+                    </th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  <%= for position <- @positions do %>
+                    <tr>
+                      <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                        <span class="hidden sm:inline">
+                          {Calendar.strftime(
+                            position.portfolio_transaction.transaction_date,
+                            "%B %d, %Y"
+                          )}
+                        </span>
+                        <span class="sm:hidden">
+                          {Calendar.strftime(
+                            position.portfolio_transaction.transaction_date,
+                            "%m/%d/%y"
+                          )}
+                        </span>
+                      </td>
+                      <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
+                        <span class={
+                          if position.portfolio_transaction.action == "buy",
+                            do: "text-emerald-600 font-medium",
+                            else: "text-red-600 font-medium"
+                        }>
+                          {String.upcase(position.portfolio_transaction.action)}
+                        </span>
+                      </td>
+                      <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-medium text-gray-900">
+                        {Money.to_string!(position.average_price)}
+                      </td>
+                      <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right text-gray-900">
+                        {Decimal.to_string(position.quantity_on_hand)}
+                      </td>
+                      <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-semibold text-emerald-600">
+                        {Money.to_string!(position.amount_on_hand)}
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          <% end %>
+        </div>
+      </div>
     </div>
     """
   end
