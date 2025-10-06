@@ -100,9 +100,6 @@ defmodule Boonorbust2Web.AssetController do
     %{id: user_id} = conn.assigns.current_user
     asset = Assets.get_asset!(id)
 
-    # Calculate and upsert positions before fetching
-    PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user_id)
-
     positions = PortfolioPositions.get_positions_for_asset(asset.id, user_id)
 
     conn

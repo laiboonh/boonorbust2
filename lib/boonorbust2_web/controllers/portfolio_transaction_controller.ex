@@ -57,6 +57,12 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
 
     case PortfolioTransactions.create_portfolio_transaction(params) do
       {:ok, portfolio_transaction} ->
+        # Recalculate positions for the affected asset
+        Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(
+          portfolio_transaction.asset_id,
+          user_id
+        )
+
         if get_req_header(conn, "hx-request") != [] do
           conn
           |> put_layout(false)
@@ -103,6 +109,12 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
            portfolio_transaction_params
          ) do
       {:ok, updated_portfolio_transaction} ->
+        # Recalculate positions for the affected asset
+        Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(
+          updated_portfolio_transaction.asset_id,
+          user_id
+        )
+
         if get_req_header(conn, "hx-request") != [] do
           conn
           |> put_layout(false)
@@ -134,9 +146,13 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
   def delete(conn, %{"id" => id}) do
     %{id: user_id} = conn.assigns.current_user
     portfolio_transaction = PortfolioTransactions.get_portfolio_transaction!(id, user_id)
+    asset_id = portfolio_transaction.asset_id
 
     {:ok, _portfolio_transaction} =
       PortfolioTransactions.delete_portfolio_transaction(portfolio_transaction)
+
+    # Recalculate positions for the affected asset
+    Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(asset_id, user_id)
 
     if get_req_header(conn, "hx-request") != [] do
       send_resp(conn, 200, "")
