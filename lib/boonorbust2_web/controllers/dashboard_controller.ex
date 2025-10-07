@@ -26,7 +26,7 @@ defmodule Boonorbust2Web.DashboardController do
               position.amount_on_hand
             end
 
-          total_value.amount
+          Decimal.to_float(total_value.amount)
         end,
         :desc
       )
