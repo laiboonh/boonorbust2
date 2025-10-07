@@ -8,6 +8,7 @@ defmodule Boonorbust2.PortfolioPositions do
 
   alias Boonorbust2.PortfolioPositions.PortfolioPosition
   alias Boonorbust2.PortfolioTransactions.PortfolioTransaction
+  alias Boonorbust2.RealizedProfits
   alias Boonorbust2.Repo
 
   @doc """
@@ -76,6 +77,11 @@ defmodule Boonorbust2.PortfolioPositions do
               new_amount_on_hand,
               transaction.id
             )
+
+          # Calculate and upsert realized profit for sell transactions
+          if transaction.action == "sell" && avg_price != nil do
+            upsert_realized_profit_for_transaction(transaction, avg_price)
+          end
 
           {result, {new_avg_price, new_qty_on_hand}}
         end
@@ -215,5 +221,26 @@ defmodule Boonorbust2.PortfolioPositions do
       preload: [:asset, :portfolio_transaction]
     )
     |> Repo.all()
+  end
+
+  # Calculates and upserts realized profit for a sell transaction.
+  # Realized profit = (sell_price - avg_cost_price) * quantity
+  @spec upsert_realized_profit_for_transaction(PortfolioTransaction.t(), Money.t()) ::
+          {:ok, RealizedProfits.RealizedProfit.t()} | {:error, Ecto.Changeset.t()}
+  defp upsert_realized_profit_for_transaction(transaction, avg_price) do
+    # Calculate profit per unit: sell_price - avg_cost_price
+    {:ok, profit_per_unit} = Money.sub(transaction.price, avg_price)
+
+    # Calculate total realized profit: profit_per_unit * quantity
+    {:ok, realized_profit_amount} = Money.mult(profit_per_unit, transaction.quantity)
+
+    attrs = %{
+      user_id: transaction.user_id,
+      asset_id: transaction.asset_id,
+      portfolio_transaction_id: transaction.id,
+      amount: realized_profit_amount
+    }
+
+    RealizedProfits.upsert_realized_profit(attrs)
   end
 end

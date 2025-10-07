@@ -5,6 +5,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
   alias Boonorbust2.Assets
   alias Boonorbust2.PortfolioPositions
   alias Boonorbust2.PortfolioTransactions
+  alias Boonorbust2.RealizedProfits
 
   setup do
     {:ok, user} =
@@ -144,6 +145,16 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert Money.equal?(pos2.average_price, Money.new(:SGD, "150.10"))
       # Amount on hand = 150.10 * 70 = 10507.00
       assert Money.equal?(pos2.amount_on_hand, Money.new(:SGD, "10507.00"))
+
+      # Verify realized profit for sell transaction
+      # Realized profit = (sell_price - avg_cost_price) * quantity
+      # = (160.00 - 150.10) * 30 = 9.90 * 30 = 297.00
+      realized_profit = RealizedProfits.get_realized_profit_by_transaction(txn2.id)
+      assert realized_profit != nil
+      assert realized_profit.user_id == user.id
+      assert realized_profit.asset_id == asset.id
+      assert realized_profit.portfolio_transaction_id == txn2.id
+      assert Money.equal?(realized_profit.amount, Money.new(:SGD, "297.00"))
     end
 
     test "handles multiple buys and sells maintaining correct average price", %{user: user} do
@@ -168,13 +179,14 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       })
 
       # Sell 60
-      create_transaction(user.id, asset.id, %{
-        action: "sell",
-        quantity: "60",
-        price_amount: "250.00",
-        commission_amount: "8.00",
-        transaction_date: ~U[2024-03-01 00:00:00Z]
-      })
+      txn3 =
+        create_transaction(user.id, asset.id, %{
+          action: "sell",
+          quantity: "60",
+          price_amount: "250.00",
+          commission_amount: "8.00",
+          transaction_date: ~U[2024-03-01 00:00:00Z]
+        })
 
       # Buy 40 @ 180
       create_transaction(user.id, asset.id, %{
@@ -210,6 +222,16 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       # (206.7667 * 90 + 7206) / 130 = 198.5769
       assert Decimal.equal?(pos4.quantity_on_hand, Decimal.new("130"))
       assert Money.equal?(pos4.average_price, Money.new(:SGD, "198.5769"))
+
+      # Verify realized profit for sell transaction
+      # Realized profit = (sell_price - avg_cost_price) * quantity
+      # = (250.00 - 206.7667) * 60 = 43.2333 * 60 = 2593.998 (rounded to 2594.0000)
+      realized_profit = RealizedProfits.get_realized_profit_by_transaction(txn3.id)
+      assert realized_profit != nil
+      assert realized_profit.user_id == user.id
+      assert realized_profit.asset_id == asset.id
+      assert realized_profit.portfolio_transaction_id == txn3.id
+      assert Money.equal?(realized_profit.amount, Money.new(:SGD, "2594.0000"))
     end
 
     test "handles sell reducing position to zero", %{user: user} do
@@ -223,13 +245,14 @@ defmodule Boonorbust2.PortfolioPositionsTest do
         transaction_date: ~U[2024-01-01 00:00:00Z]
       })
 
-      create_transaction(user.id, asset.id, %{
-        action: "sell",
-        quantity: "50",
-        price_amount: "600.00",
-        commission_amount: "20.00",
-        transaction_date: ~U[2024-06-01 00:00:00Z]
-      })
+      txn2 =
+        create_transaction(user.id, asset.id, %{
+          action: "sell",
+          quantity: "50",
+          price_amount: "600.00",
+          commission_amount: "20.00",
+          transaction_date: ~U[2024-06-01 00:00:00Z]
+        })
 
       assert {:ok, 2} =
                PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
@@ -243,6 +266,16 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert Decimal.equal?(pos2.quantity_on_hand, Decimal.new("0"))
       # Average price should still be maintained
       assert Money.equal?(pos2.average_price, Money.new(:SGD, "500.30"))
+
+      # Verify realized profit for sell transaction
+      # Realized profit = (sell_price - avg_cost_price) * quantity
+      # = (600.00 - 500.30) * 50 = 99.70 * 50 = 4985.00
+      realized_profit = RealizedProfits.get_realized_profit_by_transaction(txn2.id)
+      assert realized_profit != nil
+      assert realized_profit.user_id == user.id
+      assert realized_profit.asset_id == asset.id
+      assert realized_profit.portfolio_transaction_id == txn2.id
+      assert Money.equal?(realized_profit.amount, Money.new(:SGD, "4985.00"))
     end
 
     test "handles position going to zero then buying again (resets average price)", %{
@@ -260,13 +293,14 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       })
 
       # Sell all 100
-      create_transaction(user.id, asset.id, %{
-        action: "sell",
-        quantity: "100",
-        price_amount: "350.00",
-        commission_amount: "12.00",
-        transaction_date: ~U[2024-03-01 00:00:00Z]
-      })
+      txn2 =
+        create_transaction(user.id, asset.id, %{
+          action: "sell",
+          quantity: "100",
+          price_amount: "350.00",
+          commission_amount: "12.00",
+          transaction_date: ~U[2024-03-01 00:00:00Z]
+        })
 
       # Buy 80 again (should reset average price)
       create_transaction(user.id, asset.id, %{
@@ -295,6 +329,16 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       # Position 3: 80 shares @ fresh average 320.10
       assert Decimal.equal?(pos3.quantity_on_hand, Decimal.new("80"))
       assert Money.equal?(pos3.average_price, Money.new(:SGD, "320.10"))
+
+      # Verify realized profit for sell transaction
+      # Realized profit = (sell_price - avg_cost_price) * quantity
+      # = (350.00 - 300.10) * 100 = 49.90 * 100 = 4990.00
+      realized_profit = RealizedProfits.get_realized_profit_by_transaction(txn2.id)
+      assert realized_profit != nil
+      assert realized_profit.user_id == user.id
+      assert realized_profit.asset_id == asset.id
+      assert realized_profit.portfolio_transaction_id == txn2.id
+      assert Money.equal?(realized_profit.amount, Money.new(:SGD, "4990.00"))
     end
 
     test "raises exception when mixing different currencies for same asset", %{user: user} do
