@@ -38,6 +38,7 @@ defmodule Boonorbust2Web.Router do
 
     get "/dashboard", DashboardController, :index
     get "/dashboard/positions/:asset_id", DashboardController, :positions
+    get "/dashboard/realized_profits/:asset_id", DashboardController, :realized_profits
 
     resources "/assets", AssetController
 
