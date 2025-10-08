@@ -15,6 +15,8 @@ defmodule Boonorbust2.Application do
       {Phoenix.PubSub, name: Boonorbust2.PubSub},
       # Start the Finch HTTP client for sending emails
       {Finch, name: Boonorbust2.Finch},
+      # Start Cachex for caching exchange rates
+      {Cachex, name: :exchange_rates_cache},
       # Start a worker by calling: Boonorbust2.Worker.start_link(arg)
       # {Boonorbust2.Worker, arg},
       # Start to serve requests, typically the last entry

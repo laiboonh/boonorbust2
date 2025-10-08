@@ -25,6 +25,7 @@ config :ueberauth, Ueberauth.Strategy.Google.OAuth,
   client_secret: System.get_env("GOOGLE_CLIENT_SECRET")
 
 config :boonorbust2, :price_api_access_key, System.get_env("PRICE_API_ACCESS_KEY")
+config :boonorbust2, :exchange_rate_api_key, System.get_env("EXCHANGE_RATE_API_KEY")
 
 if config_env() == :prod do
   database_url =

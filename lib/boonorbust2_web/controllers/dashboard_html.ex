@@ -27,6 +27,12 @@ defmodule Boonorbust2Web.DashboardHTML do
                       Money.new(position.amount_on_hand.currency, 0)
                     )
                   }
+                  converted_realized_profit={
+                    Map.get(
+                      @converted_realized_profits_by_asset,
+                      position.asset_id
+                    )
+                  }
                 />
               <% end %>
             </div>
@@ -161,11 +167,27 @@ defmodule Boonorbust2Web.DashboardHTML do
       </div>
 
       <div class="mt-4 pt-4 border-t border-gray-200">
+        <% converted_cost = Map.get(@position, :converted_total_cost)
+
+        show_converted_cost =
+          converted_cost &&
+            Money.to_currency_code(converted_cost) != Money.to_currency_code(@position.amount_on_hand) %>
         <div class="flex justify-between items-center mb-2">
           <p class="text-sm text-gray-500">Total Cost</p>
-          <p class="text-xl font-bold text-gray-900">
-            {Money.to_string!(@position.amount_on_hand)}
-          </p>
+          <div class="text-right">
+            <%= if show_converted_cost do %>
+              <p class="text-xl font-bold text-gray-900">
+                {Money.to_string!(converted_cost)}
+              </p>
+              <p class="text-sm text-gray-400">
+                ({Money.to_string!(@position.amount_on_hand)})
+              </p>
+            <% else %>
+              <p class="text-xl font-bold text-gray-900">
+                {Money.to_string!(@position.amount_on_hand)}
+              </p>
+            <% end %>
+          </div>
         </div>
         <%= if @position.asset.price do %>
           <% total_value =
@@ -174,38 +196,100 @@ defmodule Boonorbust2Web.DashboardHTML do
               @position.amount_on_hand.currency
             )
 
-          {:ok, unrealized_profit} = Money.sub(total_value, @position.amount_on_hand) %>
+          {:ok, unrealized_profit} = Money.sub(total_value, @position.amount_on_hand)
+
+          # Get converted value and show both if currencies differ
+          converted_value = Map.get(@position, :converted_total_value)
+
+          show_converted =
+            converted_value &&
+              Money.to_currency_code(converted_value) != Money.to_currency_code(total_value) %>
           <div class="flex justify-between items-center">
             <p class="text-sm text-gray-500">Total Value</p>
-            <p class="text-2xl font-bold text-emerald-600">
-              {Money.to_string!(total_value)}
-            </p>
+            <div class="text-right">
+              <%= if show_converted do %>
+                <p class="text-2xl font-bold text-emerald-600">
+                  {Money.to_string!(converted_value)}
+                </p>
+                <p class="text-sm text-gray-400">
+                  ({Money.to_string!(total_value)})
+                </p>
+              <% else %>
+                <p class="text-2xl font-bold text-emerald-600">
+                  {Money.to_string!(total_value)}
+                </p>
+              <% end %>
+            </div>
           </div>
+          <% converted_unrealized_profit = Map.get(@position, :converted_unrealized_profit)
+
+          show_converted_unrealized =
+            converted_unrealized_profit &&
+              Money.to_currency_code(converted_unrealized_profit) !=
+                Money.to_currency_code(unrealized_profit) %>
           <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
             <p class="text-sm text-gray-500">Unrealized Profit</p>
-            <p class={[
-              "text-lg font-bold",
-              if(Decimal.positive?(unrealized_profit.amount),
-                do: "text-emerald-600",
-                else: "text-red-600"
-              )
-            ]}>
-              {Money.to_string!(unrealized_profit)}
-            </p>
+            <div class="text-right">
+              <%= if show_converted_unrealized do %>
+                <p class={[
+                  "text-lg font-bold",
+                  if(Decimal.positive?(converted_unrealized_profit.amount),
+                    do: "text-emerald-600",
+                    else: "text-red-600"
+                  )
+                ]}>
+                  {Money.to_string!(converted_unrealized_profit)}
+                </p>
+                <p class="text-sm text-gray-400">
+                  ({Money.to_string!(unrealized_profit)})
+                </p>
+              <% else %>
+                <p class={[
+                  "text-lg font-bold",
+                  if(Decimal.positive?(unrealized_profit.amount),
+                    do: "text-emerald-600",
+                    else: "text-red-600"
+                  )
+                ]}>
+                  {Money.to_string!(unrealized_profit)}
+                </p>
+              <% end %>
+            </div>
           </div>
         <% end %>
         <%= if !Decimal.equal?(@realized_profit.amount, 0) do %>
+          <% show_converted_realized =
+            @converted_realized_profit &&
+              Money.to_currency_code(@converted_realized_profit) !=
+                Money.to_currency_code(@realized_profit) %>
           <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
             <p class="text-sm text-gray-500">Realized Profit</p>
-            <p class={[
-              "text-lg font-bold",
-              if(Decimal.positive?(@realized_profit.amount),
-                do: "text-emerald-600",
-                else: "text-red-600"
-              )
-            ]}>
-              {Money.to_string!(@realized_profit)}
-            </p>
+            <div class="text-right">
+              <%= if show_converted_realized do %>
+                <p class={[
+                  "text-lg font-bold",
+                  if(Decimal.positive?(@converted_realized_profit.amount),
+                    do: "text-emerald-600",
+                    else: "text-red-600"
+                  )
+                ]}>
+                  {Money.to_string!(@converted_realized_profit)}
+                </p>
+                <p class="text-sm text-gray-400">
+                  ({Money.to_string!(@realized_profit)})
+                </p>
+              <% else %>
+                <p class={[
+                  "text-lg font-bold",
+                  if(Decimal.positive?(@realized_profit.amount),
+                    do: "text-emerald-600",
+                    else: "text-red-600"
+                  )
+                ]}>
+                  {Money.to_string!(@realized_profit)}
+                </p>
+              <% end %>
+            </div>
           </div>
         <% end %>
       </div>

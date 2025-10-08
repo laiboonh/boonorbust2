@@ -71,7 +71,8 @@ defmodule Boonorbust2.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:retry, "~> 0.18"},
       {:req, "~> 0.5"},
-      {:mox, "~> 1.0", only: :test}
+      {:mox, "~> 1.0", only: :test},
+      {:cachex, "~> 4.0"}
     ]
   end
 
