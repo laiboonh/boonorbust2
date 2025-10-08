@@ -71,11 +71,16 @@ defmodule Boonorbust2Web.DashboardController do
 
     all_tags = Tags.list_tags()
 
+    # Calculate tag value aggregations for pie chart
+    tag_chart_data = calculate_tag_chart_data(sorted_positions)
+
     render(conn, :index,
       positions: sorted_positions,
       realized_profits_by_asset: realized_profits_by_asset,
       converted_realized_profits_by_asset: converted_realized_profits_by_asset,
-      all_tags: all_tags
+      all_tags: all_tags,
+      tag_chart_data: tag_chart_data,
+      user_currency: user_currency
     )
   end
 
@@ -133,5 +138,40 @@ defmodule Boonorbust2Web.DashboardController do
           money
       end
     end
+  end
+
+  @spec calculate_tag_chart_data([map()]) :: [map()]
+  defp calculate_tag_chart_data(positions) do
+    positions
+    |> aggregate_values_by_tag()
+    |> sort_and_format_chart_data()
+  end
+
+  @spec aggregate_values_by_tag([map()]) :: %{String.t() => float()}
+  defp aggregate_values_by_tag(positions) do
+    Enum.reduce(positions, %{}, fn position, acc ->
+      value_amount = Decimal.to_float(position.converted_total_value.amount)
+      tags = Map.get(position, :tags, [])
+
+      add_value_to_tags(acc, tags, value_amount)
+    end)
+  end
+
+  @spec add_value_to_tags(map(), [map()], float()) :: map()
+  defp add_value_to_tags(acc, [], value_amount) do
+    Map.update(acc, "Untagged", value_amount, &(&1 + value_amount))
+  end
+
+  defp add_value_to_tags(acc, tags, value_amount) do
+    Enum.reduce(tags, acc, fn tag, inner_acc ->
+      Map.update(inner_acc, tag.name, value_amount, &(&1 + value_amount))
+    end)
+  end
+
+  @spec sort_and_format_chart_data(%{String.t() => float()}) :: [map()]
+  defp sort_and_format_chart_data(tag_values) do
+    tag_values
+    |> Enum.sort_by(fn {_tag, value} -> value end, :desc)
+    |> Enum.map(fn {tag, value} -> %{label: tag, value: value} end)
   end
 end

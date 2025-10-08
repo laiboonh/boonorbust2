@@ -8,6 +8,103 @@ defmodule Boonorbust2Web.DashboardHTML do
         <div class="max-w-lg mx-auto">
           <h1 class="text-2xl font-bold text-gray-900 mb-6">Portfolio Dashboard</h1>
 
+          <%= if !Enum.empty?(@tag_chart_data) do %>
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+              <h2 class="text-lg font-semibold text-gray-900 mb-4">
+                Portfolio by Tags
+              </h2>
+              <div class="relative" style="height: 300px;">
+                <canvas id="tagsPieChart"></canvas>
+              </div>
+              <script>
+                (function() {
+                  const ctx = document.getElementById('tagsPieChart');
+                  if (ctx && typeof Chart !== 'undefined') {
+                    const data = <%= raw Jason.encode!(@tag_chart_data) %>;
+                    const labels = data.map(item => item.label);
+                    const values = data.map(item => item.value);
+
+                    // Generate distinct colors for each tag
+                    const colors = [
+                      'rgb(59, 130, 246)',   // blue
+                      'rgb(16, 185, 129)',   // green
+                      'rgb(249, 115, 22)',   // orange
+                      'rgb(168, 85, 247)',   // purple
+                      'rgb(236, 72, 153)',   // pink
+                      'rgb(251, 191, 36)',   // amber
+                      'rgb(20, 184, 166)',   // teal
+                      'rgb(239, 68, 68)',    // red
+                      'rgb(156, 163, 175)',  // gray
+                      'rgb(99, 102, 241)',   // indigo
+                    ];
+
+                    new Chart(ctx, {
+                      type: 'pie',
+                      data: {
+                        labels: labels,
+                        datasets: [{
+                          data: values,
+                          backgroundColor: colors.slice(0, labels.length),
+                          borderWidth: 2,
+                          borderColor: '#fff'
+                        }]
+                      },
+                      options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            position: 'bottom',
+                            labels: {
+                              padding: 15,
+                              font: {
+                                size: 12
+                              },
+                              generateLabels: function(chart) {
+                                const data = chart.data;
+                                const currency = '<%= @user_currency %>';
+                                return data.labels.map((label, i) => {
+                                  const value = data.datasets[0].data[i];
+                                  const formattedValue = new Intl.NumberFormat('en-US', {
+                                    style: 'currency',
+                                    currency: currency,
+                                    minimumFractionDigits: 0,
+                                    maximumFractionDigits: 0
+                                  }).format(value);
+                                  return {
+                                    text: `${label}: ${formattedValue}`,
+                                    fillStyle: data.datasets[0].backgroundColor[i],
+                                    hidden: false,
+                                    index: i
+                                  };
+                                });
+                              }
+                            }
+                          },
+                          tooltip: {
+                            callbacks: {
+                              label: function(context) {
+                                const currency = '<%= @user_currency %>';
+                                const value = context.parsed;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                const formattedValue = new Intl.NumberFormat('en-US', {
+                                  style: 'currency',
+                                  currency: currency
+                                }).format(value);
+                                return `${context.label}: ${formattedValue} (${percentage}%)`;
+                              }
+                            }
+                          }
+                        }
+                      }
+                    });
+                  }
+                })();
+              </script>
+            </div>
+          <% end %>
+
           <%= if Enum.empty?(@positions) do %>
             <div class="bg-white rounded-lg shadow p-8 text-center">
               <p class="text-gray-500 mb-4">No portfolio positions yet.</p>
