@@ -47,6 +47,9 @@ defmodule Boonorbust2Web.Router do
 
     get "/user/edit", UserController, :edit
     put "/user", UserController, :update
+
+    post "/tags/:asset_id", TagController, :add_tag_to_asset
+    delete "/tags/:asset_id/:tag_id", TagController, :remove_tag_from_asset
   end
 
   # Other scopes may use custom stacks.

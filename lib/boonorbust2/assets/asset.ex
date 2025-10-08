@@ -7,6 +7,7 @@ defmodule Boonorbust2.Assets.Asset do
   import Ecto.Changeset
 
   alias Boonorbust2.Currency
+  alias Boonorbust2.Tags.AssetTag
 
   @type t :: %__MODULE__{
           id: integer() | nil,
@@ -23,6 +24,8 @@ defmodule Boonorbust2.Assets.Asset do
     field :price_url, :string
     field :price, :decimal
     field :currency, :string
+
+    has_many :asset_tags, AssetTag
 
     timestamps(type: :utc_datetime)
   end

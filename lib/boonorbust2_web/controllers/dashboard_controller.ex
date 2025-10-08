@@ -5,6 +5,7 @@ defmodule Boonorbust2Web.DashboardController do
   alias Boonorbust2.ExchangeRates
   alias Boonorbust2.PortfolioPositions
   alias Boonorbust2.RealizedProfits
+  alias Boonorbust2.Tags
 
   require Logger
 
@@ -48,11 +49,15 @@ defmodule Boonorbust2Web.DashboardController do
             nil
           end
 
+        # Load tags for this asset
+        tags = Tags.list_tags_for_asset(position.asset_id, user_id)
+
         # Add converted values to position for display
         position
         |> Map.put(:converted_total_value, converted_total_value)
         |> Map.put(:converted_total_cost, converted_total_cost)
         |> Map.put(:converted_unrealized_profit, converted_unrealized_profit)
+        |> Map.put(:tags, tags)
       end)
 
     sorted_positions =
@@ -64,10 +69,13 @@ defmodule Boonorbust2Web.DashboardController do
         :desc
       )
 
+    all_tags = Tags.list_tags()
+
     render(conn, :index,
       positions: sorted_positions,
       realized_profits_by_asset: realized_profits_by_asset,
-      converted_realized_profits_by_asset: converted_realized_profits_by_asset
+      converted_realized_profits_by_asset: converted_realized_profits_by_asset,
+      all_tags: all_tags
     )
   end
 
