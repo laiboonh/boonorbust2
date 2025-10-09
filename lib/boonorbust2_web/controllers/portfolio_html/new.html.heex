@@ -1,7 +1,7 @@
 <.tab_content class="min-h-screen bg-gray-50">
   <div class="px-4 py-8">
     <div class="max-w-lg mx-auto">
-      <h1 class="text-2xl font-bold text-gray-900 mb-6">New Portfolio</h1>
+      <h1 class="text-2xl font-bold text-gray-900 mb-6">Add New Portfolio</h1>
 
       <div class="bg-white rounded-lg shadow p-6">
         <.form :let={f} for={@changeset} action={~p"/portfolios"} class="space-y-4">
@@ -36,7 +36,7 @@
 
           <div class="flex gap-2">
             <.button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700">
-              Create Portfolio
+              Add Portfolio
             </.button>
             <.link
               href={~p"/portfolios"}

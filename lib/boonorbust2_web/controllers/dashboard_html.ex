@@ -23,15 +23,6 @@ defmodule Boonorbust2Web.DashboardHTML do
                       <%= if portfolio.description do %>
                         <p class="text-sm text-gray-600 mt-1">{portfolio.description}</p>
                       <% end %>
-                      <%= if !Enum.empty?(portfolio.tags) do %>
-                        <div class="flex flex-wrap gap-2 mt-2">
-                          <%= for tag <- portfolio.tags do %>
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                              {tag.name}
-                            </span>
-                          <% end %>
-                        </div>
-                      <% end %>
                     </div>
                     <div class="relative" style="height: 300px;">
                       <canvas id={"portfolio-chart-#{portfolio.id}"}></canvas>
@@ -79,18 +70,24 @@ defmodule Boonorbust2Web.DashboardHTML do
                               maintainAspectRatio: false,
                               plugins: {
                                 legend: {
-                                  position: 'bottom',
-                                  labels: {
-                                    padding: 10,
-                                    font: {
-                                      size: 11
-                                    }
-                                  }
+                                  display: false
                                 },
                                 tooltip: {
+                                  displayColors: false,
                                   callbacks: {
+                                    title: function() {
+                                      return '';
+                                    },
                                     label: function(context) {
-                                      return context.label;
+                                      const value = context.parsed;
+                                      const currency = '<%= @user_currency %>';
+                                      const formatted = new Intl.NumberFormat('en-US', {
+                                        style: 'currency',
+                                        currency: currency,
+                                        minimumFractionDigits: 2,
+                                        maximumFractionDigits: 2
+                                      }).format(value);
+                                      return formatted;
                                     }
                                   }
                                 },
@@ -98,12 +95,13 @@ defmodule Boonorbust2Web.DashboardHTML do
                                   color: '#fff',
                                   font: {
                                     weight: 'bold',
-                                    size: 14
+                                    size: 12
                                   },
                                   formatter: function(value, context) {
                                     const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                     const percentage = ((value / total) * 100).toFixed(1);
-                                    return percentage + '%';
+                                    const label = context.chart.data.labels[context.dataIndex];
+                                    return label + '\n' + percentage + '%';
                                   }
                                 }
                               }
