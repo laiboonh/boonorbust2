@@ -46,8 +46,8 @@ defmodule Boonorbust2Web.DashboardHTML do
 
                           // Different color schemes for each portfolio
                           const colorSchemes = [
-                            // Vibrant Blues & Purples
-                            ['rgb(59, 130, 246)', 'rgb(147, 51, 234)', 'rgb(99, 102, 241)', 'rgb(79, 70, 229)', 'rgb(139, 92, 246)', 'rgb(168, 85, 247)', 'rgb(192, 132, 252)', 'rgb(124, 58, 237)', 'rgb(109, 40, 217)', 'rgb(67, 56, 202)'],
+                            // Distinct Hues (high contrast)
+                            ['rgb(59, 130, 246)', 'rgb(239, 68, 68)', 'rgb(16, 185, 129)', 'rgb(249, 115, 22)', 'rgb(147, 51, 234)', 'rgb(6, 182, 212)', 'rgb(236, 72, 153)', 'rgb(251, 191, 36)', 'rgb(99, 102, 241)', 'rgb(20, 184, 166)'],
                             // Warm Sunset
                             ['rgb(239, 68, 68)', 'rgb(249, 115, 22)', 'rgb(251, 191, 36)', 'rgb(245, 158, 11)', 'rgb(252, 211, 77)', 'rgb(234, 88, 12)', 'rgb(220, 38, 38)', 'rgb(248, 113, 113)', 'rgb(251, 146, 60)', 'rgb(252, 165, 165)'],
                             // Ocean Greens
