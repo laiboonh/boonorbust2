@@ -6,6 +6,7 @@ defmodule Boonorbust2.Tags.Tag do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Boonorbust2.Accounts.User
   alias Boonorbust2.Portfolios.PortfolioTag
   alias Boonorbust2.Tags.AssetTag
 
@@ -13,6 +14,8 @@ defmodule Boonorbust2.Tags.Tag do
           id: integer() | nil,
           name: String.t() | nil,
           color: String.t() | nil,
+          user_id: Ecto.UUID.t() | nil,
+          user: User.t() | Ecto.Association.NotLoaded.t() | nil,
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -20,6 +23,8 @@ defmodule Boonorbust2.Tags.Tag do
   schema "tags" do
     field :name, :string
     field :color, :string
+
+    belongs_to :user, User, type: :binary_id
 
     has_many :asset_tags, AssetTag
     has_many :portfolio_tags, PortfolioTag
@@ -30,8 +35,9 @@ defmodule Boonorbust2.Tags.Tag do
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(tag, attrs) do
     tag
-    |> cast(attrs, [:name, :color])
-    |> validate_required([:name])
-    |> unique_constraint(:name)
+    |> cast(attrs, [:name, :color, :user_id])
+    |> validate_required([:name, :user_id])
+    |> foreign_key_constraint(:user_id)
+    |> unique_constraint([:user_id, :name])
   end
 end

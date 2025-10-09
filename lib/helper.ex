@@ -8,7 +8,7 @@ defmodule Helper do
 
   @spec do_retry(function(), rescue_only()) :: any()
   def do_retry(func, rescue_only) do
-    retry with: exponential_backoff() |> randomize |> expiry(10_000),
+    retry with: exponential_backoff() |> randomize |> expiry(15_000),
           rescue_only: rescue_only do
       func.()
     after

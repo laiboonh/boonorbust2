@@ -70,7 +70,7 @@ defmodule Boonorbust2Web.DashboardController do
         :desc
       )
 
-    all_tags = Tags.list_tags()
+    all_tags = Tags.list_tags(user_id)
 
     # Calculate tag value aggregations for pie chart
     tag_chart_data = calculate_tag_chart_data(sorted_positions)

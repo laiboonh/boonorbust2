@@ -8,7 +8,7 @@ defmodule Boonorbust2.Accounts.User do
 
   alias Boonorbust2.Currency
   alias Boonorbust2.Portfolios.Portfolio
-  alias Boonorbust2.Tags.AssetTag
+  alias Boonorbust2.Tags.Tag
 
   @type t :: %__MODULE__{
           id: Ecto.UUID.t() | nil,
@@ -29,7 +29,7 @@ defmodule Boonorbust2.Accounts.User do
     field :email, :string
     field :currency, :string, default: "SGD"
 
-    has_many :asset_tags, AssetTag
+    has_many :tags, Tag
     has_many :portfolios, Portfolio
 
     timestamps(type: :utc_datetime)

@@ -8,7 +8,7 @@ defmodule Boonorbust2Web.PortfolioController do
   def index(conn, _params) do
     %{id: user_id} = conn.assigns.current_user
     portfolios = Portfolios.list_portfolios(user_id)
-    all_tags = Tags.list_tags()
+    all_tags = Tags.list_tags(user_id)
 
     # Load tags for each portfolio
     portfolios_with_tags =
@@ -22,8 +22,9 @@ defmodule Boonorbust2Web.PortfolioController do
 
   @spec new(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def new(conn, _params) do
+    %{id: user_id} = conn.assigns.current_user
     changeset = Portfolios.change_portfolio(%Boonorbust2.Portfolios.Portfolio{})
-    all_tags = Tags.list_tags()
+    all_tags = Tags.list_tags(user_id)
     render(conn, :new, changeset: changeset, all_tags: all_tags)
   end
 
@@ -45,16 +46,17 @@ defmodule Boonorbust2Web.PortfolioController do
         redirect(conn, to: ~p"/portfolios")
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        all_tags = Tags.list_tags()
+        all_tags = Tags.list_tags(user_id)
         render(conn, :new, changeset: changeset, all_tags: all_tags)
     end
   end
 
   @spec edit(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def edit(conn, %{"id" => id}) do
+    %{id: user_id} = conn.assigns.current_user
     portfolio = Portfolios.get_portfolio!(id)
     changeset = Portfolios.change_portfolio(portfolio)
-    all_tags = Tags.list_tags()
+    all_tags = Tags.list_tags(user_id)
     selected_tags = Portfolios.list_tags_for_portfolio(portfolio.id)
     selected_tag_ids = Enum.map(selected_tags, & &1.id)
 
@@ -68,6 +70,7 @@ defmodule Boonorbust2Web.PortfolioController do
 
   @spec update(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def update(conn, %{"id" => id, "portfolio" => portfolio_params} = params) do
+    %{id: user_id} = conn.assigns.current_user
     portfolio = Portfolios.get_portfolio!(id)
 
     case Portfolios.update_portfolio(portfolio, portfolio_params) do
@@ -90,7 +93,7 @@ defmodule Boonorbust2Web.PortfolioController do
         redirect(conn, to: ~p"/portfolios")
 
       {:error, %Ecto.Changeset{} = changeset} ->
-        all_tags = Tags.list_tags()
+        all_tags = Tags.list_tags(user_id)
         selected_tags = Portfolios.list_tags_for_portfolio(portfolio.id)
         selected_tag_ids = Enum.map(selected_tags, & &1.id)
 

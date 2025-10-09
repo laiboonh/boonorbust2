@@ -10,9 +10,9 @@ defmodule Boonorbust2Web.TagController do
     %{id: user_id} = conn.assigns.current_user
     asset_id = String.to_integer(asset_id)
 
-    case Tags.get_or_create_tag(tag_name) do
+    case Tags.get_or_create_tag(tag_name, user_id) do
       {:ok, tag} ->
-        case Tags.add_tag_to_asset(asset_id, tag.id, user_id) do
+        case Tags.add_tag_to_asset(asset_id, tag.id) do
           {:ok, _asset_tag} ->
             tags = Tags.list_tags_for_asset(asset_id, user_id)
 
@@ -45,7 +45,7 @@ defmodule Boonorbust2Web.TagController do
     asset_id = String.to_integer(asset_id)
     tag_id = String.to_integer(tag_id)
 
-    case Tags.remove_tag_from_asset(asset_id, tag_id, user_id) do
+    case Tags.remove_tag_from_asset(asset_id, tag_id) do
       {:ok, _asset_tag} ->
         tags = Tags.list_tags_for_asset(asset_id, user_id)
 
