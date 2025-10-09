@@ -13,7 +13,6 @@ defmodule Boonorbust2.Tags.Tag do
   @type t :: %__MODULE__{
           id: integer() | nil,
           name: String.t() | nil,
-          color: String.t() | nil,
           user_id: Ecto.UUID.t() | nil,
           user: User.t() | Ecto.Association.NotLoaded.t() | nil,
           inserted_at: NaiveDateTime.t() | nil,
@@ -22,7 +21,6 @@ defmodule Boonorbust2.Tags.Tag do
 
   schema "tags" do
     field :name, :string
-    field :color, :string
 
     belongs_to :user, User, type: :binary_id
 
@@ -35,7 +33,7 @@ defmodule Boonorbust2.Tags.Tag do
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(tag, attrs) do
     tag
-    |> cast(attrs, [:name, :color, :user_id])
+    |> cast(attrs, [:name, :user_id])
     |> validate_required([:name, :user_id])
     |> foreign_key_constraint(:user_id)
     |> unique_constraint([:user_id, :name])

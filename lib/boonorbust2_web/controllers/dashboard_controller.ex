@@ -205,8 +205,7 @@ defmodule Boonorbust2Web.DashboardController do
 
     %{
       label: tag.name,
-      value: total_value,
-      color: tag.color
+      value: total_value
     }
   end
 
