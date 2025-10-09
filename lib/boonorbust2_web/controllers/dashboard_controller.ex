@@ -81,25 +81,7 @@ defmodule Boonorbust2Web.DashboardController do
     portfolios_with_chart_data =
       Enum.map(portfolios, fn portfolio ->
         tags = Portfolios.list_tags_for_portfolio(portfolio.id)
-        tag_ids = Enum.map(tags, & &1.id)
-
-        # Filter positions that have any of the portfolio's tags
-        portfolio_positions =
-          Enum.filter(sorted_positions, fn position ->
-            position_tag_ids = Enum.map(Map.get(position, :tags, []), & &1.id)
-            Enum.any?(tag_ids, &(&1 in position_tag_ids))
-          end)
-
-        # Calculate chart data for this portfolio (breakdown by asset)
-        chart_data =
-          portfolio_positions
-          |> Enum.map(fn position ->
-            %{
-              label: position.asset.name,
-              value: Decimal.to_float(position.converted_total_value.amount)
-            }
-          end)
-          |> Enum.sort_by(& &1.value, :desc)
+        chart_data = calculate_portfolio_chart_data(tags, sorted_positions)
 
         portfolio
         |> Map.put(:tags, tags)
@@ -206,5 +188,42 @@ defmodule Boonorbust2Web.DashboardController do
     tag_values
     |> Enum.sort_by(fn {_tag, value} -> value end, :desc)
     |> Enum.map(fn {tag, value} -> %{label: tag, value: value} end)
+  end
+
+  @spec calculate_portfolio_chart_data([map()], [map()]) :: [map()]
+  defp calculate_portfolio_chart_data(tags, sorted_positions) do
+    tags
+    |> Enum.map(&build_tag_chart_item(&1, sorted_positions))
+    |> Enum.filter(&(&1.value > 0))
+    |> Enum.sort_by(& &1.value, :desc)
+  end
+
+  @spec build_tag_chart_item(map(), [map()]) :: map()
+  defp build_tag_chart_item(tag, sorted_positions) do
+    positions_with_tag = filter_positions_by_tag(sorted_positions, tag.id)
+    total_value = sum_position_values(positions_with_tag)
+
+    %{
+      label: tag.name,
+      value: total_value,
+      color: tag.color
+    }
+  end
+
+  @spec filter_positions_by_tag([map()], integer()) :: [map()]
+  defp filter_positions_by_tag(positions, tag_id) do
+    Enum.filter(positions, fn position ->
+      position_tag_ids = Enum.map(Map.get(position, :tags, []), & &1.id)
+      tag_id in position_tag_ids
+    end)
+  end
+
+  @spec sum_position_values([map()]) :: float()
+  defp sum_position_values(positions) do
+    positions
+    |> Enum.reduce(Decimal.new(0), fn position, acc ->
+      Decimal.add(acc, position.converted_total_value.amount)
+    end)
+    |> Decimal.to_float()
   end
 end
