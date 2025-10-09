@@ -1,7 +1,6 @@
 defmodule Boonorbust2Web.DashboardController do
   use Boonorbust2Web, :controller
 
-  alias Boonorbust2.Assets
   alias Boonorbust2.ExchangeRates
   alias Boonorbust2.PortfolioPositions
   alias Boonorbust2.Portfolios
@@ -96,35 +95,6 @@ defmodule Boonorbust2Web.DashboardController do
       tag_chart_data: tag_chart_data,
       portfolios: portfolios_with_chart_data,
       user_currency: user_currency
-    )
-  end
-
-  @spec positions(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  def positions(conn, %{"asset_id" => asset_id}) do
-    %{id: user_id} = conn.assigns.current_user
-    asset = Assets.get_asset!(asset_id)
-
-    positions = PortfolioPositions.get_positions_for_asset(asset.id, user_id)
-
-    conn
-    |> put_layout(false)
-    |> render(:positions_modal_content, asset: asset, positions: positions)
-  end
-
-  @spec realized_profits(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  def realized_profits(conn, %{"asset_id" => asset_id}) do
-    %{id: user_id} = conn.assigns.current_user
-    asset = Assets.get_asset!(asset_id)
-
-    realized_profits = RealizedProfits.list_realized_profits_by_asset(asset.id, user_id)
-    total = RealizedProfits.calculate_total(realized_profits)
-
-    conn
-    |> put_layout(false)
-    |> render(:realized_profits_modal_content,
-      asset: asset,
-      realized_profits: realized_profits,
-      total: total
     )
   end
 
