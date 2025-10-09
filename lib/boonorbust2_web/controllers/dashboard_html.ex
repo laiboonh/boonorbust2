@@ -6,109 +6,116 @@ defmodule Boonorbust2Web.DashboardHTML do
     <.tab_content class="min-h-screen bg-gray-50">
       <div class="px-4 py-8">
         <div class="max-w-lg mx-auto">
-          <h1 class="text-2xl font-bold text-gray-900 mb-6">Portfolio Dashboard</h1>
-
-          <%= if !Enum.empty?(@tag_chart_data) do %>
-            <div class="bg-white rounded-lg shadow p-6">
-              <h2 class="text-lg font-semibold text-gray-900 mb-4">
-                Portfolio by Tags
-              </h2>
-              <div class="relative" style="height: 300px;">
-                <canvas id="tagsPieChart"></canvas>
-              </div>
-              <script>
-                (function() {
-                  const ctx = document.getElementById('tagsPieChart');
-                  if (ctx && typeof Chart !== 'undefined') {
-                    const data = <%= raw Jason.encode!(@tag_chart_data) %>;
-                    const labels = data.map(item => item.label);
-                    const values = data.map(item => item.value);
-
-                    // Generate distinct colors for each tag
-                    const colors = [
-                      'rgb(59, 130, 246)',   // blue
-                      'rgb(16, 185, 129)',   // green
-                      'rgb(249, 115, 22)',   // orange
-                      'rgb(168, 85, 247)',   // purple
-                      'rgb(236, 72, 153)',   // pink
-                      'rgb(251, 191, 36)',   // amber
-                      'rgb(20, 184, 166)',   // teal
-                      'rgb(239, 68, 68)',    // red
-                      'rgb(156, 163, 175)',  // gray
-                      'rgb(99, 102, 241)',   // indigo
-                    ];
-
-                    new Chart(ctx, {
-                      type: 'pie',
-                      data: {
-                        labels: labels,
-                        datasets: [{
-                          data: values,
-                          backgroundColor: colors.slice(0, labels.length),
-                          borderWidth: 2,
-                          borderColor: '#fff'
-                        }]
-                      },
-                      options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            position: 'bottom',
-                            labels: {
-                              padding: 15,
-                              font: {
-                                size: 12
-                              },
-                              generateLabels: function(chart) {
-                                const data = chart.data;
-                                const currency = '<%= @user_currency %>';
-                                return data.labels.map((label, i) => {
-                                  const value = data.datasets[0].data[i];
-                                  const formattedValue = new Intl.NumberFormat('en-US', {
-                                    style: 'currency',
-                                    currency: currency,
-                                    minimumFractionDigits: 0,
-                                    maximumFractionDigits: 0
-                                  }).format(value);
-                                  return {
-                                    text: `${label}: ${formattedValue}`,
-                                    fillStyle: data.datasets[0].backgroundColor[i],
-                                    hidden: false,
-                                    index: i
-                                  };
-                                });
-                              }
-                            }
-                          },
-                          tooltip: {
-                            callbacks: {
-                              label: function(context) {
-                                const currency = '<%= @user_currency %>';
-                                const value = context.parsed;
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = ((value / total) * 100).toFixed(1);
-                                const formattedValue = new Intl.NumberFormat('en-US', {
-                                  style: 'currency',
-                                  currency: currency
-                                }).format(value);
-                                return `${context.label}: ${formattedValue} (${percentage}%)`;
-                              }
-                            }
-                          }
-                        }
-                      }
-                    });
-                  }
-                })();
-              </script>
+          <%= if Enum.empty?(@portfolios) do %>
+            <div class="bg-white rounded-lg shadow p-8 text-center">
+              <p class="text-gray-500 mb-4">No portfolios yet.</p>
+              <p class="text-sm text-gray-400">
+                Create a portfolio and tag your assets to see your portfolio breakdown here.
+              </p>
             </div>
           <% else %>
-            <div class="bg-white rounded-lg shadow p-8 text-center">
-              <p class="text-gray-500 mb-4">No portfolio data yet.</p>
-              <p class="text-sm text-gray-400">
-                Add transactions and tag your assets to see your portfolio breakdown here.
-              </p>
+            <div class="space-y-6">
+              <%= for {portfolio, index} <- Enum.with_index(@portfolios) do %>
+                <%= if !Enum.empty?(portfolio.chart_data) do %>
+                  <div class="bg-white rounded-lg shadow p-6">
+                    <div class="mb-4">
+                      <h2 class="text-lg font-semibold text-gray-900">{portfolio.name}</h2>
+                      <%= if portfolio.description do %>
+                        <p class="text-sm text-gray-600 mt-1">{portfolio.description}</p>
+                      <% end %>
+                      <%= if !Enum.empty?(portfolio.tags) do %>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                          <%= for tag <- portfolio.tags do %>
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                              {tag.name}
+                            </span>
+                          <% end %>
+                        </div>
+                      <% end %>
+                    </div>
+                    <div class="relative" style="height: 300px;">
+                      <canvas id={"portfolio-chart-#{portfolio.id}"}></canvas>
+                    </div>
+                    <script>
+                      (function() {
+                        const ctx = document.getElementById('portfolio-chart-<%= portfolio.id %>');
+                        if (ctx && typeof Chart !== 'undefined') {
+                          const data = <%= raw Jason.encode!(portfolio.chart_data) %>;
+                          const labels = data.map(item => item.label);
+                          const values = data.map(item => item.value);
+
+                          // Different color schemes for each portfolio
+                          const colorSchemes = [
+                            // Vibrant Blues & Purples
+                            ['rgb(59, 130, 246)', 'rgb(147, 51, 234)', 'rgb(99, 102, 241)', 'rgb(79, 70, 229)', 'rgb(139, 92, 246)', 'rgb(168, 85, 247)', 'rgb(192, 132, 252)', 'rgb(124, 58, 237)', 'rgb(109, 40, 217)', 'rgb(67, 56, 202)'],
+                            // Warm Sunset
+                            ['rgb(239, 68, 68)', 'rgb(249, 115, 22)', 'rgb(251, 191, 36)', 'rgb(245, 158, 11)', 'rgb(252, 211, 77)', 'rgb(234, 88, 12)', 'rgb(220, 38, 38)', 'rgb(248, 113, 113)', 'rgb(251, 146, 60)', 'rgb(252, 165, 165)'],
+                            // Ocean Greens
+                            ['rgb(16, 185, 129)', 'rgb(5, 150, 105)', 'rgb(6, 182, 212)', 'rgb(20, 184, 166)', 'rgb(14, 165, 233)', 'rgb(34, 211, 238)', 'rgb(52, 211, 153)', 'rgb(45, 212, 191)', 'rgb(125, 211, 252)', 'rgb(103, 232, 249)'],
+                            // Rose & Pink
+                            ['rgb(236, 72, 153)', 'rgb(219, 39, 119)', 'rgb(244, 114, 182)', 'rgb(251, 113, 133)', 'rgb(190, 24, 93)', 'rgb(249, 168, 212)', 'rgb(251, 207, 232)', 'rgb(225, 29, 72)', 'rgb(190, 18, 60)', 'rgb(244, 63, 94)'],
+                            // Earth Tones
+                            ['rgb(217, 119, 6)', 'rgb(146, 64, 14)', 'rgb(180, 83, 9)', 'rgb(120, 53, 15)', 'rgb(202, 138, 4)', 'rgb(161, 98, 7)', 'rgb(245, 158, 11)', 'rgb(251, 191, 36)', 'rgb(252, 211, 77)', 'rgb(253, 224, 71)'],
+                            // Cool Grays & Blues
+                            ['rgb(71, 85, 105)', 'rgb(100, 116, 139)', 'rgb(148, 163, 184)', 'rgb(51, 65, 85)', 'rgb(30, 41, 59)', 'rgb(15, 23, 42)', 'rgb(203, 213, 225)', 'rgb(226, 232, 240)', 'rgb(241, 245, 249)', 'rgb(248, 250, 252)']
+                          ];
+
+                          const portfolioIndex = <%= index %>;
+                          const colors = colorSchemes[portfolioIndex % colorSchemes.length];
+
+                          new Chart(ctx, {
+                            type: 'pie',
+                            data: {
+                              labels: labels,
+                              datasets: [{
+                                data: values,
+                                backgroundColor: colors.slice(0, labels.length),
+                                borderWidth: 2,
+                                borderColor: '#fff'
+                              }]
+                            },
+                            options: {
+                              responsive: true,
+                              maintainAspectRatio: false,
+                              plugins: {
+                                legend: {
+                                  position: 'bottom',
+                                  labels: {
+                                    padding: 10,
+                                    font: {
+                                      size: 11
+                                    }
+                                  }
+                                },
+                                tooltip: {
+                                  callbacks: {
+                                    label: function(context) {
+                                      return context.label;
+                                    }
+                                  }
+                                },
+                                datalabels: {
+                                  color: '#fff',
+                                  font: {
+                                    weight: 'bold',
+                                    size: 14
+                                  },
+                                  formatter: function(value, context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((value / total) * 100).toFixed(1);
+                                    return percentage + '%';
+                                  }
+                                }
+                              }
+                            },
+                            plugins: [ChartDataLabels]
+                          });
+                        }
+                      })();
+                    </script>
+                  </div>
+                <% end %>
+              <% end %>
             </div>
           <% end %>
         </div>

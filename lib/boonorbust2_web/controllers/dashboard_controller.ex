@@ -4,6 +4,7 @@ defmodule Boonorbust2Web.DashboardController do
   alias Boonorbust2.Assets
   alias Boonorbust2.ExchangeRates
   alias Boonorbust2.PortfolioPositions
+  alias Boonorbust2.Portfolios
   alias Boonorbust2.RealizedProfits
   alias Boonorbust2.Tags
 
@@ -74,12 +75,44 @@ defmodule Boonorbust2Web.DashboardController do
     # Calculate tag value aggregations for pie chart
     tag_chart_data = calculate_tag_chart_data(sorted_positions)
 
+    # Load portfolios and calculate chart data for each
+    portfolios = Portfolios.list_portfolios(user_id)
+
+    portfolios_with_chart_data =
+      Enum.map(portfolios, fn portfolio ->
+        tags = Portfolios.list_tags_for_portfolio(portfolio.id)
+        tag_ids = Enum.map(tags, & &1.id)
+
+        # Filter positions that have any of the portfolio's tags
+        portfolio_positions =
+          Enum.filter(sorted_positions, fn position ->
+            position_tag_ids = Enum.map(Map.get(position, :tags, []), & &1.id)
+            Enum.any?(tag_ids, &(&1 in position_tag_ids))
+          end)
+
+        # Calculate chart data for this portfolio (breakdown by asset)
+        chart_data =
+          portfolio_positions
+          |> Enum.map(fn position ->
+            %{
+              label: position.asset.name,
+              value: Decimal.to_float(position.converted_total_value.amount)
+            }
+          end)
+          |> Enum.sort_by(& &1.value, :desc)
+
+        portfolio
+        |> Map.put(:tags, tags)
+        |> Map.put(:chart_data, chart_data)
+      end)
+
     render(conn, :index,
       positions: sorted_positions,
       realized_profits_by_asset: realized_profits_by_asset,
       converted_realized_profits_by_asset: converted_realized_profits_by_asset,
       all_tags: all_tags,
       tag_chart_data: tag_chart_data,
+      portfolios: portfolios_with_chart_data,
       user_currency: user_currency
     )
   end
