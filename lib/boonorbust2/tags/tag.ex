@@ -6,6 +6,7 @@ defmodule Boonorbust2.Tags.Tag do
   use Ecto.Schema
   import Ecto.Changeset
 
+  alias Boonorbust2.Portfolios.PortfolioTag
   alias Boonorbust2.Tags.AssetTag
 
   @type t :: %__MODULE__{
@@ -21,6 +22,7 @@ defmodule Boonorbust2.Tags.Tag do
     field :color, :string
 
     has_many :asset_tags, AssetTag
+    has_many :portfolio_tags, PortfolioTag
 
     timestamps(type: :utc_datetime)
   end

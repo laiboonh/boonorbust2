@@ -40,6 +40,10 @@ defmodule Boonorbust2Web.Router do
     get "/dashboard/positions/:asset_id", DashboardController, :positions
     get "/dashboard/realized_profits/:asset_id", DashboardController, :realized_profits
 
+    get "/positions", PositionsController, :index
+    get "/positions/history/:asset_id", PositionsController, :positions
+    get "/positions/realized_profits/:asset_id", PositionsController, :realized_profits
+
     resources "/assets", AssetController
 
     resources "/portfolio_transactions", PortfolioTransactionController
@@ -47,6 +51,8 @@ defmodule Boonorbust2Web.Router do
 
     get "/user/edit", UserController, :edit
     put "/user", UserController, :update
+
+    resources "/portfolios", PortfolioController
 
     post "/tags/:asset_id", TagController, :add_tag_to_asset
     delete "/tags/:asset_id/:tag_id", TagController, :remove_tag_from_asset

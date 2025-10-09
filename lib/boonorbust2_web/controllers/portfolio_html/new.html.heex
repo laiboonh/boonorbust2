@@ -1,0 +1,52 @@
+<.tab_content class="min-h-screen bg-gray-50">
+  <div class="px-4 py-8">
+    <div class="max-w-lg mx-auto">
+      <h1 class="text-2xl font-bold text-gray-900 mb-6">New Portfolio</h1>
+
+      <div class="bg-white rounded-lg shadow p-6">
+        <.form :let={f} for={@changeset} action={~p"/portfolios"} class="space-y-4">
+          <div>
+            <.label for="portfolio_name">Name</.label>
+            <.input type="text" field={f[:name]} required placeholder="My Portfolio" />
+          </div>
+
+          <div>
+            <.label for="portfolio_description">Description (optional)</.label>
+            <.input
+              type="textarea"
+              field={f[:description]}
+              placeholder="Portfolio description..."
+            />
+          </div>
+
+          <div>
+            <.label for="portfolio_tags">Tags (optional)</.label>
+            <select
+              name="tag_ids[]"
+              multiple
+              class="w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+              size="5"
+            >
+              <%= for tag <- @all_tags do %>
+                <option value={tag.id}>{tag.name}</option>
+              <% end %>
+            </select>
+            <p class="mt-1 text-sm text-gray-500">Hold Ctrl/Cmd to select multiple tags</p>
+          </div>
+
+          <div class="flex gap-2">
+            <.button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700">
+              Create Portfolio
+            </.button>
+            <.link
+              href={~p"/portfolios"}
+              class="flex-1 text-center rounded-lg bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-300"
+            >
+              Cancel
+            </.link>
+          </div>
+        </.form>
+      </div>
+    </div>
+  </div>
+</.tab_content>

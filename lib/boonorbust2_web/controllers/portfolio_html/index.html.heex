@@ -1,0 +1,98 @@
+<.tab_content class="min-h-screen bg-gray-50">
+  <div class="px-4 py-8">
+    <div class="max-w-lg mx-auto">
+      <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">Portfolios</h1>
+        <.link
+          href={~p"/portfolios/new"}
+          class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+        >
+          New Portfolio
+        </.link>
+      </div>
+
+      <%= if Enum.empty?(@portfolios) do %>
+        <div class="bg-white rounded-lg shadow p-8 text-center">
+          <p class="text-gray-500 mb-4">No portfolios yet.</p>
+          <p class="text-sm text-gray-400">
+            Create a portfolio to organize your assets by tags.
+          </p>
+        </div>
+      <% else %>
+        <div class="space-y-4">
+          <%= for portfolio <- @portfolios do %>
+            <div class="bg-white rounded-lg shadow p-6">
+              <div class="flex justify-between items-start mb-4">
+                <div class="flex-1">
+                  <h3 class="text-lg font-semibold text-gray-900">{portfolio.name}</h3>
+                  <%= if portfolio.description do %>
+                    <p class="text-sm text-gray-600 mt-1">{portfolio.description}</p>
+                  <% end %>
+                </div>
+                <div class="flex items-center gap-2">
+                  <.link
+                    href={~p"/portfolios/#{portfolio.id}/edit"}
+                    class="text-blue-600 hover:text-blue-800"
+                    title="Edit"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                      >
+                      </path>
+                    </svg>
+                  </.link>
+                  <.link
+                    href={~p"/portfolios/#{portfolio.id}"}
+                    method="delete"
+                    data-confirm="Are you sure you want to delete this portfolio?"
+                    class="text-red-600 hover:text-red-800"
+                    title="Delete"
+                  >
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      >
+                      </path>
+                    </svg>
+                  </.link>
+                </div>
+              </div>
+              <!-- Tags display -->
+              <div id={"tags-card-#{portfolio.id}"}>
+                <.tags_card_display
+                  portfolio_id={portfolio.id}
+                  tags={Map.get(portfolio, :tags, [])}
+                />
+              </div>
+            </div>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+
+    <.tab_bar current_tab="portfolios">
+      <:tab navigate={~p"/dashboard"} name="dashboard" icon="hero-home">
+        Dashboard
+      </:tab>
+      <:tab navigate={~p"/positions"} name="positions" icon="hero-chart-bar">
+        Positions
+      </:tab>
+      <:tab navigate={~p"/assets"} name="assets" icon="hero-squares-2x2">
+        Assets
+      </:tab>
+      <:tab navigate={~p"/portfolio_transactions"} name="transactions" icon="hero-document-text">
+        Transactions
+      </:tab>
+      <:tab navigate={~p"/portfolios"} name="portfolios" icon="hero-folder">
+        Portfolios
+      </:tab>
+    </.tab_bar>
+  </div>
+</.tab_content>

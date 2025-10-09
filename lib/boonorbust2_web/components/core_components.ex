@@ -637,15 +637,15 @@ defmodule Boonorbust2Web.CoreComponents do
   def tab_bar(assigns) do
     ~H"""
     <div
-      class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40"
+      class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50"
       style="padding-bottom: env(safe-area-inset-bottom, 0px);"
     >
-      <div class="grid grid-cols-3 max-w-lg mx-auto">
+      <div class="grid grid-cols-5 w-full">
         <%= for tab <- @tab do %>
           <.link
             navigate={tab.navigate}
             class={[
-              "flex flex-col items-center py-2 px-1 text-xs font-medium transition-colors duration-200",
+              "flex flex-col items-center py-1.5 px-0.5 text-xs font-medium transition-colors duration-200",
               if(@current_tab == tab.name,
                 do: "text-emerald-600 bg-emerald-50",
                 else: "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
@@ -655,11 +655,11 @@ defmodule Boonorbust2Web.CoreComponents do
             <.icon
               name={tab.icon}
               class={
-                "h-5 w-5 mb-0.5 " <>
+                "h-4 w-4 mb-0.5 " <>
                   if(@current_tab == tab.name, do: "text-emerald-600", else: "text-gray-400")
               }
             />
-            <span class="text-xs leading-tight truncate">
+            <span class="text-[10px] leading-tight truncate max-w-full">
               {render_slot(tab)}
             </span>
           </.link>
@@ -677,7 +677,7 @@ defmodule Boonorbust2Web.CoreComponents do
 
   def tab_content(assigns) do
     ~H"""
-    <div class={["pb-20", @class]}>
+    <div class={["pb-28 sm:pb-24", @class]}>
       {render_slot(@inner_block)}
     </div>
     """

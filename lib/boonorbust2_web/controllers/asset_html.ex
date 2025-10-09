@@ -197,11 +197,17 @@ defmodule Boonorbust2Web.AssetHTML do
           <:tab navigate={~p"/dashboard"} name="dashboard" icon="hero-home">
             Dashboard
           </:tab>
-          <:tab navigate={~p"/assets"} name="assets" icon="hero-chart-bar">
+          <:tab navigate={~p"/positions"} name="positions" icon="hero-chart-bar">
+            Positions
+          </:tab>
+          <:tab navigate={~p"/assets"} name="assets" icon="hero-squares-2x2">
             Assets
           </:tab>
-          <:tab navigate={~p"/portfolio_transactions"} name="portfolio" icon="hero-document-text">
+          <:tab navigate={~p"/portfolio_transactions"} name="transactions" icon="hero-document-text">
             Transactions
+          </:tab>
+          <:tab navigate={~p"/portfolios"} name="portfolios" icon="hero-folder">
+            Portfolios
           </:tab>
         </.tab_bar>
       </div>

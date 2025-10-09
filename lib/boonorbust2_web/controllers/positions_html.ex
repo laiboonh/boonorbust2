@@ -1,119 +1,43 @@
-defmodule Boonorbust2Web.DashboardHTML do
+defmodule Boonorbust2Web.PositionsHTML do
   use Boonorbust2Web, :html
 
   def index(assigns) do
     ~H"""
     <.tab_content class="min-h-screen bg-gray-50">
-      <div class="px-4 py-8">
+      <div class="px-4 py-4">
         <div class="max-w-lg mx-auto">
-          <h1 class="text-2xl font-bold text-gray-900 mb-6">Portfolio Dashboard</h1>
-
-          <%= if !Enum.empty?(@tag_chart_data) do %>
-            <div class="bg-white rounded-lg shadow p-6">
-              <h2 class="text-lg font-semibold text-gray-900 mb-4">
-                Portfolio by Tags
-              </h2>
-              <div class="relative" style="height: 300px;">
-                <canvas id="tagsPieChart"></canvas>
-              </div>
-              <script>
-                (function() {
-                  const ctx = document.getElementById('tagsPieChart');
-                  if (ctx && typeof Chart !== 'undefined') {
-                    const data = <%= raw Jason.encode!(@tag_chart_data) %>;
-                    const labels = data.map(item => item.label);
-                    const values = data.map(item => item.value);
-
-                    // Generate distinct colors for each tag
-                    const colors = [
-                      'rgb(59, 130, 246)',   // blue
-                      'rgb(16, 185, 129)',   // green
-                      'rgb(249, 115, 22)',   // orange
-                      'rgb(168, 85, 247)',   // purple
-                      'rgb(236, 72, 153)',   // pink
-                      'rgb(251, 191, 36)',   // amber
-                      'rgb(20, 184, 166)',   // teal
-                      'rgb(239, 68, 68)',    // red
-                      'rgb(156, 163, 175)',  // gray
-                      'rgb(99, 102, 241)',   // indigo
-                    ];
-
-                    new Chart(ctx, {
-                      type: 'pie',
-                      data: {
-                        labels: labels,
-                        datasets: [{
-                          data: values,
-                          backgroundColor: colors.slice(0, labels.length),
-                          borderWidth: 2,
-                          borderColor: '#fff'
-                        }]
-                      },
-                      options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        plugins: {
-                          legend: {
-                            position: 'bottom',
-                            labels: {
-                              padding: 15,
-                              font: {
-                                size: 12
-                              },
-                              generateLabels: function(chart) {
-                                const data = chart.data;
-                                const currency = '<%= @user_currency %>';
-                                return data.labels.map((label, i) => {
-                                  const value = data.datasets[0].data[i];
-                                  const formattedValue = new Intl.NumberFormat('en-US', {
-                                    style: 'currency',
-                                    currency: currency,
-                                    minimumFractionDigits: 0,
-                                    maximumFractionDigits: 0
-                                  }).format(value);
-                                  return {
-                                    text: `${label}: ${formattedValue}`,
-                                    fillStyle: data.datasets[0].backgroundColor[i],
-                                    hidden: false,
-                                    index: i
-                                  };
-                                });
-                              }
-                            }
-                          },
-                          tooltip: {
-                            callbacks: {
-                              label: function(context) {
-                                const currency = '<%= @user_currency %>';
-                                const value = context.parsed;
-                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                const percentage = ((value / total) * 100).toFixed(1);
-                                const formattedValue = new Intl.NumberFormat('en-US', {
-                                  style: 'currency',
-                                  currency: currency
-                                }).format(value);
-                                return `${context.label}: ${formattedValue} (${percentage}%)`;
-                              }
-                            }
-                          }
-                        }
-                      }
-                    });
-                  }
-                })();
-              </script>
+          <%= if Enum.empty?(@positions) do %>
+            <div class="bg-white rounded-lg shadow p-8 text-center">
+              <p class="text-gray-500 mb-4">No portfolio positions yet.</p>
+              <p class="text-sm text-gray-400">
+                Add transactions to see your portfolio positions here.
+              </p>
             </div>
           <% else %>
-            <div class="bg-white rounded-lg shadow p-8 text-center">
-              <p class="text-gray-500 mb-4">No portfolio data yet.</p>
-              <p class="text-sm text-gray-400">
-                Add transactions and tag your assets to see your portfolio breakdown here.
-              </p>
+            <div class="space-y-3">
+              <%= for position <- @positions do %>
+                <.position_card
+                  position={position}
+                  realized_profit={
+                    Map.get(
+                      @realized_profits_by_asset,
+                      position.asset_id,
+                      Money.new(position.amount_on_hand.currency, 0)
+                    )
+                  }
+                  converted_realized_profit={
+                    Map.get(
+                      @converted_realized_profits_by_asset,
+                      position.asset_id
+                    )
+                  }
+                />
+              <% end %>
             </div>
           <% end %>
         </div>
 
-        <.tab_bar current_tab="dashboard">
+        <.tab_bar current_tab="positions">
           <:tab navigate={~p"/dashboard"} name="dashboard" icon="hero-home">
             Dashboard
           </:tab>
@@ -137,14 +61,14 @@ defmodule Boonorbust2Web.DashboardHTML do
 
   def position_card(assigns) do
     ~H"""
-    <div class="bg-white rounded-lg shadow p-6">
-      <div class="flex justify-between items-start mb-4">
+    <div class="bg-white rounded-lg shadow p-4">
+      <div class="flex justify-between items-start mb-3">
         <div class="flex-1">
-          <h3 class="text-lg font-semibold text-gray-900">{@position.asset.name}</h3>
+          <h3 class="text-base font-semibold text-gray-900">{@position.asset.name}</h3>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-1.5">
           <button
-            hx-get={~p"/dashboard/positions/#{@position.asset.id}"}
+            hx-get={~p"/positions/history/#{@position.asset.id}"}
             hx-target={"#positions-modal-#{@position.asset.id}"}
             hx-swap="innerHTML"
             hx-on::before-request={"document.getElementById('positions-icon-#{@position.asset.id}').classList.add('hidden'); document.getElementById('positions-spinner-#{@position.asset.id}').classList.remove('hidden');"}
@@ -155,7 +79,7 @@ defmodule Boonorbust2Web.DashboardHTML do
           >
             <svg
               id={"positions-icon-#{@position.asset.id}"}
-              class="w-5 h-5"
+              class="w-4 h-4"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -170,7 +94,7 @@ defmodule Boonorbust2Web.DashboardHTML do
             </svg>
             <svg
               id={"positions-spinner-#{@position.asset.id}"}
-              class="hidden w-5 h-5 animate-spin text-blue-600"
+              class="hidden w-4 h-4 animate-spin text-blue-600"
               fill="none"
               viewBox="0 0 24 24"
             >
@@ -185,7 +109,7 @@ defmodule Boonorbust2Web.DashboardHTML do
             </svg>
           </button>
           <button
-            hx-get={~p"/dashboard/realized_profits/#{@position.asset.id}"}
+            hx-get={~p"/positions/realized_profits/#{@position.asset.id}"}
             hx-target={"#realized-profits-modal-#{@position.asset.id}"}
             hx-swap="innerHTML"
             hx-on::before-request={"document.getElementById('profits-icon-#{@position.asset.id}').classList.add('hidden'); document.getElementById('profits-spinner-#{@position.asset.id}').classList.remove('hidden');"}
@@ -196,7 +120,7 @@ defmodule Boonorbust2Web.DashboardHTML do
           >
             <svg
               id={"profits-icon-#{@position.asset.id}"}
-              class="w-5 h-5"
+              class="w-4 h-4"
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
@@ -211,7 +135,7 @@ defmodule Boonorbust2Web.DashboardHTML do
             </svg>
             <svg
               id={"profits-spinner-#{@position.asset.id}"}
-              class="hidden w-5 h-5 animate-spin text-emerald-600"
+              class="hidden w-4 h-4 animate-spin text-emerald-600"
               fill="none"
               viewBox="0 0 24 24"
             >
@@ -230,7 +154,7 @@ defmodule Boonorbust2Web.DashboardHTML do
             class="text-purple-600 hover:text-purple-800"
             title="Manage tags"
           >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -246,39 +170,39 @@ defmodule Boonorbust2Web.DashboardHTML do
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid grid-cols-2 gap-3">
         <div>
-          <p class="text-sm text-gray-500">Quantity</p>
-          <p class="text-xl font-bold text-gray-900">
+          <p class="text-xs text-gray-500">Quantity</p>
+          <p class="text-lg font-bold text-gray-900">
             {Decimal.to_string(@position.quantity_on_hand)}
           </p>
         </div>
         <div>
-          <p class="text-sm text-gray-500">Avg Price</p>
-          <p class="text-xl font-bold text-emerald-600">
+          <p class="text-xs text-gray-500">Avg Price</p>
+          <p class="text-lg font-bold text-emerald-600">
             {Money.to_string!(@position.average_price)}
           </p>
         </div>
       </div>
 
-      <div class="mt-4 pt-4 border-t border-gray-200">
+      <div class="mt-3 pt-3 border-t border-gray-200">
         <% converted_cost = Map.get(@position, :converted_total_cost)
 
         show_converted_cost =
           converted_cost &&
             Money.to_currency_code(converted_cost) != Money.to_currency_code(@position.amount_on_hand) %>
         <div class="flex justify-between items-center mb-2">
-          <p class="text-sm text-gray-500">Total Cost</p>
+          <p class="text-xs text-gray-500">Total Cost</p>
           <div class="text-right">
             <%= if show_converted_cost do %>
-              <p class="text-xl font-bold text-gray-900">
+              <p class="text-lg font-bold text-gray-900">
                 {Money.to_string!(converted_cost)}
               </p>
-              <p class="text-sm text-gray-400">
+              <p class="text-xs text-gray-400">
                 ({Money.to_string!(@position.amount_on_hand)})
               </p>
             <% else %>
-              <p class="text-xl font-bold text-gray-900">
+              <p class="text-lg font-bold text-gray-900">
                 {Money.to_string!(@position.amount_on_hand)}
               </p>
             <% end %>
@@ -300,17 +224,17 @@ defmodule Boonorbust2Web.DashboardHTML do
             converted_value &&
               Money.to_currency_code(converted_value) != Money.to_currency_code(total_value) %>
           <div class="flex justify-between items-center">
-            <p class="text-sm text-gray-500">Total Value</p>
+            <p class="text-xs text-gray-500">Total Value</p>
             <div class="text-right">
               <%= if show_converted do %>
-                <p class="text-2xl font-bold text-emerald-600">
+                <p class="text-xl font-bold text-emerald-600">
                   {Money.to_string!(converted_value)}
                 </p>
-                <p class="text-sm text-gray-400">
+                <p class="text-xs text-gray-400">
                   ({Money.to_string!(total_value)})
                 </p>
               <% else %>
-                <p class="text-2xl font-bold text-emerald-600">
+                <p class="text-xl font-bold text-emerald-600">
                   {Money.to_string!(total_value)}
                 </p>
               <% end %>
@@ -323,11 +247,11 @@ defmodule Boonorbust2Web.DashboardHTML do
               Money.to_currency_code(converted_unrealized_profit) !=
                 Money.to_currency_code(unrealized_profit) %>
           <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
-            <p class="text-sm text-gray-500">Unrealized Profit</p>
+            <p class="text-xs text-gray-500">Unrealized Profit</p>
             <div class="text-right">
               <%= if show_converted_unrealized do %>
                 <p class={[
-                  "text-lg font-bold",
+                  "text-base font-bold",
                   if(Decimal.positive?(converted_unrealized_profit.amount),
                     do: "text-emerald-600",
                     else: "text-red-600"
@@ -335,12 +259,12 @@ defmodule Boonorbust2Web.DashboardHTML do
                 ]}>
                   {Money.to_string!(converted_unrealized_profit)}
                 </p>
-                <p class="text-sm text-gray-400">
+                <p class="text-xs text-gray-400">
                   ({Money.to_string!(unrealized_profit)})
                 </p>
               <% else %>
                 <p class={[
-                  "text-lg font-bold",
+                  "text-base font-bold",
                   if(Decimal.positive?(unrealized_profit.amount),
                     do: "text-emerald-600",
                     else: "text-red-600"
@@ -358,11 +282,11 @@ defmodule Boonorbust2Web.DashboardHTML do
               Money.to_currency_code(@converted_realized_profit) !=
                 Money.to_currency_code(@realized_profit) %>
           <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
-            <p class="text-sm text-gray-500">Realized Profit</p>
+            <p class="text-xs text-gray-500">Realized Profit</p>
             <div class="text-right">
               <%= if show_converted_realized do %>
                 <p class={[
-                  "text-lg font-bold",
+                  "text-base font-bold",
                   if(Decimal.positive?(@converted_realized_profit.amount),
                     do: "text-emerald-600",
                     else: "text-red-600"
@@ -370,12 +294,12 @@ defmodule Boonorbust2Web.DashboardHTML do
                 ]}>
                   {Money.to_string!(@converted_realized_profit)}
                 </p>
-                <p class="text-sm text-gray-400">
+                <p class="text-xs text-gray-400">
                   ({Money.to_string!(@realized_profit)})
                 </p>
               <% else %>
                 <p class={[
-                  "text-lg font-bold",
+                  "text-base font-bold",
                   if(Decimal.positive?(@realized_profit.amount),
                     do: "text-emerald-600",
                     else: "text-red-600"
@@ -389,7 +313,7 @@ defmodule Boonorbust2Web.DashboardHTML do
         <% end %>
       </div>
 
-      <p class="text-xs text-gray-400 mt-4">
+      <p class="text-xs text-gray-400 mt-3">
         Last updated: {Calendar.strftime(
           @position.portfolio_transaction.transaction_date,
           "%B %d, %Y"
@@ -399,7 +323,7 @@ defmodule Boonorbust2Web.DashboardHTML do
       <div id={"tags-card-#{@position.asset.id}"}>
         <% tags = Map.get(@position, :tags, []) %>
         <%= if tags && !Enum.empty?(tags) do %>
-          <div class="mt-4 flex flex-wrap gap-2">
+          <div class="mt-3 flex flex-wrap gap-2">
             <%= for tag <- tags do %>
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                 {tag.name}

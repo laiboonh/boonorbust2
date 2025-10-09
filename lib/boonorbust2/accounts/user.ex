@@ -7,6 +7,7 @@ defmodule Boonorbust2.Accounts.User do
   import Ecto.Changeset
 
   alias Boonorbust2.Currency
+  alias Boonorbust2.Portfolios.Portfolio
   alias Boonorbust2.Tags.AssetTag
 
   @type t :: %__MODULE__{
@@ -29,6 +30,7 @@ defmodule Boonorbust2.Accounts.User do
     field :currency, :string, default: "SGD"
 
     has_many :asset_tags, AssetTag
+    has_many :portfolios, Portfolio
 
     timestamps(type: :utc_datetime)
   end
