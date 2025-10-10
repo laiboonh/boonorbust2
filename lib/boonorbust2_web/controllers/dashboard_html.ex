@@ -92,11 +92,15 @@ defmodule Boonorbust2Web.DashboardHTML do
                                   }
                                 },
                                 datalabels: {
-                                  color: '#fff',
+                                  color: '#1f2937',
                                   font: {
                                     weight: 'bold',
-                                    size: 12
+                                    size: 11
                                   },
+                                  anchor: 'end',
+                                  align: 'end',
+                                  offset: 4,
+                                  clamp: false,
                                   formatter: function(value, context) {
                                     const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                     const percentage = ((value / total) * 100).toFixed(1);
