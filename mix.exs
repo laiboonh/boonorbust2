@@ -45,7 +45,6 @@ defmodule Boonorbust2.MixProject do
       {:phoenix_html, "~> 4.2"},
       {:phoenix_live_reload, "~> 1.6", only: :dev},
       {:phoenix_live_view, "~> 1.0"},
-      {:floki, ">= 0.30.0", only: :test},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.4", runtime: Mix.env() == :dev},
       {:heroicons,
@@ -72,7 +71,9 @@ defmodule Boonorbust2.MixProject do
       {:retry, "~> 0.18"},
       {:req, "~> 0.5"},
       {:mox, "~> 1.0", only: :test},
-      {:cachex, "~> 4.0"}
+      {:cachex, "~> 4.0"},
+      {:floki, "~> 0.38.0"},
+      {:html5ever, "~> 0.16.0"}
     ]
   end
 

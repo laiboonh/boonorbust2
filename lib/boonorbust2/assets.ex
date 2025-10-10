@@ -100,7 +100,7 @@ defmodule Boonorbust2.Assets do
   @spec fetch_price(Asset.t()) :: {:ok, any()} | {:error, String.t()}
   def fetch_price(%Asset{price_url: nil}), do: {:error, "No price URL configured"}
 
-  def fetch_price(%Asset{price_url: price_url}) do
+  def fetch_price(%Asset{price_url: "https://api.marketstack.com" <> _rest = price_url}) do
     access_key = Application.get_env(:boonorbust2, :price_api_access_key)
 
     http_client =
@@ -122,6 +122,39 @@ defmodule Boonorbust2.Assets do
       {:error, error} ->
         {:error, "Request failed: #{inspect(error)}"}
     end
+  end
+
+  def fetch_price(%Asset{price_url: "https://www.dollardex.com/" <> _rest = price_url}) do
+    http_client =
+      Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
+
+    case http_client.get(price_url) do
+      {:ok, %{status: 200, body: body}} ->
+        {:ok, document} = Floki.parse_document(body)
+
+        result =
+          Floki.find(document, "#grid1 > div > div.price.clear")
+          |> Floki.text()
+          |> String.split("\n")
+          |> hd()
+
+        {:ok, result}
+
+      {:ok, %{status: status}} ->
+        {:error, "HTTP request failed with status #{status}"}
+
+      {:error, error} ->
+        {:error, "Request failed: #{inspect(error)}"}
+    end
+  end
+
+  def fetch_price(%Asset{price_url: price_url}) do
+    {:error, "Request failed: Unexpected price url #{price_url}"}
+  end
+
+  @spec fetch_data(String.t(), (String.t() -> String.t())) :: String.t()
+  def fetch_data(response, data_fetcher) do
+    data_fetcher.(response)
   end
 
   @spec maybe_update_price_from_url(Asset.t()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}

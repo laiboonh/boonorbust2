@@ -20,7 +20,7 @@ defmodule Boonorbust2.AssetsTest do
       {:ok, asset} =
         Assets.create_asset(%{
           name: "Test Asset",
-          price_url: "https://api.example.com/price",
+          price_url: "https://api.marketstack.com/price",
           currency: "USD"
         })
 
@@ -60,7 +60,7 @@ defmodule Boonorbust2.AssetsTest do
       {:ok, asset} =
         Assets.create_asset(%{
           name: "Test Asset",
-          price_url: "https://api.example.com/price",
+          price_url: "https://api.marketstack.com/price",
           currency: "USD"
         })
 
@@ -102,7 +102,7 @@ defmodule Boonorbust2.AssetsTest do
       {:ok, asset} =
         Assets.create_asset(%{
           name: "New Asset",
-          price_url: "https://api.example.com/price",
+          price_url: "https://api.marketstack.com/price",
           currency: "USD"
         })
 
@@ -135,7 +135,7 @@ defmodule Boonorbust2.AssetsTest do
       {:error, changeset} =
         Assets.create_asset(%{
           name: "Failed Asset",
-          price_url: "https://api.example.com/price",
+          price_url: "https://api.marketstack.com/price",
           currency: "USD"
         })
 
@@ -163,7 +163,7 @@ defmodule Boonorbust2.AssetsTest do
 
       # Attempt to update with price_url
       {:error, changeset} =
-        Assets.update_asset(asset, %{price_url: "https://api.example.com/price"})
+        Assets.update_asset(asset, %{price_url: "https://api.marketstack.com/price"})
 
       # Assert error is on price_url field
       assert %{price_url: [_error]} = errors_on(changeset)
@@ -184,7 +184,7 @@ defmodule Boonorbust2.AssetsTest do
       {:ok, asset} =
         Assets.create_asset(%{
           name: "Test Asset",
-          price_url: "https://api.example.com/price",
+          price_url: "https://api.marketstack.com/price",
           currency: "USD"
         })
 
@@ -226,7 +226,7 @@ defmodule Boonorbust2.AssetsTest do
       {:ok, _asset} =
         Assets.create_asset(%{
           name: "Valid URL Asset",
-          price_url: "https://api.example.com/price",
+          price_url: "https://api.marketstack.com/price",
           currency: "USD"
         })
     end
@@ -242,7 +242,7 @@ defmodule Boonorbust2.AssetsTest do
       {:ok, asset} =
         Assets.create_asset(%{
           name: "Test Asset",
-          price_url: "https://api.example.com/price",
+          price_url: "https://api.marketstack.com/price",
           currency: "USD"
         })
 
@@ -304,21 +304,21 @@ defmodule Boonorbust2.AssetsTest do
       {:ok, asset1} =
         Assets.create_asset(%{
           name: "Asset 1",
-          price_url: "https://api.example.com/asset1",
+          price_url: "https://api.marketstack.com/asset1",
           currency: "USD"
         })
 
       {:ok, asset2} =
         Assets.create_asset(%{
           name: "Asset 2",
-          price_url: "https://api.example.com/asset2",
+          price_url: "https://api.marketstack.com/asset2",
           currency: "USD"
         })
 
       {:ok, asset3} =
         Assets.create_asset(%{
           name: "Asset 3",
-          price_url: "https://api.example.com/asset3",
+          price_url: "https://api.marketstack.com/asset3",
           currency: "USD"
         })
 
@@ -333,7 +333,7 @@ defmodule Boonorbust2.AssetsTest do
       {:ok, asset_no_holdings} =
         Assets.create_asset(%{
           name: "Asset No Holdings",
-          price_url: "https://api.example.com/asset_no_holdings",
+          price_url: "https://api.marketstack.com/asset_no_holdings",
           currency: "USD"
         })
 
