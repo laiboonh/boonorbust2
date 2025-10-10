@@ -177,15 +177,6 @@ defmodule Boonorbust2.ExchangeRatesTest do
     end
   end
 
-  describe "cache expiry" do
-    @tag :skip
-    test "cache expires after TTL and refetches from API" do
-      # This test is skipped as it would require waiting 1 hour
-      # In a real scenario, you might want to use a configurable TTL
-      # or mock the time to test this behavior
-    end
-  end
-
   # Helper functions
 
   defp expect_api_call(currency, rates) do
