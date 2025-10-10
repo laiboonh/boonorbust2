@@ -24,7 +24,7 @@ defmodule Boonorbust2Web.DashboardHTML do
                         <p class="text-sm text-gray-600 mt-1">{portfolio.description}</p>
                       <% end %>
                     </div>
-                    <div class="relative" style="height: 300px;">
+                    <div class="relative" style="height: 400px;">
                       <canvas id={"portfolio-chart-#{portfolio.id}"}></canvas>
                     </div>
                     <script>
@@ -68,6 +68,14 @@ defmodule Boonorbust2Web.DashboardHTML do
                             options: {
                               responsive: true,
                               maintainAspectRatio: false,
+                              layout: {
+                                padding: {
+                                  top: 20,
+                                  bottom: 20,
+                                  left: 20,
+                                  right: 20
+                                }
+                              },
                               plugins: {
                                 legend: {
                                   display: false
@@ -95,12 +103,18 @@ defmodule Boonorbust2Web.DashboardHTML do
                                   color: '#1f2937',
                                   font: {
                                     weight: 'bold',
-                                    size: 11
+                                    size: 10
                                   },
                                   anchor: 'end',
-                                  align: 'end',
-                                  offset: 4,
+                                  align: 'start',
+                                  offset: 8,
                                   clamp: false,
+                                  padding: {
+                                    top: 2,
+                                    bottom: 2,
+                                    left: 4,
+                                    right: 4
+                                  },
                                   formatter: function(value, context) {
                                     const total = context.dataset.data.reduce((a, b) => a + b, 0);
                                     const percentage = ((value / total) * 100).toFixed(1);
