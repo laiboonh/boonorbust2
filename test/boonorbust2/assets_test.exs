@@ -230,5 +230,58 @@ defmodule Boonorbust2.AssetsTest do
           currency: "USD"
         })
     end
+
+    test "updates updated_at even when fetched price value is unchanged" do
+      # Mock for initial creation - price is 50.0
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: %{"data" => [%{"close" => 50.0}]}}}
+      end)
+
+      # Create asset with a price_url
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "Test Asset",
+          price_url: "https://api.example.com/price",
+          currency: "USD"
+        })
+
+      # Set updated_at to 25+ hours ago to trigger price fetch
+      old_time = DateTime.add(DateTime.utc_now(), -90_000, :second) |> DateTime.truncate(:second)
+
+      asset =
+        asset
+        |> Ecto.Changeset.change(%{updated_at: old_time})
+        |> Repo.update!()
+
+      # Store the old updated_at for comparison
+      old_updated_at = asset.updated_at
+
+      # Mock for update - API returns SAME price (50.0)
+      # This is the key scenario: price value doesn't change
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: %{"data" => [%{"close" => 50.0}]}}}
+      end)
+
+      # Update asset (triggers price fetch because > 24 hours old)
+      {:ok, updated_asset} = Assets.update_asset(asset, %{name: "Updated Name"})
+
+      # Assert: Price is still 50.0
+      assert Decimal.eq?(updated_asset.price, Decimal.new("50.0"))
+
+      # Critical assertion: updated_at MUST be newer even though price didn't change
+      # This ensures rate limiting works correctly
+      assert DateTime.compare(updated_asset.updated_at, old_updated_at) == :gt
+
+      # Now update again immediately (within 24 hours)
+      # Mock should NOT be called because updated_at was properly set above
+      # No expect() call means test fails if HTTP client is invoked
+      {:ok, final_asset} = Assets.update_asset(updated_asset, %{name: "Final Name"})
+
+      # Price should still be 50.0 (no fetch happened)
+      assert Decimal.eq?(final_asset.price, Decimal.new("50.0"))
+      assert final_asset.name == "Final Name"
+    end
   end
 end
