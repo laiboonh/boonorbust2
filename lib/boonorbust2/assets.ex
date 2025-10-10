@@ -168,11 +168,22 @@ defmodule Boonorbust2.Assets do
     diff_seconds >= 86_400
   end
 
+  @spec fetch_asset_price(Asset.t()) :: :fetched | :skipped | :error
+  defp fetch_asset_price(asset) do
+    should_fetch = should_update_price?(asset)
+
+    case maybe_fetch_price(asset, should_fetch) do
+      {:ok, _updated_asset} -> if should_fetch, do: :fetched, else: :skipped
+      {:error, _changeset} -> :error
+    end
+  end
+
   @doc """
   Updates prices for all assets that have a price_url configured.
   Processes assets in parallel with a maximum concurrency of 5.
 
-  Returns a tuple with success count and error count.
+  Returns a tuple with success count (actually fetched) and error count.
+  Assets skipped due to rate limiting are not counted as successes.
   """
   @spec update_all_prices() :: {:ok, %{success: non_neg_integer(), errors: non_neg_integer()}}
   def update_all_prices do
@@ -182,12 +193,7 @@ defmodule Boonorbust2.Assets do
     results =
       assets_with_price_url
       |> Task.async_stream(
-        fn asset ->
-          case maybe_fetch_price(asset, should_update_price?(asset)) do
-            {:ok, _updated_asset} -> :ok
-            {:error, _changeset} -> :error
-          end
-        end,
+        &fetch_asset_price/1,
         max_concurrency: 5,
         timeout: 30_000,
         on_timeout: :kill_task
@@ -195,9 +201,10 @@ defmodule Boonorbust2.Assets do
       |> Enum.to_list()
 
     success_count =
-      Enum.count(results, fn {status, result} -> status == :ok and result == :ok end)
+      Enum.count(results, fn {status, result} -> status == :ok and result == :fetched end)
 
-    error_count = length(results) - success_count
+    error_count =
+      Enum.count(results, fn {status, result} -> status == :ok and result == :error end)
 
     {:ok, %{success: success_count, errors: error_count}}
   end

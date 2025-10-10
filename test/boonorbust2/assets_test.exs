@@ -283,5 +283,92 @@ defmodule Boonorbust2.AssetsTest do
       assert Decimal.eq?(final_asset.price, Decimal.new("50.0"))
       assert final_asset.name == "Final Name"
     end
+
+    test "update_all_prices respects rate limiting for individual assets" do
+      # Create 3 assets with price URLs
+      HTTPClientMock
+      |> expect(:get, 3, fn _url, _opts ->
+        {:ok, %{status: 200, body: %{"data" => [%{"close" => 100.0}]}}}
+      end)
+
+      {:ok, asset1} =
+        Assets.create_asset(%{
+          name: "Asset 1",
+          price_url: "https://api.example.com/asset1",
+          currency: "USD"
+        })
+
+      {:ok, asset2} =
+        Assets.create_asset(%{
+          name: "Asset 2",
+          price_url: "https://api.example.com/asset2",
+          currency: "USD"
+        })
+
+      {:ok, asset3} =
+        Assets.create_asset(%{
+          name: "Asset 3",
+          price_url: "https://api.example.com/asset3",
+          currency: "USD"
+        })
+
+      # Create one asset without price_url - should be ignored
+      {:ok, _asset_no_url} =
+        Assets.create_asset(%{
+          name: "Asset No URL",
+          currency: "USD"
+        })
+
+      # Set asset1 to old (should be updated)
+      old_time = DateTime.add(DateTime.utc_now(), -90_000, :second) |> DateTime.truncate(:second)
+
+      asset1 =
+        asset1
+        |> Ecto.Changeset.change(%{updated_at: old_time})
+        |> Repo.update!()
+
+      # Set asset2 to old (should be updated)
+      asset2 =
+        asset2
+        |> Ecto.Changeset.change(%{updated_at: old_time})
+        |> Repo.update!()
+
+      # asset3 is recent (within 24 hours) - should NOT be updated
+      # Store asset3's current updated_at for later comparison
+      asset3_old_updated_at = Assets.get_asset!(asset3.id).updated_at
+
+      # Mock: Expect only 2 calls (asset1 and asset2), NOT asset3
+      HTTPClientMock
+      |> expect(:get, 2, fn _url, _opts ->
+        {:ok, %{status: 200, body: %{"data" => [%{"close" => 200.0}]}}}
+      end)
+
+      # Call update_all_prices
+      {:ok, %{success: success_count, errors: error_count}} = Assets.update_all_prices()
+
+      # Should have updated 2 assets (asset1 and asset2)
+      # asset3 was skipped due to rate limiting
+      # asset_no_url was skipped because no price_url
+      assert success_count == 2
+      assert error_count == 0
+
+      # Verify asset1 and asset2 were updated
+      updated_asset1 = Assets.get_asset!(asset1.id)
+      updated_asset2 = Assets.get_asset!(asset2.id)
+      updated_asset3 = Assets.get_asset!(asset3.id)
+
+      assert Decimal.eq?(updated_asset1.price, Decimal.new("200.0"))
+      assert Decimal.eq?(updated_asset2.price, Decimal.new("200.0"))
+
+      # asset3 should still have original price (not updated due to rate limiting)
+      assert Decimal.eq?(updated_asset3.price, Decimal.new("100.0"))
+
+      # Verify updated_at was set for assets that were updated
+      assert DateTime.compare(updated_asset1.updated_at, asset1.updated_at) == :gt
+      assert DateTime.compare(updated_asset2.updated_at, asset2.updated_at) == :gt
+
+      # Verify asset3's updated_at was NOT changed (rate limited)
+      assert DateTime.compare(updated_asset3.updated_at, asset3_old_updated_at) == :eq
+    end
   end
 end
