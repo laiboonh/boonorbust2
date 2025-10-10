@@ -136,8 +136,14 @@ defmodule Boonorbust2.Assets do
   defp fetch_and_update_price(%Asset{} = asset) do
     case fetch_price(asset) do
       {:ok, price_value} ->
+        # Force updated_at to be set even if price hasn't changed
+        # This ensures rate limiting works correctly
         asset
         |> Asset.changeset(%{price: price_value})
+        |> Ecto.Changeset.force_change(
+          :updated_at,
+          DateTime.utc_now() |> DateTime.truncate(:second)
+        )
         |> Repo.update()
 
       {:error, reason} ->
@@ -177,7 +183,7 @@ defmodule Boonorbust2.Assets do
       assets_with_price_url
       |> Task.async_stream(
         fn asset ->
-          case fetch_and_update_price(asset) do
+          case maybe_fetch_price(asset, should_update_price?(asset)) do
             {:ok, _updated_asset} -> :ok
             {:error, _changeset} -> :error
           end
