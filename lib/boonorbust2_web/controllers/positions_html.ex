@@ -6,12 +6,49 @@ defmodule Boonorbust2Web.PositionsHTML do
     <.tab_content class="min-h-screen bg-gray-50">
       <div class="px-4 py-4">
         <div class="max-w-lg mx-auto">
+          <!-- Filter Form -->
+          <form method="get" action={~p"/positions"} class="mb-4">
+            <div class="flex gap-2">
+              <input
+                type="text"
+                name="filter"
+                value={@filter}
+                placeholder="Search by asset name..."
+                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+              <button
+                type="submit"
+                class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+              >
+                Filter
+              </button>
+              <%= if @filter != "" do %>
+                <a
+                  href={~p"/positions"}
+                  class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Clear
+                </a>
+              <% end %>
+            </div>
+          </form>
+
           <%= if Enum.empty?(@positions) do %>
             <div class="bg-white rounded-lg shadow p-8 text-center">
-              <p class="text-gray-500 mb-4">No portfolio positions yet.</p>
-              <p class="text-sm text-gray-400">
-                Add transactions to see your portfolio positions here.
-              </p>
+              <%= if @filter != "" do %>
+                <p class="text-gray-500 mb-4">No positions found matching "{@filter}".</p>
+                <a
+                  href={~p"/positions"}
+                  class="text-sm text-emerald-600 hover:text-emerald-800"
+                >
+                  Clear filter to see all positions
+                </a>
+              <% else %>
+                <p class="text-gray-500 mb-4">No portfolio positions yet.</p>
+                <p class="text-sm text-gray-400">
+                  Add transactions to see your portfolio positions here.
+                </p>
+              <% end %>
             </div>
           <% else %>
             <div class="space-y-3">

@@ -10,9 +10,10 @@ defmodule Boonorbust2Web.PositionsController do
   require Logger
 
   @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  def index(conn, _params) do
+  def index(conn, params) do
+    filter = Map.get(params, "filter", "")
     %{id: user_id, currency: user_currency} = conn.assigns.current_user
-    positions = PortfolioPositions.list_latest_positions(user_id)
+    positions = PortfolioPositions.list_latest_positions(user_id, filter)
     realized_profits_by_asset = RealizedProfits.get_totals_by_asset(user_id)
 
     # Convert realized profits to user's preferred currency
@@ -72,7 +73,8 @@ defmodule Boonorbust2Web.PositionsController do
     render(conn, :index,
       positions: sorted_positions,
       realized_profits_by_asset: realized_profits_by_asset,
-      converted_realized_profits_by_asset: converted_realized_profits_by_asset
+      converted_realized_profits_by_asset: converted_realized_profits_by_asset,
+      filter: filter
     )
   end
 

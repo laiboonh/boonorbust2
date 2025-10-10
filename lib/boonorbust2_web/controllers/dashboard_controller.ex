@@ -12,7 +12,7 @@ defmodule Boonorbust2Web.DashboardController do
   @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def index(conn, _params) do
     %{id: user_id, currency: user_currency} = conn.assigns.current_user
-    positions = PortfolioPositions.list_latest_positions(user_id)
+    positions = PortfolioPositions.list_latest_positions(user_id, nil)
     realized_profits_by_asset = RealizedProfits.get_totals_by_asset(user_id)
 
     # Convert realized profits to user's preferred currency

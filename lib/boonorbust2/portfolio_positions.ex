@@ -195,9 +195,10 @@ defmodule Boonorbust2.PortfolioPositions do
 
   @doc """
   Lists the latest position for each asset based on transaction date.
+  Supports filtering by asset name.
   """
-  @spec list_latest_positions(String.t()) :: [PortfolioPosition.t()]
-  def list_latest_positions(user_id) do
+  @spec list_latest_positions(String.t(), String.t() | nil) :: [PortfolioPosition.t()]
+  def list_latest_positions(user_id, filter \\ nil) do
     # Get the latest position for each asset based on transaction date
     latest_positions_subquery =
       from(pp in PortfolioPosition,
@@ -211,16 +212,32 @@ defmodule Boonorbust2.PortfolioPositions do
         }
       )
 
-    from(pp in PortfolioPosition,
-      join: pt in assoc(pp, :portfolio_transaction),
-      join: lp in subquery(latest_positions_subquery),
-      on: pp.asset_id == lp.asset_id and pt.transaction_date == lp.max_transaction_date,
-      where: pp.user_id == ^user_id,
-      order_by: [desc: pt.transaction_date, desc: pp.id],
-      distinct: pp.asset_id,
-      preload: [:asset, :portfolio_transaction]
-    )
+    query =
+      from(pp in PortfolioPosition,
+        join: pt in assoc(pp, :portfolio_transaction),
+        join: a in assoc(pp, :asset),
+        join: lp in subquery(latest_positions_subquery),
+        on: pp.asset_id == lp.asset_id and pt.transaction_date == lp.max_transaction_date,
+        where: pp.user_id == ^user_id,
+        order_by: [desc: pt.transaction_date, desc: pp.id],
+        distinct: pp.asset_id,
+        preload: [:asset, :portfolio_transaction]
+      )
+
+    query
+    |> apply_filter(filter)
     |> Repo.all()
+  end
+
+  @spec apply_filter(Ecto.Query.t(), String.t() | nil) :: Ecto.Query.t()
+  defp apply_filter(query, nil), do: query
+  defp apply_filter(query, ""), do: query
+
+  defp apply_filter(query, filter) when is_binary(filter) do
+    filter_pattern = "%#{filter}%"
+
+    from [pp, pt, a, lp] in query,
+      where: ilike(a.name, ^filter_pattern)
   end
 
   # Calculates and upserts realized profit for a sell transaction.
