@@ -26,8 +26,11 @@ defmodule Boonorbust2Web.AssetHTML do
 
             <button
               hx-post={~p"/assets/update_all_prices"}
-              hx-indicator="#update-all-prices-indicator"
-              hx-on::after-request="window.location.reload()"
+              hx-target="#update-all-prices-success"
+              hx-swap="innerHTML"
+              hx-indicator="#update-all-prices-spinner"
+              hx-on::before-request="document.getElementById('update-all-prices-icon').classList.add('hidden'); document.getElementById('update-all-prices-success').classList.add('hidden');"
+              hx-on::after-request="if(event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) { document.getElementById('update-all-prices-success').classList.remove('hidden'); document.getElementById('update-all-prices-icon').classList.remove('hidden'); setTimeout(() => { document.getElementById('update-all-prices-success').classList.add('hidden'); location.reload(); }, 2000); } else { document.getElementById('update-all-prices-icon').classList.remove('hidden'); }"
               class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               <svg
@@ -45,7 +48,7 @@ defmodule Boonorbust2Web.AssetHTML do
                 />
               </svg>
               <svg
-                id="update-all-prices-indicator"
+                id="update-all-prices-spinner"
                 class="htmx-indicator w-4 h-4 mr-1.5 animate-spin"
                 fill="none"
                 viewBox="0 0 24 24"
@@ -68,6 +71,12 @@ defmodule Boonorbust2Web.AssetHTML do
               </svg>
               Update All Prices
             </button>
+          </div>
+
+          <div
+            id="update-all-prices-success"
+            class="hidden mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded"
+          >
           </div>
           
     <!-- Assets List -->

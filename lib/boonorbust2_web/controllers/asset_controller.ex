@@ -105,14 +105,8 @@ defmodule Boonorbust2Web.AssetController do
         "Successfully updated #{success_count} prices"
       end
 
-    if get_req_header(conn, "hx-request") != [] do
-      conn
-      |> put_layout(false)
-      |> send_resp(200, message)
-    else
-      conn
-      |> put_flash(:info, message)
-      |> redirect(to: ~p"/assets")
-    end
+    conn
+    |> put_layout(false)
+    |> send_resp(200, message)
   end
 end
