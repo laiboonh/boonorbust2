@@ -161,4 +161,38 @@ defmodule Boonorbust2.Assets do
     # 24 hours = 86400 seconds
     diff_seconds >= 86_400
   end
+
+  @doc """
+  Updates prices for all assets that have a price_url configured.
+  Processes assets in parallel with a maximum concurrency of 5.
+
+  Returns a tuple with success count and error count.
+  """
+  @spec update_all_prices() :: {:ok, %{success: non_neg_integer(), errors: non_neg_integer()}}
+  def update_all_prices do
+    assets = list_assets()
+    assets_with_price_url = Enum.filter(assets, fn asset -> not is_nil(asset.price_url) end)
+
+    results =
+      assets_with_price_url
+      |> Task.async_stream(
+        fn asset ->
+          case fetch_and_update_price(asset) do
+            {:ok, _updated_asset} -> :ok
+            {:error, _changeset} -> :error
+          end
+        end,
+        max_concurrency: 5,
+        timeout: 30_000,
+        on_timeout: :kill_task
+      )
+      |> Enum.to_list()
+
+    success_count =
+      Enum.count(results, fn {status, result} -> status == :ok and result == :ok end)
+
+    error_count = length(results) - success_count
+
+    {:ok, %{success: success_count, errors: error_count}}
+  end
 end

@@ -93,4 +93,26 @@ defmodule Boonorbust2Web.AssetController do
       redirect(conn, to: ~p"/assets")
     end
   end
+
+  @spec update_all_prices(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def update_all_prices(conn, _params) do
+    {:ok, %{success: success_count, errors: error_count}} = Assets.update_all_prices()
+
+    message =
+      if error_count > 0 do
+        "Updated #{success_count} prices (#{error_count} errors)"
+      else
+        "Successfully updated #{success_count} prices"
+      end
+
+    if get_req_header(conn, "hx-request") != [] do
+      conn
+      |> put_layout(false)
+      |> send_resp(200, message)
+    else
+      conn
+      |> put_flash(:info, message)
+      |> redirect(to: ~p"/assets")
+    end
+  end
 end

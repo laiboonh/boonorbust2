@@ -10,21 +10,6 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
         <div class="max-w-lg mx-auto">
           <div class="flex gap-3 mb-6">
             <button
-              onclick="document.getElementById('csv-upload-modal').classList.remove('hidden')"
-              class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                />
-              </svg>
-              Import CSV
-            </button>
-
-            <button
               onclick="document.getElementById('portfolio-transaction-modal').classList.remove('hidden')"
               class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
             >
@@ -37,6 +22,21 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                 />
               </svg>
               Add Transaction
+            </button>
+
+            <button
+              onclick="document.getElementById('csv-upload-modal').classList.remove('hidden')"
+              class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                />
+              </svg>
+              Import CSV
             </button>
           </div>
           

@@ -43,6 +43,7 @@ defmodule Boonorbust2Web.Router do
     get "/positions/realized_profits/:asset_id", PositionsController, :realized_profits
 
     resources "/assets", AssetController
+    post "/assets/update_all_prices", AssetController, :update_all_prices
 
     resources "/portfolio_transactions", PortfolioTransactionController
     post "/portfolio_transactions/import_csv", PortfolioTransactionController, :import_csv
