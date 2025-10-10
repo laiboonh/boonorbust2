@@ -240,6 +240,42 @@ defmodule Boonorbust2.PortfolioPositions do
       where: ilike(a.name, ^filter_pattern)
   end
 
+  @doc """
+  Returns a list of asset IDs where ANY user has positions with quantity on hand > 0.
+  Used to determine which assets are currently held and need price updates.
+
+  For each user-asset combination, checks the latest position (by transaction date).
+  If that latest position has quantity_on_hand > 0, includes the asset_id.
+  """
+  @spec get_asset_ids_with_holdings() :: [integer()]
+  def get_asset_ids_with_holdings do
+    # Get the latest position for each user-asset combination
+    latest_positions_subquery =
+      from(pp in PortfolioPosition,
+        join: pt in assoc(pp, :portfolio_transaction),
+        group_by: [pp.user_id, pp.asset_id],
+        select: %{
+          user_id: pp.user_id,
+          asset_id: pp.asset_id,
+          max_transaction_date: max(pt.transaction_date),
+          max_id: max(pp.id)
+        }
+      )
+
+    # Get assets where the latest position for any user has quantity > 0
+    from(pp in PortfolioPosition,
+      join: pt in assoc(pp, :portfolio_transaction),
+      join: lp in subquery(latest_positions_subquery),
+      on:
+        pp.user_id == lp.user_id and pp.asset_id == lp.asset_id and
+          pt.transaction_date == lp.max_transaction_date,
+      where: pp.quantity_on_hand > 0,
+      distinct: pp.asset_id,
+      select: pp.asset_id
+    )
+    |> Repo.all()
+  end
+
   # Calculates and upserts realized profit for a sell transaction.
   # Realized profit = (sell_price - avg_cost_price) * quantity
   @spec upsert_realized_profit_for_transaction(PortfolioTransaction.t(), Money.t()) ::

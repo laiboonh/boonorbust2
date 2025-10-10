@@ -180,6 +180,7 @@ defmodule Boonorbust2.Assets do
 
   @doc """
   Updates prices for all assets that have a price_url configured.
+  Only updates assets where ANY user currently has holdings (quantity > 0).
   Processes assets in parallel with a maximum concurrency of 5.
 
   Returns a tuple with success count (actually fetched) and error count.
@@ -187,8 +188,16 @@ defmodule Boonorbust2.Assets do
   """
   @spec update_all_prices() :: {:ok, %{success: non_neg_integer(), errors: non_neg_integer()}}
   def update_all_prices do
+    # Get asset IDs where ANY user has holdings (quantity > 0)
+    asset_ids_with_holdings = Boonorbust2.PortfolioPositions.get_asset_ids_with_holdings()
+
     assets = list_assets()
-    assets_with_price_url = Enum.filter(assets, fn asset -> not is_nil(asset.price_url) end)
+
+    # Filter to only assets with price_url AND where any user has holdings
+    assets_with_price_url =
+      Enum.filter(assets, fn asset ->
+        not is_nil(asset.price_url) and asset.id in asset_ids_with_holdings
+      end)
 
     results =
       assets_with_price_url

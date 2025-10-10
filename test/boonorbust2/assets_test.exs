@@ -285,9 +285,19 @@ defmodule Boonorbust2.AssetsTest do
     end
 
     test "update_all_prices respects rate limiting for individual assets" do
-      # Create 3 assets with price URLs
+      # Create test user
+      {:ok, user} =
+        Boonorbust2.Accounts.create_user(%{
+          email: "test@example.com",
+          name: "Test User",
+          provider: "google",
+          uid: "test123",
+          currency: "USD"
+        })
+
+      # Create 4 assets with price URLs (asset1, asset2, asset3, asset_no_holdings)
       HTTPClientMock
-      |> expect(:get, 3, fn _url, _opts ->
+      |> expect(:get, 4, fn _url, _opts ->
         {:ok, %{status: 200, body: %{"data" => [%{"close" => 100.0}]}}}
       end)
 
@@ -319,6 +329,56 @@ defmodule Boonorbust2.AssetsTest do
           currency: "USD"
         })
 
+      # Create asset with price_url but no holdings - should be ignored
+      {:ok, asset_no_holdings} =
+        Assets.create_asset(%{
+          name: "Asset No Holdings",
+          price_url: "https://api.example.com/asset_no_holdings",
+          currency: "USD"
+        })
+
+      # Create positions for assets 1, 2, and 3 so they're eligible for updates
+      {:ok, _} =
+        Boonorbust2.PortfolioTransactions.create_portfolio_transaction(%{
+          "asset_id" => asset1.id,
+          "user_id" => user.id,
+          "action" => "buy",
+          "quantity" => "10",
+          "price" => "100.0",
+          "currency" => "USD",
+          "commission" => "0",
+          "transaction_date" => DateTime.utc_now()
+        })
+
+      {:ok, _} =
+        Boonorbust2.PortfolioTransactions.create_portfolio_transaction(%{
+          "asset_id" => asset2.id,
+          "user_id" => user.id,
+          "action" => "buy",
+          "quantity" => "10",
+          "price" => "100.0",
+          "currency" => "USD",
+          "commission" => "0",
+          "transaction_date" => DateTime.utc_now()
+        })
+
+      {:ok, _} =
+        Boonorbust2.PortfolioTransactions.create_portfolio_transaction(%{
+          "asset_id" => asset3.id,
+          "user_id" => user.id,
+          "action" => "buy",
+          "quantity" => "10",
+          "price" => "100.0",
+          "currency" => "USD",
+          "commission" => "0",
+          "transaction_date" => DateTime.utc_now()
+        })
+
+      # Calculate positions for the assets with transactions
+      Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(asset1.id, user.id)
+      Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(asset2.id, user.id)
+      Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(asset3.id, user.id)
+
       # Set asset1 to old (should be updated)
       old_time = DateTime.add(DateTime.utc_now(), -90_000, :second) |> DateTime.truncate(:second)
 
@@ -349,6 +409,7 @@ defmodule Boonorbust2.AssetsTest do
       # Should have updated 2 assets (asset1 and asset2)
       # asset3 was skipped due to rate limiting
       # asset_no_url was skipped because no price_url
+      # asset_no_holdings was skipped because no one holds it
       assert success_count == 2
       assert error_count == 0
 
@@ -356,12 +417,16 @@ defmodule Boonorbust2.AssetsTest do
       updated_asset1 = Assets.get_asset!(asset1.id)
       updated_asset2 = Assets.get_asset!(asset2.id)
       updated_asset3 = Assets.get_asset!(asset3.id)
+      updated_asset_no_holdings = Assets.get_asset!(asset_no_holdings.id)
 
       assert Decimal.eq?(updated_asset1.price, Decimal.new("200.0"))
       assert Decimal.eq?(updated_asset2.price, Decimal.new("200.0"))
 
       # asset3 should still have original price (not updated due to rate limiting)
       assert Decimal.eq?(updated_asset3.price, Decimal.new("100.0"))
+
+      # asset_no_holdings should still have original price (no one holds it, so not updated)
+      assert Decimal.eq?(updated_asset_no_holdings.price, Decimal.new("100.0"))
 
       # Verify updated_at was set for assets that were updated
       assert DateTime.compare(updated_asset1.updated_at, asset1.updated_at) == :gt
