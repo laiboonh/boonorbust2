@@ -15,6 +15,7 @@ defmodule Boonorbust2.Assets.Asset do
           price_url: String.t() | nil,
           price: Decimal.t() | nil,
           currency: String.t() | nil,
+          distributes_dividends: boolean() | nil,
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -24,6 +25,7 @@ defmodule Boonorbust2.Assets.Asset do
     field :price_url, :string
     field :price, :decimal
     field :currency, :string
+    field :distributes_dividends, :boolean, default: false
 
     has_many :asset_tags, AssetTag
 
@@ -33,7 +35,7 @@ defmodule Boonorbust2.Assets.Asset do
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(asset, attrs) do
     asset
-    |> cast(attrs, [:name, :price_url, :price, :currency])
+    |> cast(attrs, [:name, :price_url, :price, :currency, :distributes_dividends])
     |> validate_required([:name, :currency])
     |> validate_number(:price, greater_than_or_equal_to: 0)
     |> validate_inclusion(:currency, Currency.supported_currencies())

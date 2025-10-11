@@ -231,6 +231,19 @@ defmodule Boonorbust2Web.AssetHTML do
                     </select>
                   </div>
 
+                  <div class="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="asset_distributes_dividends"
+                      name="asset[distributes_dividends]"
+                      value="true"
+                      class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                    />
+                    <label for="asset_distributes_dividends" class="ml-2 block text-sm text-gray-700">
+                      Distributes dividends
+                    </label>
+                  </div>
+
                   <div class="flex gap-3 pt-4">
                     <button
                       type="submit"
@@ -417,6 +430,23 @@ defmodule Boonorbust2Web.AssetHTML do
                   </select>
                 </div>
 
+                <div class="flex items-center">
+                  <input
+                    type="checkbox"
+                    id={"edit_distributes_dividends_#{@asset.id}"}
+                    name="asset[distributes_dividends]"
+                    value="true"
+                    checked={@asset.distributes_dividends}
+                    class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                  />
+                  <label
+                    for={"edit_distributes_dividends_#{@asset.id}"}
+                    class="ml-2 block text-sm text-gray-700"
+                  >
+                    Distributes dividends
+                  </label>
+                </div>
+
                 <div class="flex gap-2">
                   <button
                     type="submit"
@@ -564,6 +594,14 @@ defmodule Boonorbust2Web.AssetHTML do
                 />
               </div>
 
+              <div>
+                <.input
+                  type="checkbox"
+                  field={@changeset[:distributes_dividends]}
+                  label="Distributes dividends"
+                />
+              </div>
+
               <div class="flex gap-3 pt-4">
                 <.button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700">
                   Add Asset
@@ -617,6 +655,14 @@ defmodule Boonorbust2Web.AssetHTML do
                   field={@changeset[:currency]}
                   required
                   options={Currency.currency_options()}
+                />
+              </div>
+
+              <div>
+                <.input
+                  type="checkbox"
+                  field={@changeset[:distributes_dividends]}
+                  label="Distributes dividends"
                 />
               </div>
 
