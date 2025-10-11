@@ -134,6 +134,122 @@ defmodule Boonorbust2Web.DashboardHTML do
               <% end %>
             </div>
           <% end %>
+          
+    <!-- Portfolio Value Line Chart -->
+          <%= if !Enum.empty?(@portfolio_snapshots) do %>
+            <div class="bg-white rounded-lg shadow p-6 mt-6">
+              <div class="mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Portfolio Value Over Time</h2>
+                <p class="text-sm text-gray-600 mt-1">Last 90 days</p>
+              </div>
+              <div class="relative" style="height: 300px;">
+                <canvas id="portfolio-value-chart"></canvas>
+              </div>
+              <script>
+                (function() {
+                  const ctx = document.getElementById('portfolio-value-chart');
+                  if (ctx && typeof Chart !== 'undefined') {
+                    const snapshots = <%= raw Jason.encode!(@portfolio_snapshots) %>;
+                    const labels = snapshots.map(s => s.snapshot_date);
+                    const values = snapshots.map(s => parseFloat(s.total_value.amount));
+
+                    new Chart(ctx, {
+                      type: 'line',
+                      data: {
+                        labels: labels,
+                        datasets: [{
+                          label: 'Portfolio Value',
+                          data: values,
+                          borderColor: 'rgb(16, 185, 129)',
+                          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                          borderWidth: 2,
+                          fill: true,
+                          tension: 0.3,
+                          pointRadius: 3,
+                          pointHoverRadius: 5,
+                          pointBackgroundColor: 'rgb(16, 185, 129)',
+                          pointBorderColor: '#fff',
+                          pointBorderWidth: 2
+                        }]
+                      },
+                      options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                          mode: 'index',
+                          intersect: false
+                        },
+                        plugins: {
+                          legend: {
+                            display: false
+                          },
+                          tooltip: {
+                            displayColors: false,
+                            callbacks: {
+                              title: function(context) {
+                                return context[0].label;
+                              },
+                              label: function(context) {
+                                const value = context.parsed.y;
+                                const currency = '<%= @user_currency %>';
+                                return new Intl.NumberFormat('en-US', {
+                                  style: 'currency',
+                                  currency: currency,
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2
+                                }).format(value);
+                              }
+                            }
+                          }
+                        },
+                        scales: {
+                          x: {
+                            grid: {
+                              display: false
+                            },
+                            ticks: {
+                              maxRotation: 45,
+                              minRotation: 45,
+                              font: {
+                                size: 10
+                              },
+                              callback: function(value, index, ticks) {
+                                // Show every 7th label to avoid crowding
+                                if (index % 7 === 0 || index === ticks.length - 1) {
+                                  return this.getLabelForValue(value);
+                                }
+                                return '';
+                              }
+                            }
+                          },
+                          y: {
+                            beginAtZero: false,
+                            grid: {
+                              color: 'rgba(0, 0, 0, 0.05)'
+                            },
+                            ticks: {
+                              font: {
+                                size: 10
+                              },
+                              callback: function(value) {
+                                const currency = '<%= @user_currency %>';
+                                return new Intl.NumberFormat('en-US', {
+                                  style: 'currency',
+                                  currency: currency,
+                                  minimumFractionDigits: 0,
+                                  maximumFractionDigits: 0
+                                }).format(value);
+                              }
+                            }
+                          }
+                        }
+                      }
+                    });
+                  }
+                })();
+              </script>
+            </div>
+          <% end %>
         </div>
 
         <.tab_bar current_tab="dashboard">

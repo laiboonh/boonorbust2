@@ -4,6 +4,7 @@ defmodule Boonorbust2Web.DashboardController do
   alias Boonorbust2.ExchangeRates
   alias Boonorbust2.PortfolioPositions
   alias Boonorbust2.Portfolios
+  alias Boonorbust2.PortfolioSnapshots
   alias Boonorbust2.RealizedProfits
   alias Boonorbust2.Tags
 
@@ -71,6 +72,10 @@ defmodule Boonorbust2Web.DashboardController do
 
     all_tags = Tags.list_tags(user_id)
 
+    # Calculate total portfolio value and save snapshot
+    total_portfolio_value = calculate_total_portfolio_value(sorted_positions, user_currency)
+    save_portfolio_snapshot(user_id, total_portfolio_value)
+
     # Calculate tag value aggregations for pie chart
     tag_chart_data = calculate_tag_chart_data(sorted_positions)
 
@@ -87,6 +92,9 @@ defmodule Boonorbust2Web.DashboardController do
         |> Map.put(:chart_data, chart_data)
       end)
 
+    # Load portfolio snapshots for the last 90 days for the line graph
+    portfolio_snapshots = PortfolioSnapshots.list_snapshots(user_id, days: 90)
+
     render(conn, :index,
       positions: sorted_positions,
       realized_profits_by_asset: realized_profits_by_asset,
@@ -94,7 +102,8 @@ defmodule Boonorbust2Web.DashboardController do
       all_tags: all_tags,
       tag_chart_data: tag_chart_data,
       portfolios: portfolios_with_chart_data,
-      user_currency: user_currency
+      user_currency: user_currency,
+      portfolio_snapshots: portfolio_snapshots
     )
   end
 
@@ -194,5 +203,30 @@ defmodule Boonorbust2Web.DashboardController do
       Decimal.add(acc, position.converted_total_value.amount)
     end)
     |> Decimal.to_float()
+  end
+
+  @spec calculate_total_portfolio_value([map()], String.t()) :: Money.t()
+  defp calculate_total_portfolio_value(positions, currency) do
+    total_amount =
+      positions
+      |> Enum.reduce(Decimal.new(0), fn position, acc ->
+        Decimal.add(acc, position.converted_total_value.amount)
+      end)
+
+    Money.new!(total_amount, currency)
+  end
+
+  @spec save_portfolio_snapshot(String.t(), Money.t()) :: :ok
+  defp save_portfolio_snapshot(user_id, total_value) do
+    today = Date.utc_today()
+
+    case PortfolioSnapshots.upsert_snapshot(user_id, today, total_value) do
+      {:ok, _snapshot} ->
+        :ok
+
+      {:error, changeset} ->
+        Logger.warning("Failed to save portfolio snapshot: #{inspect(changeset)}")
+        :ok
+    end
   end
 end
