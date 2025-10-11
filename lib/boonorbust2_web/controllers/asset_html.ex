@@ -69,7 +69,7 @@ defmodule Boonorbust2Web.AssetHTML do
                 >
                 </path>
               </svg>
-              Update All Prices
+              Update Prices & Dividends
             </button>
           </div>
 
@@ -232,6 +232,7 @@ defmodule Boonorbust2Web.AssetHTML do
                   </div>
 
                   <div class="flex items-center">
+                    <input type="hidden" name="asset[distributes_dividends]" value="false" />
                     <input
                       type="checkbox"
                       id="asset_distributes_dividends"
@@ -242,6 +243,19 @@ defmodule Boonorbust2Web.AssetHTML do
                     <label for="asset_distributes_dividends" class="ml-2 block text-sm text-gray-700">
                       Distributes dividends
                     </label>
+                  </div>
+
+                  <div>
+                    <label for="asset_dividend_url" class="block text-sm font-medium text-gray-700">
+                      Dividend URL
+                    </label>
+                    <input
+                      type="text"
+                      id="asset_dividend_url"
+                      name="asset[dividend_url]"
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                      placeholder="e.g. https://example.com/dividends"
+                    />
                   </div>
 
                   <div class="flex gap-3 pt-4">
@@ -431,6 +445,7 @@ defmodule Boonorbust2Web.AssetHTML do
                 </div>
 
                 <div class="flex items-center">
+                  <input type="hidden" name="asset[distributes_dividends]" value="false" />
                   <input
                     type="checkbox"
                     id={"edit_distributes_dividends_#{@asset.id}"}
@@ -445,6 +460,22 @@ defmodule Boonorbust2Web.AssetHTML do
                   >
                     Distributes dividends
                   </label>
+                </div>
+
+                <div>
+                  <label
+                    for={"edit_dividend_url_#{@asset.id}"}
+                    class="block text-sm font-medium text-gray-700"
+                  >
+                    Dividend URL
+                  </label>
+                  <input
+                    type="text"
+                    id={"edit_dividend_url_#{@asset.id}"}
+                    name="asset[dividend_url]"
+                    value={@asset.dividend_url}
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  />
                 </div>
 
                 <div class="flex gap-2">
@@ -602,6 +633,15 @@ defmodule Boonorbust2Web.AssetHTML do
                 />
               </div>
 
+              <div>
+                <.label for="asset_dividend_url">Dividend URL</.label>
+                <.input
+                  type="text"
+                  field={@changeset[:dividend_url]}
+                  placeholder="e.g. https://example.com/dividends"
+                />
+              </div>
+
               <div class="flex gap-3 pt-4">
                 <.button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700">
                   Add Asset
@@ -663,6 +703,15 @@ defmodule Boonorbust2Web.AssetHTML do
                   type="checkbox"
                   field={@changeset[:distributes_dividends]}
                   label="Distributes dividends"
+                />
+              </div>
+
+              <div>
+                <.label for="asset_dividend_url">Dividend URL</.label>
+                <.input
+                  type="text"
+                  field={@changeset[:dividend_url]}
+                  placeholder="e.g. https://example.com/dividends"
                 />
               </div>
 

@@ -284,7 +284,7 @@ defmodule Boonorbust2.AssetsTest do
       assert final_asset.name == "Final Name"
     end
 
-    test "update_all_prices respects rate limiting for individual assets" do
+    test "update_all_asset_data respects rate limiting for individual assets" do
       # Create test user
       {:ok, user} =
         Boonorbust2.Accounts.create_user(%{
@@ -403,15 +403,16 @@ defmodule Boonorbust2.AssetsTest do
         {:ok, %{status: 200, body: %{"data" => [%{"close" => 200.0}]}}}
       end)
 
-      # Call update_all_prices
-      {:ok, %{success: success_count, errors: error_count}} = Assets.update_all_prices()
+      # Call update_all_asset_data
+      {:ok, %{prices_success: prices_success, prices_errors: prices_errors}} =
+        Assets.update_all_asset_data()
 
       # Should have updated 2 assets (asset1 and asset2)
       # asset3 was skipped due to rate limiting
       # asset_no_url was skipped because no price_url
       # asset_no_holdings was skipped because no one holds it
-      assert success_count == 2
-      assert error_count == 0
+      assert prices_success == 2
+      assert prices_errors == 0
 
       # Verify asset1 and asset2 were updated
       updated_asset1 = Assets.get_asset!(asset1.id)

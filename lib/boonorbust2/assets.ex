@@ -48,7 +48,8 @@ defmodule Boonorbust2.Assets do
   def create_asset(attrs \\ %{}) do
     Repo.transaction(fn ->
       with {:ok, asset} <- %Asset{} |> Asset.changeset(attrs) |> Repo.insert(),
-           {:ok, updated_asset} <- maybe_update_price_from_url(asset) do
+           {:ok, updated_asset} <- maybe_update_price_from_url(asset),
+           :ok <- maybe_sync_dividends_from_url(updated_asset) do
         updated_asset
       else
         {:error, changeset} -> Repo.rollback(changeset)
@@ -58,30 +59,35 @@ defmodule Boonorbust2.Assets do
 
   @spec update_asset(Asset.t(), map()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
   def update_asset(%Asset{} = asset, attrs) do
-    # Check if price_url value has actually changed
-    new_price_url = Map.get(attrs, :price_url) || Map.get(attrs, "price_url")
-    current_price_url = asset.price_url
+    price_url_changed? = url_changed?(attrs, asset.price_url, :price_url)
+    dividend_url_changed? = url_changed?(attrs, asset.dividend_url, :dividend_url)
 
-    price_url_changed? =
-      case new_price_url do
-        nil -> false
-        ^current_price_url -> false
-        _ -> true
-      end
-
-    # Check if we should update price BEFORE updating the record
+    # Check if we should update price/dividends BEFORE updating the record
     # (because update will change updated_at timestamp)
     should_fetch_price = price_url_changed? or should_update_price?(asset)
+    should_sync_dividends = dividend_url_changed? or should_update_dividends?(asset)
 
     Repo.transaction(fn ->
-      do_update_asset(asset, attrs, should_fetch_price)
+      do_update_asset(asset, attrs, should_fetch_price, should_sync_dividends)
     end)
   end
 
-  @spec do_update_asset(Asset.t(), map(), boolean()) :: Asset.t()
-  defp do_update_asset(asset, attrs, should_fetch_price) do
+  @spec url_changed?(map(), String.t() | nil, atom()) :: boolean()
+  defp url_changed?(attrs, current_url, field) do
+    new_url = Map.get(attrs, field) || Map.get(attrs, Atom.to_string(field))
+
+    case new_url do
+      nil -> false
+      ^current_url -> false
+      _ -> true
+    end
+  end
+
+  @spec do_update_asset(Asset.t(), map(), boolean(), boolean()) :: Asset.t()
+  defp do_update_asset(asset, attrs, should_fetch_price, should_sync_dividends) do
     with {:ok, updated_asset} <- asset |> Asset.changeset(attrs) |> Repo.update(),
-         {:ok, final_asset} <- maybe_fetch_price(updated_asset, should_fetch_price) do
+         {:ok, final_asset} <- maybe_fetch_price(updated_asset, should_fetch_price),
+         :ok <- maybe_sync_dividends(final_asset, should_sync_dividends) do
       final_asset
     else
       {:error, changeset} -> Repo.rollback(changeset)
@@ -243,6 +249,45 @@ defmodule Boonorbust2.Assets do
     diff_seconds >= 86_400
   end
 
+  @spec should_update_dividends?(Asset.t()) :: boolean()
+  defp should_update_dividends?(%Asset{dividend_url: nil}), do: false
+  defp should_update_dividends?(%Asset{distributes_dividends: false}), do: false
+  defp should_update_dividends?(%Asset{updated_at: nil}), do: true
+
+  defp should_update_dividends?(%Asset{updated_at: updated_at}) do
+    # Sync dividends if the record is more than 24 hours old
+    now = DateTime.utc_now()
+    diff_seconds = DateTime.diff(now, updated_at, :second)
+    # 24 hours = 86400 seconds
+    diff_seconds >= 86_400
+  end
+
+  @spec maybe_sync_dividends_from_url(Asset.t()) :: :ok | {:error, String.t()}
+  defp maybe_sync_dividends_from_url(%Asset{dividend_url: nil} = _asset), do: :ok
+  defp maybe_sync_dividends_from_url(%Asset{distributes_dividends: false} = _asset), do: :ok
+
+  defp maybe_sync_dividends_from_url(%Asset{} = asset) do
+    # For CREATE, always sync dividends if dividend_url is set and distributes_dividends is true
+    sync_asset_dividends(asset)
+  end
+
+  @spec maybe_sync_dividends(Asset.t(), boolean()) :: :ok | {:error, String.t()}
+  defp maybe_sync_dividends(_asset, false), do: :ok
+  defp maybe_sync_dividends(%Asset{dividend_url: nil} = _asset, true), do: :ok
+  defp maybe_sync_dividends(%Asset{distributes_dividends: false} = _asset, true), do: :ok
+
+  defp maybe_sync_dividends(%Asset{} = asset, true) do
+    sync_asset_dividends(asset)
+  end
+
+  @spec sync_asset_dividends(Asset.t()) :: :ok | {:error, String.t()}
+  defp sync_asset_dividends(%Asset{} = asset) do
+    case Boonorbust2.Dividends.sync_dividends(asset) do
+      {:ok, _result} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
   @spec fetch_asset_price(Asset.t()) :: :fetched | :skipped | :error
   defp fetch_asset_price(asset) do
     should_fetch = should_update_price?(asset)
@@ -253,28 +298,49 @@ defmodule Boonorbust2.Assets do
     end
   end
 
+  @spec sync_asset_dividends_with_status(Asset.t()) :: :synced | :skipped | :error
+  defp sync_asset_dividends_with_status(asset) do
+    should_sync = should_update_dividends?(asset)
+
+    case maybe_sync_dividends(asset, should_sync) do
+      :ok -> if should_sync, do: :synced, else: :skipped
+      {:error, _reason} -> :error
+    end
+  end
+
   @doc """
-  Updates prices for all assets that have a price_url configured.
+  Updates prices and dividends for all assets that have a price_url or dividend_url configured.
   Only updates assets where ANY user currently has holdings (quantity > 0).
   Processes assets in parallel with a maximum concurrency of 5.
 
-  Returns a tuple with success count (actually fetched) and error count.
+  Returns a tuple with counts for prices and dividends (actually fetched/synced).
   Assets skipped due to rate limiting are not counted as successes.
   """
-  @spec update_all_prices() :: {:ok, %{success: non_neg_integer(), errors: non_neg_integer()}}
-  def update_all_prices do
+  @spec update_all_asset_data() ::
+          {:ok,
+           %{
+             prices_success: non_neg_integer(),
+             prices_errors: non_neg_integer(),
+             dividends_success: non_neg_integer(),
+             dividends_errors: non_neg_integer()
+           }}
+  def update_all_asset_data do
     # Get asset IDs where ANY user has holdings (quantity > 0)
     asset_ids_with_holdings = Boonorbust2.PortfolioPositions.get_asset_ids_with_holdings()
 
     assets = list_assets()
 
-    # Filter to only assets with price_url AND where any user has holdings
-    assets_with_price_url =
+    # Filter to assets where any user has holdings
+    assets_with_holdings =
       Enum.filter(assets, fn asset ->
-        not is_nil(asset.price_url) and asset.id in asset_ids_with_holdings
+        asset.id in asset_ids_with_holdings
       end)
 
-    results =
+    # Update prices for assets with price_url
+    assets_with_price_url =
+      Enum.filter(assets_with_holdings, fn asset -> not is_nil(asset.price_url) end)
+
+    price_results =
       assets_with_price_url
       |> Task.async_stream(
         &fetch_asset_price/1,
@@ -284,12 +350,40 @@ defmodule Boonorbust2.Assets do
       )
       |> Enum.to_list()
 
-    success_count =
-      Enum.count(results, fn {status, result} -> status == :ok and result == :fetched end)
+    prices_success =
+      Enum.count(price_results, fn {status, result} -> status == :ok and result == :fetched end)
 
-    error_count =
-      Enum.count(results, fn {status, result} -> status == :ok and result == :error end)
+    prices_errors =
+      Enum.count(price_results, fn {status, result} -> status == :ok and result == :error end)
 
-    {:ok, %{success: success_count, errors: error_count}}
+    # Update dividends for assets with dividend_url and distributes_dividends = true
+    assets_with_dividend_url =
+      Enum.filter(assets_with_holdings, fn asset ->
+        not is_nil(asset.dividend_url) and asset.distributes_dividends
+      end)
+
+    dividend_results =
+      assets_with_dividend_url
+      |> Task.async_stream(
+        &sync_asset_dividends_with_status/1,
+        max_concurrency: 5,
+        timeout: 30_000,
+        on_timeout: :kill_task
+      )
+      |> Enum.to_list()
+
+    dividends_success =
+      Enum.count(dividend_results, fn {status, result} -> status == :ok and result == :synced end)
+
+    dividends_errors =
+      Enum.count(dividend_results, fn {status, result} -> status == :ok and result == :error end)
+
+    {:ok,
+     %{
+       prices_success: prices_success,
+       prices_errors: prices_errors,
+       dividends_success: dividends_success,
+       dividends_errors: dividends_errors
+     }}
   end
 end

@@ -7,6 +7,7 @@ defmodule Boonorbust2.Assets.Asset do
   import Ecto.Changeset
 
   alias Boonorbust2.Currency
+  alias Boonorbust2.Dividends.Dividend
   alias Boonorbust2.Tags.AssetTag
 
   @type t :: %__MODULE__{
@@ -16,6 +17,7 @@ defmodule Boonorbust2.Assets.Asset do
           price: Decimal.t() | nil,
           currency: String.t() | nil,
           distributes_dividends: boolean() | nil,
+          dividend_url: String.t() | nil,
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -26,8 +28,10 @@ defmodule Boonorbust2.Assets.Asset do
     field :price, :decimal
     field :currency, :string
     field :distributes_dividends, :boolean, default: false
+    field :dividend_url, :string
 
     has_many :asset_tags, AssetTag
+    has_many :dividends, Dividend
 
     timestamps(type: :utc_datetime)
   end
@@ -35,11 +39,36 @@ defmodule Boonorbust2.Assets.Asset do
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(asset, attrs) do
     asset
-    |> cast(attrs, [:name, :price_url, :price, :currency, :distributes_dividends])
+    |> cast(attrs, [:name, :price_url, :price, :currency, :distributes_dividends, :dividend_url])
     |> validate_required([:name, :currency])
     |> validate_number(:price, greater_than_or_equal_to: 0)
     |> validate_inclusion(:currency, Currency.supported_currencies())
     |> validate_url(:price_url)
+    |> validate_url(:dividend_url)
+    |> validate_dividend_url_required()
+  end
+
+  @spec validate_dividend_url_required(Ecto.Changeset.t()) :: Ecto.Changeset.t()
+  defp validate_dividend_url_required(changeset) do
+    distributes_dividends = get_field(changeset, :distributes_dividends)
+    dividend_url = get_field(changeset, :dividend_url)
+
+    cond do
+      # If distributes_dividends is true, dividend_url must be present
+      distributes_dividends && is_nil(dividend_url) ->
+        add_error(changeset, :dividend_url, "is required when asset distributes dividends")
+
+      # If dividend_url is present, distributes_dividends must be true
+      not is_nil(dividend_url) && dividend_url != "" && !distributes_dividends ->
+        add_error(
+          changeset,
+          :distributes_dividends,
+          "must be checked when dividend URL is provided"
+        )
+
+      true ->
+        changeset
+    end
   end
 
   @spec validate_url(Ecto.Changeset.t(), atom()) :: Ecto.Changeset.t()
