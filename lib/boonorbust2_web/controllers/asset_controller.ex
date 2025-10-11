@@ -6,9 +6,10 @@ defmodule Boonorbust2Web.AssetController do
   alias Helper
 
   @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  def index(conn, _params) do
-    assets = Boonorbust2.Assets.list_assets()
-    render(conn, :index, assets: assets)
+  def index(conn, params) do
+    filter = Map.get(params, "filter", "")
+    assets = Boonorbust2.Assets.list_assets(filter: filter)
+    render(conn, :index, assets: assets, filter: filter)
   end
 
   @spec show(Plug.Conn.t(), map()) :: Plug.Conn.t()

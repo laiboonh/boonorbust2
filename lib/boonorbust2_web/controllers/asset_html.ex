@@ -79,6 +79,33 @@ defmodule Boonorbust2Web.AssetHTML do
           >
           </div>
           
+    <!-- Filter Form -->
+          <form method="get" action={~p"/assets"} class="mb-4">
+            <div class="flex gap-2">
+              <input
+                type="text"
+                name="filter"
+                value={@filter}
+                placeholder="Search by asset name..."
+                class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+              />
+              <button
+                type="submit"
+                class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+              >
+                Filter
+              </button>
+              <%= if @filter != "" do %>
+                <a
+                  href={~p"/assets"}
+                  class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Clear
+                </a>
+              <% end %>
+            </div>
+          </form>
+          
     <!-- Assets List -->
           <div id="assets-list" class="space-y-4">
             <%= for asset <- @assets do %>

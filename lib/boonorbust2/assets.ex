@@ -7,14 +7,29 @@ defmodule Boonorbust2.Assets do
   alias Boonorbust2.Assets.Asset
   alias Boonorbust2.Repo
 
-  @spec list_assets() :: [Asset.t()]
-  def list_assets do
+  @spec list_assets(keyword()) :: [Asset.t()]
+  def list_assets(opts \\ []) do
+    filter = Keyword.get(opts, :filter, nil)
+
     Helper.do_retry(
       fn ->
-        Repo.all(from a in Asset, order_by: a.name)
+        query = from a in Asset, order_by: a.name
+        query = apply_filter(query, filter)
+        Repo.all(query)
       end,
       [DBConnection.ConnectionError]
     )
+  end
+
+  @spec apply_filter(Ecto.Query.t(), String.t() | nil) :: Ecto.Query.t()
+  defp apply_filter(query, nil), do: query
+  defp apply_filter(query, ""), do: query
+
+  defp apply_filter(query, filter) when is_binary(filter) do
+    filter_pattern = "%#{filter}%"
+
+    from a in query,
+      where: ilike(a.name, ^filter_pattern)
   end
 
   @spec get_asset!(integer()) :: Asset.t()
