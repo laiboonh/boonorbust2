@@ -341,33 +341,41 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert Money.equal?(realized_profit.amount, Money.new(:SGD, "4990.00"))
     end
 
-    test "raises exception when mixing different currencies for same asset", %{user: user} do
-      asset = create_asset("GOOGL", "Alphabet Inc.")
+    test "prevents creating transactions with different currency than asset", %{user: user} do
+      # Create asset with USD currency
+      {:ok, asset} =
+        Assets.create_asset(%{
+          code: "GOOGL",
+          name: "Alphabet Inc.",
+          currency: "USD"
+        })
 
-      create_transaction(user.id, asset.id, %{
-        action: "buy",
-        quantity: "100",
-        price_amount: "100.00",
-        commission_amount: "5.00",
-        currency: "USD",
-        transaction_date: ~U[2024-01-01 00:00:00Z]
-      })
+      # First transaction with USD - should succeed
+      _txn1 =
+        create_transaction(user.id, asset.id, %{
+          action: "buy",
+          quantity: "100",
+          price_amount: "100.00",
+          commission_amount: "5.00",
+          currency: "USD",
+          transaction_date: ~U[2024-01-01 00:00:00Z]
+        })
 
-      # Second transaction with different currency - this should cause an error
-      create_transaction(user.id, asset.id, %{
-        action: "buy",
-        quantity: "50",
-        price_amount: "110.00",
-        commission_amount: "3.00",
-        currency: "SGD",
-        transaction_date: ~U[2024-02-01 00:00:00Z]
-      })
+      # Second transaction with different currency - should fail with validation error
+      assert {:error, changeset} =
+               PortfolioTransactions.create_portfolio_transaction(%{
+                 "user_id" => user.id,
+                 "asset_id" => asset.id,
+                 "action" => "buy",
+                 "quantity" => "50",
+                 "price" => "110.00",
+                 "commission" => "3.00",
+                 "currency" => "SGD",
+                 "transaction_date" => ~U[2024-02-01 00:00:00Z]
+               })
 
-      # Money.add will return error when trying to add USD and SGD
-      # causing a MatchError in the pattern match
-      assert_raise MatchError, fn ->
-        PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
-      end
+      assert %{price: ["currency (SGD) must match asset currency (USD)"]} ==
+               errors_on(changeset)
     end
 
     test "function is idempotent - calling multiple times produces same results", %{user: user} do

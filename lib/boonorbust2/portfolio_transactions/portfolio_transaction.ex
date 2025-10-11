@@ -40,7 +40,13 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
 
   @spec changeset(%__MODULE__{}, map()) :: Ecto.Changeset.t()
   def changeset(portfolio_transaction, attrs) do
-    attrs = convert_money_params(attrs)
+    # Get currency from attrs (for CSV import) or fallback to asset's currency (for forms)
+    provided_currency = Map.get(attrs, "currency") || Map.get(attrs, :currency)
+    asset_id = Map.get(attrs, "asset_id") || Map.get(attrs, :asset_id)
+
+    currency = provided_currency || get_asset_currency(asset_id)
+
+    attrs = convert_money_params(attrs, currency)
 
     portfolio_transaction
     |> cast(attrs, [
@@ -65,6 +71,7 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
     |> validate_number(:quantity, greater_than: 0)
     |> validate_money(:price)
     |> validate_money(:commission, greater_than_or_equal_to: 0)
+    |> validate_currency_matches_asset()
     |> calculate_amount()
     |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:asset_id)
@@ -90,10 +97,16 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
     end
   end
 
-  defp convert_money_params(attrs) do
-    # Get the currency from the top-level currency field
-    currency = Map.get(attrs, "currency") || Map.get(attrs, :currency)
+  defp get_asset_currency(nil), do: nil
 
+  defp get_asset_currency(asset_id) do
+    case Boonorbust2.Repo.get(Asset, asset_id) do
+      nil -> nil
+      %Asset{currency: currency} -> currency
+    end
+  end
+
+  defp convert_money_params(attrs, currency) do
     attrs
     |> convert_money_field(:price, currency)
     |> convert_money_field(:commission, currency)
@@ -141,6 +154,30 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
 
       _ ->
         add_error(changeset, field, "must be a valid Money amount")
+    end
+  end
+
+  defp validate_currency_matches_asset(changeset) do
+    asset_id = get_field(changeset, :asset_id)
+    price = get_field(changeset, :price)
+
+    with true <- asset_id != nil,
+         true <- price != nil,
+         %Money{} <- price,
+         %Asset{currency: asset_currency} <- Boonorbust2.Repo.get(Asset, asset_id) do
+      transaction_currency = Money.to_currency_code(price) |> Atom.to_string()
+
+      if transaction_currency == asset_currency do
+        changeset
+      else
+        add_error(
+          changeset,
+          :price,
+          "currency (#{transaction_currency}) must match asset currency (#{asset_currency})"
+        )
+      end
+    else
+      _ -> changeset
     end
   end
 

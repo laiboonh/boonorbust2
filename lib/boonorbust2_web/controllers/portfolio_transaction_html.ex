@@ -252,27 +252,6 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
 
                   <div>
                     <label
-                      for="portfolio_transaction_currency"
-                      class="block text-sm font-medium text-gray-700"
-                    >
-                      Currency
-                    </label>
-                    <select
-                      id="portfolio_transaction_currency"
-                      name="portfolio_transaction[currency]"
-                      required
-                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                    >
-                      <%= for currency <- Currency.supported_currencies() do %>
-                        <option value={currency} selected={currency == Currency.default_currency()}>
-                          {currency}
-                        </option>
-                      <% end %>
-                    </select>
-                  </div>
-
-                  <div>
-                    <label
                       for="portfolio_transaction_price"
                       class="block text-sm font-medium text-gray-700"
                     >
@@ -623,30 +602,6 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                     required
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
                   />
-                </div>
-
-                <div>
-                  <label
-                    for={"edit_currency_#{@portfolio_transaction.id}"}
-                    class="block text-sm font-medium text-gray-700"
-                  >
-                    Currency
-                  </label>
-                  <select
-                    id={"edit_currency_#{@portfolio_transaction.id}"}
-                    name="portfolio_transaction[currency]"
-                    required
-                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
-                  >
-                    <%= for currency <- Currency.supported_currencies() do %>
-                      <option
-                        value={currency}
-                        selected={@portfolio_transaction.price.currency == String.to_atom(currency)}
-                      >
-                        {currency}
-                      </option>
-                    <% end %>
-                  </select>
                 </div>
 
                 <div>
