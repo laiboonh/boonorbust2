@@ -258,6 +258,28 @@ defmodule Boonorbust2Web.AssetHTML do
                     />
                   </div>
 
+                  <div>
+                    <label
+                      for="asset_dividend_withholding_tax"
+                      class="block text-sm font-medium text-gray-700"
+                    >
+                      Dividend Withholding Tax
+                    </label>
+                    <select
+                      id="asset_dividend_withholding_tax"
+                      name="asset[dividend_withholding_tax]"
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                    >
+                      <option value="">Select rate</option>
+                      <option value="0.0">0%</option>
+                      <option value="0.1">10%</option>
+                      <option value="0.2">20%</option>
+                      <option value="0.3">30%</option>
+                      <option value="0.4">40%</option>
+                      <option value="0.5">50%</option>
+                    </select>
+                  </div>
+
                   <div class="flex gap-3 pt-4">
                     <button
                       type="submit"
@@ -478,6 +500,76 @@ defmodule Boonorbust2Web.AssetHTML do
                   />
                 </div>
 
+                <div>
+                  <label
+                    for={"edit_dividend_withholding_tax_#{@asset.id}"}
+                    class="block text-sm font-medium text-gray-700"
+                  >
+                    Dividend Withholding Tax
+                  </label>
+                  <select
+                    id={"edit_dividend_withholding_tax_#{@asset.id}"}
+                    name="asset[dividend_withholding_tax]"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  >
+                    <option value="">Select rate</option>
+                    <option
+                      value="0.0"
+                      selected={
+                        @asset.dividend_withholding_tax &&
+                          Decimal.equal?(@asset.dividend_withholding_tax, Decimal.new("0.0"))
+                      }
+                    >
+                      0%
+                    </option>
+                    <option
+                      value="0.1"
+                      selected={
+                        @asset.dividend_withholding_tax &&
+                          Decimal.equal?(@asset.dividend_withholding_tax, Decimal.new("0.1"))
+                      }
+                    >
+                      10%
+                    </option>
+                    <option
+                      value="0.2"
+                      selected={
+                        @asset.dividend_withholding_tax &&
+                          Decimal.equal?(@asset.dividend_withholding_tax, Decimal.new("0.2"))
+                      }
+                    >
+                      20%
+                    </option>
+                    <option
+                      value="0.3"
+                      selected={
+                        @asset.dividend_withholding_tax &&
+                          Decimal.equal?(@asset.dividend_withholding_tax, Decimal.new("0.3"))
+                      }
+                    >
+                      30%
+                    </option>
+                    <option
+                      value="0.4"
+                      selected={
+                        @asset.dividend_withholding_tax &&
+                          Decimal.equal?(@asset.dividend_withholding_tax, Decimal.new("0.4"))
+                      }
+                    >
+                      40%
+                    </option>
+                    <option
+                      value="0.5"
+                      selected={
+                        @asset.dividend_withholding_tax &&
+                          Decimal.equal?(@asset.dividend_withholding_tax, Decimal.new("0.5"))
+                      }
+                    >
+                      50%
+                    </option>
+                  </select>
+                </div>
+
                 <div class="flex gap-2">
                   <button
                     type="submit"
@@ -661,6 +753,23 @@ defmodule Boonorbust2Web.AssetHTML do
                 />
               </div>
 
+              <div>
+                <.label for="asset_dividend_withholding_tax">Dividend Withholding Tax</.label>
+                <.input
+                  type="select"
+                  field={@changeset[:dividend_withholding_tax]}
+                  options={[
+                    {"Select rate", ""},
+                    {"0%", "0.0"},
+                    {"10%", "0.1"},
+                    {"20%", "0.2"},
+                    {"30%", "0.3"},
+                    {"40%", "0.4"},
+                    {"50%", "0.5"}
+                  ]}
+                />
+              </div>
+
               <div class="flex gap-3 pt-4">
                 <.button type="submit" class="flex-1 bg-emerald-600 hover:bg-emerald-700">
                   Add Asset
@@ -731,6 +840,23 @@ defmodule Boonorbust2Web.AssetHTML do
                   type="text"
                   field={@changeset[:dividend_url]}
                   placeholder="e.g. https://example.com/dividends"
+                />
+              </div>
+
+              <div>
+                <.label for="asset_dividend_withholding_tax">Dividend Withholding Tax</.label>
+                <.input
+                  type="select"
+                  field={@changeset[:dividend_withholding_tax]}
+                  options={[
+                    {"Select rate", ""},
+                    {"0%", "0.0"},
+                    {"10%", "0.1"},
+                    {"20%", "0.2"},
+                    {"30%", "0.3"},
+                    {"40%", "0.4"},
+                    {"50%", "0.5"}
+                  ]}
                 />
               </div>
 
