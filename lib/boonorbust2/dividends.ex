@@ -128,31 +128,23 @@ defmodule Boonorbust2.Dividends do
       |> Enum.map(fn row ->
         cells = Floki.find(row, "td")
 
-        # Extract ex-date (typically first column)
-        ex_date_text =
+        # First cell contains currency and amount together (e.g., "SGD0.0185")
+        currency_amount_text =
           cells
           |> Enum.at(0)
           |> Floki.text()
           |> String.trim()
 
-        # Extract amount (typically in a column with dividend amount)
-        amount_text =
+        # Second cell contains ex-date (e.g., "2006-01-23")
+        ex_date_text =
           cells
           |> Enum.at(1)
           |> Floki.text()
           |> String.trim()
 
-        # Extract currency (typically mentioned with amount or in separate column)
-        currency_text =
-          cells
-          |> Enum.at(2)
-          |> Floki.text()
-          |> String.trim()
-
         # Parse the data
-        with {:ok, date} <- parse_date(ex_date_text),
-             {:ok, amount} <- parse_amount(amount_text),
-             currency <- parse_currency(currency_text) do
+        with {:ok, {currency, amount}} <- parse_currency_and_amount(currency_amount_text),
+             {:ok, date} <- parse_date(ex_date_text) do
           %{
             date: date,
             value: amount,
@@ -168,6 +160,23 @@ defmodule Boonorbust2.Dividends do
       {:error, "No valid dividend data found"}
     else
       {:ok, dividends}
+    end
+  end
+
+  @spec parse_currency_and_amount(String.t()) ::
+          {:ok, {String.t(), Decimal.t()}} | {:error, String.t()}
+  defp parse_currency_and_amount(text) do
+    # Extract currency code (typically 3 letters at the start) and amount
+    # Example: "SGD0.0185" -> {"SGD", 0.0185}
+    case Regex.run(~r/^([A-Z]{3})([\d\.]+)/, text) do
+      [_, currency, amount] ->
+        case Decimal.parse(amount) do
+          {decimal, _} -> {:ok, {currency, decimal}}
+          :error -> {:error, "Invalid amount format"}
+        end
+
+      _ ->
+        {:error, "Invalid currency/amount format"}
     end
   end
 
@@ -203,29 +212,6 @@ defmodule Boonorbust2.Dividends do
       {:ok, date}
     else
       _ -> {:error, "Invalid date"}
-    end
-  end
-
-  @spec parse_amount(String.t()) :: {:ok, Decimal.t()} | {:error, String.t()}
-  defp parse_amount(amount_string) do
-    # Remove currency symbols and spaces
-    cleaned =
-      amount_string
-      |> String.replace(~r/[^\d\.]/, "")
-      |> String.trim()
-
-    case Decimal.parse(cleaned) do
-      {decimal, _} -> {:ok, decimal}
-      :error -> {:error, "Invalid amount format"}
-    end
-  end
-
-  @spec parse_currency(String.t()) :: String.t()
-  defp parse_currency(currency_string) do
-    # Extract currency code (typically 3 letters)
-    case Regex.run(~r/[A-Z]{3}/, currency_string) do
-      [currency] -> currency
-      _ -> "SGD"
     end
   end
 
