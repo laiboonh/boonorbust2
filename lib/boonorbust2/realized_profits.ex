@@ -144,19 +144,35 @@ defmodule Boonorbust2.RealizedProfits do
   end
 
   # Creates a realized profit record for a dividend and a specific user position.
-  # Calculates the dividend amount: quantity_on_hand * dividend value
+  # Calculates the dividend amount: quantity_on_hand * dividend value * (1 - withholding_tax)
   @spec create_dividend_realized_profit(Dividend.t(), PortfolioPosition.t()) ::
           {:ok, RealizedProfit.t()} | {:error, Ecto.Changeset.t()}
   defp create_dividend_realized_profit(%Dividend{} = dividend, %PortfolioPosition{} = position) do
-    # Calculate dividend amount: quantity_on_hand * dividend value
+    # Load the asset to get withholding tax rate
+    dividend_with_asset = Repo.preload(dividend, :asset)
+    asset = dividend_with_asset.asset
+
+    # Calculate gross dividend: quantity_on_hand * dividend value
     dividend_value = Money.new(dividend.currency, dividend.value)
-    {:ok, total_dividend} = Money.mult(dividend_value, position.quantity_on_hand)
+    {:ok, gross_dividend} = Money.mult(dividend_value, position.quantity_on_hand)
+
+    # Apply withholding tax if present
+    net_dividend =
+      if asset.dividend_withholding_tax do
+        # Calculate net amount: gross_dividend * (1 - withholding_tax)
+        withholding_rate = asset.dividend_withholding_tax
+        net_rate = Decimal.sub(Decimal.new(1), withholding_rate)
+        {:ok, net_amount} = Money.mult(gross_dividend, net_rate)
+        net_amount
+      else
+        gross_dividend
+      end
 
     attrs = %{
       user_id: position.user_id,
       asset_id: position.asset_id,
       dividend_id: dividend.id,
-      amount: total_dividend
+      amount: net_dividend
     }
 
     # Check if a realized profit already exists for this user and dividend
