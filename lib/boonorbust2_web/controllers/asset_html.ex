@@ -499,6 +499,25 @@ defmodule Boonorbust2Web.AssetHTML do
         </div>
 
         <div class="flex gap-2 ml-4">
+          <%= if @asset.distributes_dividends do %>
+            <button
+              hx-get={~p"/assets/#{@asset.id}/dividends"}
+              hx-target="body"
+              hx-swap="beforeend"
+              class="text-blue-600 hover:text-blue-800"
+              title="View dividends"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                >
+                </path>
+              </svg>
+            </button>
+          <% end %>
           <button
             onclick={"document.getElementById('asset-view-#{@asset.id}').classList.add('hidden'); document.getElementById('asset-edit-#{@asset.id}').classList.remove('hidden');"}
             class="text-emerald-600 hover:text-emerald-800"
@@ -727,6 +746,82 @@ defmodule Boonorbust2Web.AssetHTML do
                 </a>
               </div>
             </.form>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  def dividends_modal(assigns) do
+    ~H"""
+    <div
+      id={"dividends-modal-#{@asset.id}"}
+      class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50"
+    >
+      <div class="relative top-20 mx-auto p-5 border max-w-2xl shadow-lg rounded-md bg-white">
+        <div class="mt-3">
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-medium text-gray-900">
+              Dividends for {@asset.name}
+            </h3>
+            <button
+              onclick={"document.getElementById('dividends-modal-#{@asset.id}').remove()"}
+              class="text-gray-400 hover:text-gray-600"
+            >
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M6 18L18 6M6 6l12 12"
+                >
+                </path>
+              </svg>
+            </button>
+          </div>
+
+          <%= if Enum.empty?(@dividends) do %>
+            <div class="text-center py-8 text-gray-500">
+              <p>No dividends recorded for this asset.</p>
+            </div>
+          <% else %>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ex-Date
+                    </th>
+                    <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Value
+                    </th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Currency
+                    </th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  <%= for dividend <- @dividends do %>
+                    <tr>
+                      <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {Calendar.strftime(dividend.date, "%B %d, %Y")}
+                      </td>
+                      <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
+                        {Decimal.to_string(dividend.value)}
+                      </td>
+                      <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {dividend.currency}
+                      </td>
+                    </tr>
+                  <% end %>
+                </tbody>
+              </table>
+            </div>
+          <% end %>
+
+          <div class="mt-4 text-sm text-gray-500 text-right">
+            Total: {length(@dividends)} {if length(@dividends) == 1, do: "dividend", else: "dividends"}
           </div>
         </div>
       </div>

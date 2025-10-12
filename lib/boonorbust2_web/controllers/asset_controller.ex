@@ -118,4 +118,14 @@ defmodule Boonorbust2Web.AssetController do
     |> put_layout(false)
     |> send_resp(200, message)
   end
+
+  @spec dividends(Plug.Conn.t(), map()) :: Plug.Conn.t()
+  def dividends(conn, %{"id" => id}) do
+    asset = Assets.get_asset!(id)
+    dividends = Boonorbust2.Dividends.list_dividends(asset_id: asset.id)
+
+    conn
+    |> put_layout(false)
+    |> render(:dividends_modal, asset: asset, dividends: dividends)
+  end
 end
