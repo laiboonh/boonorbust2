@@ -437,4 +437,284 @@ defmodule Boonorbust2.AssetsTest do
       assert DateTime.compare(updated_asset3.updated_at, asset3_old_updated_at) == :eq
     end
   end
+
+  describe "dividend sync rate limiting" do
+    test "does not sync dividends when asset was updated within 24 hours" do
+      # Mock for initial creation - create asset with dividends already enabled
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok,
+         %{
+           status: 200,
+           body: """
+           <html>
+           <table class="table-striped">
+           <tbody>
+           <tr><td>SGD0.05</td><td>2024-01-15</td></tr>
+           </tbody>
+           </table>
+           </html>
+           """
+         }}
+      end)
+
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "Test Asset",
+          currency: "SGD",
+          distributes_dividends: true,
+          dividend_url: "https://www.dividends.sg/view/test"
+        })
+
+      # Manually set updated_at to 1 hour ago
+      recent_update_time =
+        DateTime.add(DateTime.utc_now(), -3600, :second) |> DateTime.truncate(:second)
+
+      asset =
+        asset
+        |> Ecto.Changeset.change(%{updated_at: recent_update_time})
+        |> Repo.update!()
+
+      # Mock should not be called for update (rate limited)
+      # No expect call means it should not be invoked
+
+      # Update asset name (not dividend_url) - should NOT trigger dividend sync
+      {:ok, updated_asset} = Assets.update_asset(asset, %{name: "Updated Name"})
+
+      # Asset should be updated but dividends not synced due to rate limiting
+      assert updated_asset.name == "Updated Name"
+      assert updated_asset.distributes_dividends == true
+      assert updated_asset.dividend_url == "https://www.dividends.sg/view/test"
+    end
+
+    test "syncs dividends when asset was updated more than 24 hours ago" do
+      # Create asset without dividends first
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "Test Asset",
+          currency: "SGD",
+          distributes_dividends: false
+        })
+
+      # Set updated_at to 25+ hours ago
+      old_time = DateTime.add(DateTime.utc_now(), -90_000, :second) |> DateTime.truncate(:second)
+
+      asset =
+        asset
+        |> Ecto.Changeset.change(%{updated_at: old_time})
+        |> Repo.update!()
+
+      # Mock dividend fetch response
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok,
+         %{
+           status: 200,
+           body: """
+           <html>
+           <table class="table-striped">
+           <tbody>
+           <tr><td>SGD0.05</td><td>2024-01-15</td></tr>
+           <tr><td>SGD0.04</td><td>2023-07-15</td></tr>
+           </tbody>
+           </table>
+           </html>
+           """
+         }}
+      end)
+
+      # Update asset to enable dividends
+      {:ok, updated_asset} =
+        Assets.update_asset(asset, %{
+          distributes_dividends: true,
+          dividend_url: "https://www.dividends.sg/view/test"
+        })
+
+      # Asset should be updated and dividends synced
+      assert updated_asset.distributes_dividends == true
+      assert updated_asset.dividend_url == "https://www.dividends.sg/view/test"
+
+      # Verify dividends were stored
+      dividends = Boonorbust2.Dividends.list_dividends(asset_id: updated_asset.id)
+      assert length(dividends) == 2
+    end
+
+    test "syncs dividends on initial creation when dividend_url is provided" do
+      # Mock dividend fetch for creation
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok,
+         %{
+           status: 200,
+           body: """
+           <html>
+           <table class="table-striped">
+           <tbody>
+           <tr><td>SGD0.10</td><td>2024-01-15</td></tr>
+           </tbody>
+           </table>
+           </html>
+           """
+         }}
+      end)
+
+      # Create asset with dividend_url
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "Thai Beverage",
+          currency: "SGD",
+          distributes_dividends: true,
+          dividend_url: "https://www.dividends.sg/view/test"
+        })
+
+      # Verify dividends were synced on creation
+      dividends = Boonorbust2.Dividends.list_dividends(asset_id: asset.id)
+      assert length(dividends) == 1
+      assert Decimal.eq?(hd(dividends).value, Decimal.new("0.10"))
+    end
+
+    test "updates updated_at even when no new dividend data is found" do
+      # Mock for initial creation
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok,
+         %{
+           status: 200,
+           body: """
+           <html>
+           <table class="table-striped">
+           <tbody>
+           <tr><td>SGD0.05</td><td>2024-01-15</td></tr>
+           </tbody>
+           </table>
+           </html>
+           """
+         }}
+      end)
+
+      # Create asset with dividend_url
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "Test Asset",
+          currency: "SGD",
+          distributes_dividends: true,
+          dividend_url: "https://www.dividends.sg/view/test"
+        })
+
+      # Set updated_at to 25+ hours ago to trigger dividend sync
+      old_time = DateTime.add(DateTime.utc_now(), -90_000, :second) |> DateTime.truncate(:second)
+
+      asset =
+        asset
+        |> Ecto.Changeset.change(%{updated_at: old_time})
+        |> Repo.update!()
+
+      # Store the old updated_at for comparison
+      old_updated_at = asset.updated_at
+
+      # Mock for update - API returns SAME dividend data
+      # This is the key scenario: no new dividends
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok,
+         %{
+           status: 200,
+           body: """
+           <html>
+           <table class="table-striped">
+           <tbody>
+           <tr><td>SGD0.05</td><td>2024-01-15</td></tr>
+           </tbody>
+           </table>
+           </html>
+           """
+         }}
+      end)
+
+      # Update asset (triggers dividend sync because > 24 hours old)
+      {:ok, updated_asset} = Assets.update_asset(asset, %{name: "Updated Name"})
+
+      # Assert: No new dividends (still just 1)
+      dividends = Boonorbust2.Dividends.list_dividends(asset_id: updated_asset.id)
+      assert length(dividends) == 1
+
+      # Critical assertion: updated_at MUST be newer even though no new dividends
+      # This ensures rate limiting works correctly
+      assert DateTime.compare(updated_asset.updated_at, old_updated_at) == :gt
+
+      # Now update again immediately (within 24 hours)
+      # Mock should NOT be called because updated_at was properly set above
+      # No expect() call means test fails if HTTP client is invoked
+      {:ok, final_asset} = Assets.update_asset(updated_asset, %{name: "Final Name"})
+
+      # Dividends should still be 1 (no sync happened)
+      dividends = Boonorbust2.Dividends.list_dividends(asset_id: final_asset.id)
+      assert length(dividends) == 1
+      assert final_asset.name == "Final Name"
+    end
+
+    test "returns error when dividend sync fails on create" do
+      # Mock for creation - simulate dividend fetch failure
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 500}}
+      end)
+
+      # Attempt to create asset with dividend_url
+      {:error, changeset} =
+        Assets.create_asset(%{
+          name: "Failed Dividend Asset",
+          currency: "SGD",
+          distributes_dividends: true,
+          dividend_url: "https://www.dividends.sg/view/test"
+        })
+
+      # Assert error is on dividend_url field
+      assert %{dividend_url: [error_msg]} = errors_on(changeset)
+      assert error_msg =~ "Failed to sync dividends"
+
+      # Asset should not be created in database
+      assert Assets.get_asset_by_name("Failed Dividend Asset") == nil
+    end
+
+    test "returns error when dividend sync fails on update" do
+      # Create asset without dividends first
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "Test Asset",
+          currency: "SGD",
+          distributes_dividends: false
+        })
+
+      # Set updated_at to old time to force dividend sync
+      old_time = DateTime.add(DateTime.utc_now(), -90_000, :second) |> DateTime.truncate(:second)
+
+      asset =
+        asset
+        |> Ecto.Changeset.change(%{updated_at: old_time})
+        |> Repo.update!()
+
+      # Mock for update - simulate dividend fetch failure
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:error, :timeout}
+      end)
+
+      # Attempt to update with dividend_url
+      {:error, changeset} =
+        Assets.update_asset(asset, %{
+          distributes_dividends: true,
+          dividend_url: "https://www.dividends.sg/view/test"
+        })
+
+      # Assert error is on dividend_url field
+      assert %{dividend_url: [error_msg]} = errors_on(changeset)
+      assert error_msg =~ "Failed to sync dividends"
+
+      # Asset should not be updated in database
+      reloaded_asset = Assets.get_asset!(asset.id)
+      assert reloaded_asset.distributes_dividends == false
+      assert reloaded_asset.dividend_url == nil
+    end
+  end
 end

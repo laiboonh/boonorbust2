@@ -96,7 +96,7 @@ defmodule Boonorbust2.Dividends do
     http_client =
       Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
 
-    case http_client.get(dividend_url) do
+    case http_client.get(dividend_url, []) do
       {:ok, %{status: 200, body: body}} ->
         case Floki.parse_document(body) do
           {:ok, document} ->

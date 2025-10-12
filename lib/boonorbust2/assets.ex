@@ -96,8 +96,8 @@ defmodule Boonorbust2.Assets do
   @spec do_update_asset(Asset.t(), map(), boolean(), boolean()) :: Asset.t()
   defp do_update_asset(asset, attrs, should_fetch_price, should_sync_dividends) do
     with {:ok, updated_asset} <- asset |> Asset.changeset(attrs) |> Repo.update(),
-         {:ok, final_asset} <- maybe_fetch_price(updated_asset, should_fetch_price),
-         :ok <- maybe_sync_dividends(final_asset, should_sync_dividends) do
+         {:ok, price_updated_asset} <- maybe_fetch_price(updated_asset, should_fetch_price),
+         {:ok, final_asset} <- maybe_sync_dividends(price_updated_asset, should_sync_dividends) do
       final_asset
     else
       {:error, %Ecto.Changeset{} = changeset} ->
@@ -288,23 +288,37 @@ defmodule Boonorbust2.Assets do
 
   defp maybe_sync_dividends_from_url(%Asset{} = asset) do
     # For CREATE, always sync dividends if dividend_url is set and distributes_dividends is true
-    sync_asset_dividends(asset)
+    case sync_asset_dividends(asset) do
+      {:ok, _updated_asset} -> :ok
+      {:error, reason} -> {:error, reason}
+    end
   end
 
-  @spec maybe_sync_dividends(Asset.t(), boolean()) :: :ok | {:error, String.t()}
-  defp maybe_sync_dividends(_asset, false), do: :ok
-  defp maybe_sync_dividends(%Asset{dividend_url: nil} = _asset, true), do: :ok
-  defp maybe_sync_dividends(%Asset{distributes_dividends: false} = _asset, true), do: :ok
+  @spec maybe_sync_dividends(Asset.t(), boolean()) :: {:ok, Asset.t()} | {:error, String.t()}
+  defp maybe_sync_dividends(asset, false), do: {:ok, asset}
+  defp maybe_sync_dividends(%Asset{dividend_url: nil} = asset, true), do: {:ok, asset}
+  defp maybe_sync_dividends(%Asset{distributes_dividends: false} = asset, true), do: {:ok, asset}
 
   defp maybe_sync_dividends(%Asset{} = asset, true) do
     sync_asset_dividends(asset)
   end
 
-  @spec sync_asset_dividends(Asset.t()) :: :ok | {:error, String.t()}
+  @spec sync_asset_dividends(Asset.t()) :: {:ok, Asset.t()} | {:error, String.t()}
   defp sync_asset_dividends(%Asset{} = asset) do
     case Boonorbust2.Dividends.sync_dividends(asset) do
-      {:ok, _result} -> :ok
-      {:error, reason} -> {:error, reason}
+      {:ok, _result} ->
+        # Force updated_at to be set even if no asset fields changed
+        # This ensures rate limiting works correctly for dividend syncing
+        asset
+        |> Asset.changeset(%{})
+        |> Ecto.Changeset.force_change(
+          :updated_at,
+          DateTime.utc_now() |> DateTime.truncate(:second)
+        )
+        |> Repo.update()
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
@@ -323,7 +337,7 @@ defmodule Boonorbust2.Assets do
     should_sync = should_update_dividends?(asset)
 
     case maybe_sync_dividends(asset, should_sync) do
-      :ok -> if should_sync, do: :synced, else: :skipped
+      {:ok, _updated_asset} -> if should_sync, do: :synced, else: :skipped
       {:error, _reason} -> :error
     end
   end
