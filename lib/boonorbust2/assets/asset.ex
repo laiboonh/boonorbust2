@@ -18,6 +18,7 @@ defmodule Boonorbust2.Assets.Asset do
           currency: String.t() | nil,
           distributes_dividends: boolean() | nil,
           dividend_url: String.t() | nil,
+          dividend_withholding_tax: Decimal.t() | nil,
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -29,6 +30,7 @@ defmodule Boonorbust2.Assets.Asset do
     field :currency, :string
     field :distributes_dividends, :boolean, default: false
     field :dividend_url, :string
+    field :dividend_withholding_tax, :decimal
 
     has_many :asset_tags, AssetTag
     has_many :dividends, Dividend
@@ -39,13 +41,26 @@ defmodule Boonorbust2.Assets.Asset do
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(asset, attrs) do
     asset
-    |> cast(attrs, [:name, :price_url, :price, :currency, :distributes_dividends, :dividend_url])
+    |> cast(attrs, [
+      :name,
+      :price_url,
+      :price,
+      :currency,
+      :distributes_dividends,
+      :dividend_url,
+      :dividend_withholding_tax
+    ])
     |> validate_required([:name, :currency])
     |> validate_number(:price, greater_than_or_equal_to: 0)
+    |> validate_number(:dividend_withholding_tax,
+      greater_than_or_equal_to: 0,
+      less_than_or_equal_to: 1
+    )
     |> validate_inclusion(:currency, Currency.supported_currencies())
     |> validate_url(:price_url)
     |> validate_url(:dividend_url)
     |> validate_dividend_url_required()
+    |> validate_dividend_withholding_tax_required()
   end
 
   @spec validate_dividend_url_required(Ecto.Changeset.t()) :: Ecto.Changeset.t()
@@ -64,6 +79,33 @@ defmodule Boonorbust2.Assets.Asset do
           changeset,
           :distributes_dividends,
           "must be checked when dividend URL is provided"
+        )
+
+      true ->
+        changeset
+    end
+  end
+
+  @spec validate_dividend_withholding_tax_required(Ecto.Changeset.t()) :: Ecto.Changeset.t()
+  defp validate_dividend_withholding_tax_required(changeset) do
+    distributes_dividends = get_field(changeset, :distributes_dividends)
+    dividend_withholding_tax = get_field(changeset, :dividend_withholding_tax)
+
+    cond do
+      # If distributes_dividends is true, dividend_withholding_tax must be present
+      distributes_dividends && is_nil(dividend_withholding_tax) ->
+        add_error(
+          changeset,
+          :dividend_withholding_tax,
+          "is required when asset distributes dividends"
+        )
+
+      # If dividend_withholding_tax is present, distributes_dividends must be true
+      not is_nil(dividend_withholding_tax) && !distributes_dividends ->
+        add_error(
+          changeset,
+          :distributes_dividends,
+          "must be checked when dividend withholding tax is provided"
         )
 
       true ->

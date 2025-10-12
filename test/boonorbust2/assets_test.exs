@@ -477,7 +477,8 @@ defmodule Boonorbust2.AssetsTest do
           name: "Test Asset",
           currency: "SGD",
           distributes_dividends: true,
-          dividend_url: "https://www.dividends.sg/view/test"
+          dividend_url: "https://www.dividends.sg/view/test",
+          dividend_withholding_tax: Decimal.new("0.30")
         })
 
       # Manually set updated_at to 1 hour ago
@@ -557,7 +558,8 @@ defmodule Boonorbust2.AssetsTest do
       {:ok, updated_asset} =
         Assets.update_asset(asset, %{
           distributes_dividends: true,
-          dividend_url: "https://www.dividends.sg/view/test"
+          dividend_url: "https://www.dividends.sg/view/test",
+          dividend_withholding_tax: Decimal.new("0.30")
         })
 
       # Asset should be updated and dividends synced
@@ -602,7 +604,8 @@ defmodule Boonorbust2.AssetsTest do
           name: "Thai Beverage",
           currency: "SGD",
           distributes_dividends: true,
-          dividend_url: "https://www.dividends.sg/view/test"
+          dividend_url: "https://www.dividends.sg/view/test",
+          dividend_withholding_tax: Decimal.new("0.30")
         })
 
       # Verify dividends were synced on creation
@@ -644,7 +647,8 @@ defmodule Boonorbust2.AssetsTest do
           name: "Test Asset",
           currency: "SGD",
           distributes_dividends: true,
-          dividend_url: "https://www.dividends.sg/view/test"
+          dividend_url: "https://www.dividends.sg/view/test",
+          dividend_withholding_tax: Decimal.new("0.30")
         })
 
       # Set updated_at to 25+ hours ago to trigger dividend sync
@@ -720,7 +724,8 @@ defmodule Boonorbust2.AssetsTest do
           name: "Failed Dividend Asset",
           currency: "SGD",
           distributes_dividends: true,
-          dividend_url: "https://www.dividends.sg/view/test"
+          dividend_url: "https://www.dividends.sg/view/test",
+          dividend_withholding_tax: Decimal.new("0.30")
         })
 
       # Assert error is on dividend_url field
@@ -758,7 +763,8 @@ defmodule Boonorbust2.AssetsTest do
       {:error, changeset} =
         Assets.update_asset(asset, %{
           distributes_dividends: true,
-          dividend_url: "https://www.dividends.sg/view/test"
+          dividend_url: "https://www.dividends.sg/view/test",
+          dividend_withholding_tax: Decimal.new("0.30")
         })
 
       # Assert error is on dividend_url field
