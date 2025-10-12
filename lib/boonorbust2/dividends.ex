@@ -53,24 +53,21 @@ defmodule Boonorbust2.Dividends do
   Fetches all dividends from the asset's dividend_url.
 
   Returns a list of all dividend records or an error.
+  Different function heads handle different dividend API providers.
   """
   @spec fetch_dividends(Asset.t()) :: {:ok, [map()]} | {:error, String.t()}
   def fetch_dividends(%Asset{dividend_url: nil} = _asset) do
     {:error, "No dividend URL configured"}
   end
 
-  def fetch_dividends(%Asset{dividend_url: dividend_url} = _asset) do
-    do_fetch_dividends(dividend_url)
-  end
-
-  @spec do_fetch_dividends(String.t()) :: {:ok, [map()]} | {:error, String.t()}
-  defp do_fetch_dividends(url) do
+  def fetch_dividends(%Asset{dividend_url: "https://api.example.com/" <> _rest = dividend_url}) do
+    # Example API pattern - replace with actual dividend API provider
     api_key = Application.get_env(:boonorbust2, :dividend_api_key)
 
     http_client =
       Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
 
-    case http_client.get(url, params: [api_token: api_key]) do
+    case http_client.get(dividend_url, params: [api_token: api_key]) do
       {:ok, %{status: 200, body: body}} when is_list(body) ->
         dividends =
           Enum.map(body, fn dividend ->
@@ -92,6 +89,10 @@ defmodule Boonorbust2.Dividends do
       {:error, error} ->
         {:error, "Request failed: #{inspect(error)}"}
     end
+  end
+
+  def fetch_dividends(%Asset{dividend_url: dividend_url}) do
+    {:error, "Request failed: Unexpected dividend url #{dividend_url}"}
   end
 
   @doc """
