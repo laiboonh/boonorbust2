@@ -3,7 +3,7 @@ defmodule Boonorbust2.Currency do
   Utilities for handling currencies in the application.
   """
 
-  @supported_currencies ["SGD", "USD", "EUR", "GBP", "JPY", "HKD"]
+  @supported_currencies ["SGD", "USD", "EUR", "GBP", "JPY", "HKD", "THB"]
 
   @doc """
   Returns a list of supported currency codes.
