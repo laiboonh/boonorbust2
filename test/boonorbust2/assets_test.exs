@@ -450,7 +450,15 @@ defmodule Boonorbust2.AssetsTest do
            <html>
            <table class="table-striped">
            <tbody>
-           <tr><td>SGD0.05</td><td>2024-01-15</td></tr>
+           <tr>
+             <td>2024</td>
+             <td>5%</td>
+             <td>SGD 0.05</td>
+             <td>SGD0.05</td>
+             <td>2024-01-15</td>
+             <td>2024-02-01</td>
+             <td>Rate: SGD 0.05</td>
+           </tr>
            </tbody>
            </table>
            </html>
@@ -514,8 +522,24 @@ defmodule Boonorbust2.AssetsTest do
            <html>
            <table class="table-striped">
            <tbody>
-           <tr><td>SGD0.05</td><td>2024-01-15</td></tr>
-           <tr><td>SGD0.04</td><td>2023-07-15</td></tr>
+           <tr>
+             <td>2024</td>
+             <td>5%</td>
+             <td>SGD 0.05</td>
+             <td>SGD0.05</td>
+             <td>2024-01-15</td>
+             <td>2024-02-01</td>
+             <td>Rate: SGD 0.05</td>
+           </tr>
+           <tr>
+             <td>2023</td>
+             <td>4%</td>
+             <td>SGD 0.04</td>
+             <td>SGD0.04</td>
+             <td>2023-07-15</td>
+             <td>2023-08-01</td>
+             <td>Rate: SGD 0.04</td>
+           </tr>
            </tbody>
            </table>
            </html>
@@ -550,7 +574,15 @@ defmodule Boonorbust2.AssetsTest do
            <html>
            <table class="table-striped">
            <tbody>
-           <tr><td>SGD0.10</td><td>2024-01-15</td></tr>
+           <tr>
+             <td>2024</td>
+             <td>10%</td>
+             <td>SGD 0.10</td>
+             <td>SGD0.10</td>
+             <td>2024-01-15</td>
+             <td>2024-02-01</td>
+             <td>Rate: SGD 0.10</td>
+           </tr>
            </tbody>
            </table>
            </html>
@@ -584,7 +616,15 @@ defmodule Boonorbust2.AssetsTest do
            <html>
            <table class="table-striped">
            <tbody>
-           <tr><td>SGD0.05</td><td>2024-01-15</td></tr>
+           <tr>
+             <td>2024</td>
+             <td>5%</td>
+             <td>SGD 0.05</td>
+             <td>SGD0.05</td>
+             <td>2024-01-15</td>
+             <td>2024-02-01</td>
+             <td>Rate: SGD 0.05</td>
+           </tr>
            </tbody>
            </table>
            </html>
@@ -623,7 +663,15 @@ defmodule Boonorbust2.AssetsTest do
            <html>
            <table class="table-striped">
            <tbody>
-           <tr><td>SGD0.05</td><td>2024-01-15</td></tr>
+           <tr>
+             <td>2024</td>
+             <td>5%</td>
+             <td>SGD 0.05</td>
+             <td>SGD0.05</td>
+             <td>2024-01-15</td>
+             <td>2024-02-01</td>
+             <td>Rate: SGD 0.05</td>
+           </tr>
            </tbody>
            </table>
            </html>

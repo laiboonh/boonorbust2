@@ -128,17 +128,17 @@ defmodule Boonorbust2.Dividends do
       |> Enum.map(fn row ->
         cells = Floki.find(row, "td")
 
-        # First cell contains currency and amount together (e.g., "SGD0.0185")
+        # Column 3 contains currency and amount together (e.g., "THB0.15")
         currency_amount_text =
           cells
-          |> Enum.at(0)
+          |> Enum.at(3)
           |> Floki.text()
           |> String.trim()
 
-        # Second cell contains ex-date (e.g., "2006-01-23")
+        # Column 4 contains ex-date (e.g., "2025-05-22")
         ex_date_text =
           cells
-          |> Enum.at(1)
+          |> Enum.at(4)
           |> Floki.text()
           |> String.trim()
 
