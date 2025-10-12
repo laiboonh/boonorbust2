@@ -195,7 +195,7 @@ defmodule Boonorbust2.PortfolioPositions do
 
   @doc """
   Lists the latest position for each asset based on transaction date.
-  Supports filtering by asset name.
+  Supports filtering by asset name or tag name.
   """
   @spec list_latest_positions(String.t(), String.t() | nil) :: [PortfolioPosition.t()]
   def list_latest_positions(user_id, filter \\ nil) do
@@ -225,15 +225,37 @@ defmodule Boonorbust2.PortfolioPositions do
       )
 
     query
-    |> apply_filter(filter)
+    |> apply_filter(filter, user_id)
     |> Repo.all()
   end
 
-  @spec apply_filter(Ecto.Query.t(), String.t() | nil) :: Ecto.Query.t()
-  defp apply_filter(query, nil), do: query
-  defp apply_filter(query, ""), do: query
+  @spec apply_filter(Ecto.Query.t(), String.t() | nil, String.t()) :: Ecto.Query.t()
+  defp apply_filter(query, nil, _user_id), do: query
+  defp apply_filter(query, "", _user_id), do: query
 
-  defp apply_filter(query, filter) when is_binary(filter) do
+  defp apply_filter(query, filter, user_id) when is_binary(filter) do
+    # First check if the filter matches a tag name
+    case Boonorbust2.Tags.get_tag_by_name(filter, user_id) do
+      nil ->
+        # Not a tag, filter by asset name
+        apply_asset_name_filter(query, filter)
+
+      tag ->
+        # It's a tag, get all asset IDs for this tag
+        asset_ids = Boonorbust2.Tags.list_assets_for_tag(tag.id)
+
+        if Enum.empty?(asset_ids) do
+          # No assets with this tag, return empty result
+          from [pp, pt, a, lp] in query, where: false
+        else
+          from [pp, pt, a, lp] in query,
+            where: a.id in ^asset_ids
+        end
+    end
+  end
+
+  @spec apply_asset_name_filter(Ecto.Query.t(), String.t()) :: Ecto.Query.t()
+  defp apply_asset_name_filter(query, filter) do
     filter_pattern = "%#{filter}%"
 
     from [pp, pt, a, lp] in query,

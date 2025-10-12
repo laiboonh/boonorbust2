@@ -13,7 +13,7 @@ defmodule Boonorbust2Web.PositionsHTML do
                 type="text"
                 name="filter"
                 value={@filter}
-                placeholder="Search by asset name..."
+                placeholder="Search by asset name or tag..."
                 class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
               />
               <button
