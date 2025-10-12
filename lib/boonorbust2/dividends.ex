@@ -60,8 +60,8 @@ defmodule Boonorbust2.Dividends do
     {:error, "No dividend URL configured"}
   end
 
-  def fetch_dividends(%Asset{dividend_url: "https://api.example.com/" <> _rest = dividend_url}) do
-    # Example API pattern - replace with actual dividend API provider
+  def fetch_dividends(%Asset{dividend_url: "https://eodhd.com/" <> _rest = dividend_url}) do
+    # EODHD API pattern
     api_key = Application.get_env(:boonorbust2, :dividend_api_key)
 
     http_client =
@@ -91,8 +91,142 @@ defmodule Boonorbust2.Dividends do
     end
   end
 
+  def fetch_dividends(%Asset{dividend_url: "https://www.dividends.sg/" <> _rest = dividend_url}) do
+    # Scrape dividends from dividends.sg website
+    http_client =
+      Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
+
+    case http_client.get(dividend_url) do
+      {:ok, %{status: 200, body: body}} ->
+        case Floki.parse_document(body) do
+          {:ok, document} ->
+            parse_dividends_sg(document)
+
+          {:error, _reason} ->
+            {:error, "Failed to parse HTML document"}
+        end
+
+      {:ok, %{status: status}} ->
+        {:error, "HTTP request failed with status #{status}"}
+
+      {:error, error} ->
+        {:error, "Request failed: #{inspect(error)}"}
+    end
+  end
+
   def fetch_dividends(%Asset{dividend_url: dividend_url}) do
     {:error, "Request failed: Unexpected dividend url #{dividend_url}"}
+  end
+
+  @spec parse_dividends_sg(Floki.html_tree()) :: {:ok, [map()]} | {:error, String.t()}
+  defp parse_dividends_sg(document) do
+    # Find all dividend rows in the table
+    rows = Floki.find(document, "table.table-striped tbody tr")
+
+    dividends =
+      rows
+      |> Enum.map(fn row ->
+        cells = Floki.find(row, "td")
+
+        # Extract ex-date (typically first column)
+        ex_date_text =
+          cells
+          |> Enum.at(0)
+          |> Floki.text()
+          |> String.trim()
+
+        # Extract amount (typically in a column with dividend amount)
+        amount_text =
+          cells
+          |> Enum.at(1)
+          |> Floki.text()
+          |> String.trim()
+
+        # Extract currency (typically mentioned with amount or in separate column)
+        currency_text =
+          cells
+          |> Enum.at(2)
+          |> Floki.text()
+          |> String.trim()
+
+        # Parse the data
+        with {:ok, date} <- parse_date(ex_date_text),
+             {:ok, amount} <- parse_amount(amount_text),
+             currency <- parse_currency(currency_text) do
+          %{
+            date: date,
+            value: amount,
+            currency: currency
+          }
+        else
+          _ -> nil
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+
+    if Enum.empty?(dividends) do
+      {:error, "No valid dividend data found"}
+    else
+      {:ok, dividends}
+    end
+  end
+
+  @spec parse_date(String.t()) :: {:ok, Date.t()} | {:error, String.t()}
+  defp parse_date(date_string) do
+    # Try different date formats commonly used
+    # Format: DD/MM/YYYY or DD-MM-YYYY
+    cond do
+      String.match?(date_string, ~r/^\d{1,2}\/\d{1,2}\/\d{4}$/) ->
+        [day, month, year] = String.split(date_string, "/")
+        parse_date_parts(day, month, year)
+
+      String.match?(date_string, ~r/^\d{1,2}-\d{1,2}-\d{4}$/) ->
+        [day, month, year] = String.split(date_string, "-")
+        parse_date_parts(day, month, year)
+
+      String.match?(date_string, ~r/^\d{4}-\d{1,2}-\d{1,2}$/) ->
+        # ISO format YYYY-MM-DD
+        Date.from_iso8601(date_string)
+
+      true ->
+        {:error, "Invalid date format"}
+    end
+  end
+
+  @spec parse_date_parts(String.t(), String.t(), String.t()) ::
+          {:ok, Date.t()} | {:error, String.t()}
+  defp parse_date_parts(day, month, year) do
+    with {day_int, _} <- Integer.parse(day),
+         {month_int, _} <- Integer.parse(month),
+         {year_int, _} <- Integer.parse(year),
+         {:ok, date} <- Date.new(year_int, month_int, day_int) do
+      {:ok, date}
+    else
+      _ -> {:error, "Invalid date"}
+    end
+  end
+
+  @spec parse_amount(String.t()) :: {:ok, Decimal.t()} | {:error, String.t()}
+  defp parse_amount(amount_string) do
+    # Remove currency symbols and spaces
+    cleaned =
+      amount_string
+      |> String.replace(~r/[^\d\.]/, "")
+      |> String.trim()
+
+    case Decimal.parse(cleaned) do
+      {decimal, _} -> {:ok, decimal}
+      :error -> {:error, "Invalid amount format"}
+    end
+  end
+
+  @spec parse_currency(String.t()) :: String.t()
+  defp parse_currency(currency_string) do
+    # Extract currency code (typically 3 letters)
+    case Regex.run(~r/[A-Z]{3}/, currency_string) do
+      [currency] -> currency
+      _ -> "SGD"
+    end
   end
 
   @doc """
