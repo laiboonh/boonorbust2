@@ -135,6 +135,32 @@ defmodule Boonorbust2.Dividends do
     end
   end
 
+  # Aggregates dividends by date, summing values for dividends with the same ex-date.
+  # When multiple dividends are declared on the same ex-date (e.g., interim + final),
+  # they are combined into a single dividend record with the total value.
+  @spec aggregate_dividends_by_date([map()]) :: [map()]
+  defp aggregate_dividends_by_date(dividends) do
+    dividends
+    |> Enum.group_by(& &1.date)
+    |> Enum.map(fn {date, date_dividends} ->
+      # All dividends for the same date should have the same currency
+      currency = hd(date_dividends).currency
+
+      # Sum all values for this date
+      total_value =
+        date_dividends
+        |> Enum.map(& &1.value)
+        |> Enum.reduce(Decimal.new(0), &Decimal.add/2)
+
+      %{
+        date: date,
+        value: total_value,
+        currency: currency
+      }
+    end)
+    |> Enum.sort_by(& &1.date, {:desc, Date})
+  end
+
   @spec parse_dividend_row(Floki.html_tree()) :: map() | nil
   defp parse_dividend_row(row) do
     cells = Floki.find(row, "td")
@@ -247,8 +273,11 @@ defmodule Boonorbust2.Dividends do
   def sync_dividends(%Asset{} = asset) do
     case fetch_dividends(asset) do
       {:ok, dividends} ->
+        # Group dividends by date and sum values for same date
+        aggregated_dividends = aggregate_dividends_by_date(dividends)
+
         results =
-          Enum.map(dividends, fn dividend_data ->
+          Enum.map(aggregated_dividends, fn dividend_data ->
             attrs = Map.put(dividend_data, :asset_id, asset.id)
 
             %Dividend{}
