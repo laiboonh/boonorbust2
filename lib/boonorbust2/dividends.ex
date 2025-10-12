@@ -125,41 +125,55 @@ defmodule Boonorbust2.Dividends do
 
     dividends =
       rows
-      |> Enum.map(fn row ->
-        cells = Floki.find(row, "td")
-
-        # Column 3 contains currency and amount together (e.g., "THB0.15")
-        currency_amount_text =
-          cells
-          |> Enum.at(3)
-          |> Floki.text()
-          |> String.trim()
-
-        # Column 4 contains ex-date (e.g., "2025-05-22")
-        ex_date_text =
-          cells
-          |> Enum.at(4)
-          |> Floki.text()
-          |> String.trim()
-
-        # Parse the data
-        with {:ok, {currency, amount}} <- parse_currency_and_amount(currency_amount_text),
-             {:ok, date} <- parse_date(ex_date_text) do
-          %{
-            date: date,
-            value: amount,
-            currency: currency
-          }
-        else
-          _ -> nil
-        end
-      end)
+      |> Enum.map(&parse_dividend_row/1)
       |> Enum.reject(&is_nil/1)
 
     if Enum.empty?(dividends) do
       {:error, "No valid dividend data found"}
     else
       {:ok, dividends}
+    end
+  end
+
+  @spec parse_dividend_row(Floki.html_tree()) :: map() | nil
+  defp parse_dividend_row(row) do
+    cells = Floki.find(row, "td")
+    cell_count = length(cells)
+
+    # Handle rowspan: rows with 7 cells vs rows with 4 cells
+    # Full row (7 cells): Year | Yield | Total | Amount | Ex Date | Pay Date | Particulars
+    # Rowspan row (4 cells): Amount | Ex Date | Pay Date | Particulars
+    {amount_idx, date_idx} =
+      if cell_count >= 7 do
+        {3, 4}
+      else
+        {0, 1}
+      end
+
+    # Extract currency and amount
+    currency_amount_text =
+      cells
+      |> Enum.at(amount_idx)
+      |> then(fn cell -> if cell, do: Floki.text(cell), else: "" end)
+      |> String.trim()
+
+    # Extract ex-date
+    ex_date_text =
+      cells
+      |> Enum.at(date_idx)
+      |> then(fn cell -> if cell, do: Floki.text(cell), else: "" end)
+      |> String.trim()
+
+    # Parse the data
+    with {:ok, {currency, amount}} <- parse_currency_and_amount(currency_amount_text),
+         {:ok, date} <- parse_date(ex_date_text) do
+      %{
+        date: date,
+        value: amount,
+        currency: currency
+      }
+    else
+      _ -> nil
     end
   end
 

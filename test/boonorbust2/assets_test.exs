@@ -453,10 +453,16 @@ defmodule Boonorbust2.AssetsTest do
            <tr>
              <td>2024</td>
              <td>5%</td>
-             <td>SGD 0.05</td>
+             <td>SGD 0.10</td>
              <td>SGD0.05</td>
              <td>2024-01-15</td>
              <td>2024-02-01</td>
+             <td>Rate: SGD 0.05</td>
+           </tr>
+           <tr>
+             <td>SGD0.05</td>
+             <td>2024-01-10</td>
+             <td>2024-01-25</td>
              <td>Rate: SGD 0.05</td>
            </tr>
            </tbody>
