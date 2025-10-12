@@ -43,7 +43,7 @@ defmodule Boonorbust2.RealizedProfits do
     from(rp in RealizedProfit,
       where: rp.asset_id == ^asset_id and rp.user_id == ^user_id,
       order_by: [desc: rp.inserted_at],
-      preload: [:portfolio_transaction]
+      preload: [:portfolio_transaction, :dividend]
     )
     |> Repo.all()
   end
@@ -88,6 +88,35 @@ defmodule Boonorbust2.RealizedProfits do
     |> Enum.group_by(& &1.asset_id)
     |> Map.new(fn {asset_id, profits} ->
       {asset_id, calculate_total(profits)}
+    end)
+  end
+
+  @doc """
+  Returns separate totals for transaction-based and dividend-based realized profits by asset.
+  Returns a map of asset_id => %{capital_gains: Money.t(), dividend_income: Money.t()}
+  """
+  @spec get_totals_by_asset_and_type(String.t()) :: %{
+          integer() => %{capital_gains: Money.t(), dividend_income: Money.t()}
+        }
+  def get_totals_by_asset_and_type(user_id) do
+    user_id
+    |> list_realized_profits_by_user()
+    |> Enum.group_by(& &1.asset_id)
+    |> Map.new(fn {asset_id, profits} ->
+      transaction_profits = Enum.filter(profits, fn rp -> rp.portfolio_transaction_id != nil end)
+      dividend_profits = Enum.filter(profits, fn rp -> rp.dividend_id != nil end)
+
+      capital_gains =
+        if Enum.empty?(transaction_profits),
+          do: Money.new(:SGD, 0),
+          else: calculate_total(transaction_profits)
+
+      dividend_income =
+        if Enum.empty?(dividend_profits),
+          do: Money.new(:SGD, 0),
+          else: calculate_total(dividend_profits)
+
+      {asset_id, %{capital_gains: capital_gains, dividend_income: dividend_income}}
     end)
   end
 

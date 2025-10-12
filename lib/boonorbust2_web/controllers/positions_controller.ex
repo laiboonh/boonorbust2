@@ -15,12 +15,25 @@ defmodule Boonorbust2Web.PositionsController do
     %{id: user_id, currency: user_currency} = conn.assigns.current_user
     positions = PortfolioPositions.list_latest_positions(user_id, filter)
     realized_profits_by_asset = RealizedProfits.get_totals_by_asset(user_id)
+    realized_profits_by_type = RealizedProfits.get_totals_by_asset_and_type(user_id)
 
     # Convert realized profits to user's preferred currency
     converted_realized_profits_by_asset =
       realized_profits_by_asset
       |> Enum.map(fn {asset_id, profit} ->
         {asset_id, convert_to_user_currency(profit, user_currency)}
+      end)
+      |> Map.new()
+
+    # Convert separated realized profits to user's preferred currency
+    converted_realized_profits_by_type =
+      realized_profits_by_type
+      |> Enum.map(fn {asset_id, %{capital_gains: cg, dividend_income: di}} ->
+        {asset_id,
+         %{
+           capital_gains: convert_to_user_currency(cg, user_currency),
+           dividend_income: convert_to_user_currency(di, user_currency)
+         }}
       end)
       |> Map.new()
 
@@ -74,6 +87,7 @@ defmodule Boonorbust2Web.PositionsController do
       positions: sorted_positions,
       realized_profits_by_asset: realized_profits_by_asset,
       converted_realized_profits_by_asset: converted_realized_profits_by_asset,
+      converted_realized_profits_by_type: converted_realized_profits_by_type,
       filter: filter
     )
   end

@@ -53,6 +53,15 @@ defmodule Boonorbust2Web.PositionsHTML do
           <% else %>
             <div class="space-y-3">
               <%= for position <- @positions do %>
+                <% profits_by_type =
+                  Map.get(
+                    @converted_realized_profits_by_type,
+                    position.asset_id,
+                    %{
+                      capital_gains: Money.new(position.amount_on_hand.currency, 0),
+                      dividend_income: Money.new(position.amount_on_hand.currency, 0)
+                    }
+                  ) %>
                 <.position_card
                   position={position}
                   realized_profit={
@@ -68,6 +77,8 @@ defmodule Boonorbust2Web.PositionsHTML do
                       position.asset_id
                     )
                   }
+                  capital_gains={profits_by_type.capital_gains}
+                  dividend_income={profits_by_type.dividend_income}
                 />
               <% end %>
             </div>
@@ -313,38 +324,29 @@ defmodule Boonorbust2Web.PositionsHTML do
             </div>
           </div>
         <% end %>
-        <%= if !Decimal.equal?(@realized_profit.amount, 0) do %>
-          <% show_converted_realized =
-            @converted_realized_profit &&
-              Money.to_currency_code(@converted_realized_profit) !=
-                Money.to_currency_code(@realized_profit) %>
+        <%= if !Decimal.equal?(@capital_gains.amount, 0) do %>
           <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
-            <p class="text-xs text-gray-500">Realized Profit</p>
+            <p class="text-xs text-gray-500">Capital Gains</p>
             <div class="text-right">
-              <%= if show_converted_realized do %>
-                <p class={[
-                  "text-base font-bold",
-                  if(Decimal.positive?(@converted_realized_profit.amount),
-                    do: "text-emerald-600",
-                    else: "text-red-600"
-                  )
-                ]}>
-                  {Money.to_string!(@converted_realized_profit)}
-                </p>
-                <p class="text-xs text-gray-400">
-                  ({Money.to_string!(@realized_profit)})
-                </p>
-              <% else %>
-                <p class={[
-                  "text-base font-bold",
-                  if(Decimal.positive?(@realized_profit.amount),
-                    do: "text-emerald-600",
-                    else: "text-red-600"
-                  )
-                ]}>
-                  {Money.to_string!(@realized_profit)}
-                </p>
-              <% end %>
+              <p class={[
+                "text-base font-bold",
+                if(Decimal.positive?(@capital_gains.amount),
+                  do: "text-emerald-600",
+                  else: "text-red-600"
+                )
+              ]}>
+                {Money.to_string!(@capital_gains)}
+              </p>
+            </div>
+          </div>
+        <% end %>
+        <%= if !Decimal.equal?(@dividend_income.amount, 0) do %>
+          <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
+            <p class="text-xs text-gray-500">Dividend Income</p>
+            <div class="text-right">
+              <p class="text-base font-bold text-emerald-600">
+                {Money.to_string!(@dividend_income)}
+              </p>
             </div>
           </div>
         <% end %>
@@ -583,6 +585,17 @@ defmodule Boonorbust2Web.PositionsHTML do
   end
 
   def realized_profits_modal_content(assigns) do
+    # Separate transaction-based and dividend-based profits
+    transaction_profits =
+      Enum.filter(assigns.realized_profits, fn rp -> rp.portfolio_transaction_id != nil end)
+
+    dividend_profits = Enum.filter(assigns.realized_profits, fn rp -> rp.dividend_id != nil end)
+
+    assigns =
+      assigns
+      |> Map.put(:transaction_profits, transaction_profits)
+      |> Map.put(:dividend_profits, dividend_profits)
+
     ~H"""
     <div class="relative p-2 sm:p-4">
       <div class="bg-white rounded-lg shadow-xl max-w-full sm:max-w-4xl mx-auto mt-4 sm:mt-20">
@@ -612,60 +625,129 @@ defmodule Boonorbust2Web.PositionsHTML do
               No realized profits found for this asset.
             </p>
           <% else %>
-            <div class="overflow-x-auto -mx-3 sm:mx-0">
-              <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
-                  <tr>
-                    <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Sell Price
-                    </th>
-                    <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Qty Sold
-                    </th>
-                    <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Profit/Loss
-                    </th>
-                  </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                  <%= for rp <- @realized_profits do %>
-                    <tr>
-                      <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                        <span class="hidden sm:inline">
-                          {Calendar.strftime(
-                            rp.portfolio_transaction.transaction_date,
-                            "%B %d, %Y"
-                          )}
-                        </span>
-                        <span class="sm:hidden">
-                          {Calendar.strftime(
-                            rp.portfolio_transaction.transaction_date,
-                            "%m/%d/%y"
-                          )}
-                        </span>
-                      </td>
-                      <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-medium text-gray-900">
-                        {Money.to_string!(rp.portfolio_transaction.price)}
-                      </td>
-                      <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right text-gray-900">
-                        {Decimal.to_string(rp.portfolio_transaction.quantity)}
-                      </td>
-                      <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-semibold">
-                        <span class={
-                          if Decimal.positive?(rp.amount.amount),
-                            do: "text-emerald-600",
-                            else: "text-red-600"
-                        }>
-                          {Money.to_string!(rp.amount)}
-                        </span>
-                      </td>
-                    </tr>
-                  <% end %>
-                </tbody>
-              </table>
+            
+    <!-- Sell Transactions Section -->
+            <div class="mb-6">
+              <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-3">
+                Sell Transactions
+              </h3>
+              <%= if Enum.empty?(@transaction_profits) do %>
+                <p class="text-gray-500 text-sm py-4">
+                  No sell transactions yet.
+                </p>
+              <% else %>
+                <div class="overflow-x-auto -mx-3 sm:mx-0">
+                  <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                      <tr>
+                        <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Date
+                        </th>
+                        <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Sell Price
+                        </th>
+                        <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Qty Sold
+                        </th>
+                        <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Profit/Loss
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                      <%= for rp <- @transaction_profits do %>
+                        <tr>
+                          <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                            <span class="hidden sm:inline">
+                              {Calendar.strftime(
+                                rp.portfolio_transaction.transaction_date,
+                                "%B %d, %Y"
+                              )}
+                            </span>
+                            <span class="sm:hidden">
+                              {Calendar.strftime(
+                                rp.portfolio_transaction.transaction_date,
+                                "%m/%d/%y"
+                              )}
+                            </span>
+                          </td>
+                          <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-medium text-gray-900">
+                            {Money.to_string!(rp.portfolio_transaction.price)}
+                          </td>
+                          <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right text-gray-900">
+                            {Decimal.to_string(rp.portfolio_transaction.quantity)}
+                          </td>
+                          <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-semibold">
+                            <span class={
+                              if Decimal.positive?(rp.amount.amount),
+                                do: "text-emerald-600",
+                                else: "text-red-600"
+                            }>
+                              {Money.to_string!(rp.amount)}
+                            </span>
+                          </td>
+                        </tr>
+                      <% end %>
+                    </tbody>
+                  </table>
+                </div>
+              <% end %>
+            </div>
+            
+    <!-- Dividend Payments Section -->
+            <div>
+              <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-3">
+                Dividend Payments
+              </h3>
+              <%= if Enum.empty?(@dividend_profits) do %>
+                <p class="text-gray-500 text-sm py-4">
+                  No dividend payments yet.
+                </p>
+              <% else %>
+                <div class="overflow-x-auto -mx-3 sm:mx-0">
+                  <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                      <tr>
+                        <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Ex-Date
+                        </th>
+                        <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Dividend Per Share
+                        </th>
+                        <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Amount
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                      <%= for rp <- @dividend_profits do %>
+                        <tr>
+                          <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                            <span class="hidden sm:inline">
+                              {Calendar.strftime(rp.dividend.date, "%B %d, %Y")}
+                            </span>
+                            <span class="sm:hidden">
+                              {Calendar.strftime(rp.dividend.date, "%m/%d/%y")}
+                            </span>
+                          </td>
+                          <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-medium text-gray-900">
+                            {Money.to_string!(Money.new(rp.dividend.currency, rp.dividend.value))}
+                          </td>
+                          <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-semibold">
+                            <span class={
+                              if Decimal.positive?(rp.amount.amount),
+                                do: "text-emerald-600",
+                                else: "text-red-600"
+                            }>
+                              {Money.to_string!(rp.amount)}
+                            </span>
+                          </td>
+                        </tr>
+                      <% end %>
+                    </tbody>
+                  </table>
+                </div>
+              <% end %>
             </div>
           <% end %>
         </div>
