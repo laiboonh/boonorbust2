@@ -95,7 +95,7 @@ defmodule Boonorbust2Web.DashboardController do
     # Load portfolio snapshots for the last 90 days for the line graph
     portfolio_snapshots = PortfolioSnapshots.list_snapshots(user_id, days: 90)
 
-    # Load dividend chart data for the last 12 months
+    # Load dividend chart data for the last 24 months
     dividend_chart_data = prepare_dividend_chart_data(user_id, user_currency)
 
     render(conn, :index,
@@ -239,8 +239,8 @@ defmodule Boonorbust2Web.DashboardController do
           datasets: [map()]
         }
   defp prepare_dividend_chart_data(user_id, user_currency) do
-    # Get dividend data for the last 12 months (approximately 365 days)
-    raw_data = RealizedProfits.get_dividend_chart_data(user_id, days: 365)
+    # Get dividend data for the last 24 months (approximately 730 days)
+    raw_data = RealizedProfits.get_dividend_chart_data(user_id, days: 730)
 
     # Convert all amounts to user's currency
     converted_data = convert_dividend_data_to_currency(raw_data, user_currency)
