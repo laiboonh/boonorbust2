@@ -72,8 +72,8 @@ defmodule Boonorbust2.Dividends do
         dividends =
           Enum.map(body, fn dividend ->
             %{
-              date: dividend["date"],
-              value: dividend["value"],
+              date: dividend["date"] |> Date.from_iso8601!(),
+              value: dividend["value"] |> Float.to_string(),
               currency: dividend["currency"] || "USD"
             }
           end)
