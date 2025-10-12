@@ -250,6 +250,140 @@ defmodule Boonorbust2Web.DashboardHTML do
               </script>
             </div>
           <% end %>
+          
+    <!-- Dividend Realized Profits Stacked Bar Chart -->
+          <%= if !Enum.empty?(@dividend_chart_data.datasets) do %>
+            <div class="bg-white rounded-lg shadow p-6 mt-6">
+              <div class="mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Dividend Income by Asset</h2>
+                <p class="text-sm text-gray-600 mt-1">Last 12 months</p>
+              </div>
+              <div class="relative" style="height: 350px;">
+                <canvas id="dividend-income-chart"></canvas>
+              </div>
+              <script>
+                (function() {
+                  const ctx = document.getElementById('dividend-income-chart');
+                  if (ctx && typeof Chart !== 'undefined') {
+                    const chartData = <%= raw Jason.encode!(@dividend_chart_data) %>;
+
+                    // Color palette for different assets
+                    const colors = [
+                      'rgb(59, 130, 246)',   // Blue
+                      'rgb(16, 185, 129)',   // Green
+                      'rgb(249, 115, 22)',   // Orange
+                      'rgb(236, 72, 153)',   // Pink
+                      'rgb(147, 51, 234)',   // Purple
+                      'rgb(6, 182, 212)',    // Cyan
+                      'rgb(251, 191, 36)',   // Yellow
+                      'rgb(239, 68, 68)',    // Red
+                      'rgb(99, 102, 241)',   // Indigo
+                      'rgb(20, 184, 166)'    // Teal
+                    ];
+
+                    // Assign colors to datasets
+                    const datasets = chartData.datasets.map((dataset, index) => ({
+                      ...dataset,
+                      backgroundColor: colors[index % colors.length],
+                      borderWidth: 0
+                    }));
+
+                    new Chart(ctx, {
+                      type: 'bar',
+                      data: {
+                        labels: chartData.labels,
+                        datasets: datasets
+                      },
+                      options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: {
+                          mode: 'index',
+                          intersect: false
+                        },
+                        plugins: {
+                          legend: {
+                            display: true,
+                            position: 'bottom',
+                            labels: {
+                              boxWidth: 12,
+                              padding: 10,
+                              font: {
+                                size: 10
+                              }
+                            }
+                          },
+                          tooltip: {
+                            callbacks: {
+                              title: function(context) {
+                                return context[0].label;
+                              },
+                              label: function(context) {
+                                const value = context.parsed.y;
+                                const currency = '<%= @user_currency %>';
+                                const formatted = new Intl.NumberFormat('en-US', {
+                                  style: 'currency',
+                                  currency: currency,
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2
+                                }).format(value);
+                                return context.dataset.label + ': ' + formatted;
+                              },
+                              footer: function(context) {
+                                const total = context.reduce((sum, item) => sum + item.parsed.y, 0);
+                                const currency = '<%= @user_currency %>';
+                                const formatted = new Intl.NumberFormat('en-US', {
+                                  style: 'currency',
+                                  currency: currency,
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2
+                                }).format(total);
+                                return 'Total: ' + formatted;
+                              }
+                            }
+                          }
+                        },
+                        scales: {
+                          x: {
+                            stacked: true,
+                            grid: {
+                              display: false
+                            },
+                            ticks: {
+                              font: {
+                                size: 10
+                              }
+                            }
+                          },
+                          y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            grid: {
+                              color: 'rgba(0, 0, 0, 0.05)'
+                            },
+                            ticks: {
+                              font: {
+                                size: 10
+                              },
+                              callback: function(value) {
+                                const currency = '<%= @user_currency %>';
+                                return new Intl.NumberFormat('en-US', {
+                                  style: 'currency',
+                                  currency: currency,
+                                  minimumFractionDigits: 0,
+                                  maximumFractionDigits: 0
+                                }).format(value);
+                              }
+                            }
+                          }
+                        }
+                      }
+                    });
+                  }
+                })();
+              </script>
+            </div>
+          <% end %>
         </div>
 
         <.tab_bar current_tab="dashboard">

@@ -95,6 +95,9 @@ defmodule Boonorbust2Web.DashboardController do
     # Load portfolio snapshots for the last 90 days for the line graph
     portfolio_snapshots = PortfolioSnapshots.list_snapshots(user_id, days: 90)
 
+    # Load dividend chart data for the last 12 months
+    dividend_chart_data = prepare_dividend_chart_data(user_id, user_currency)
+
     render(conn, :index,
       positions: sorted_positions,
       realized_profits_by_asset: realized_profits_by_asset,
@@ -103,7 +106,8 @@ defmodule Boonorbust2Web.DashboardController do
       tag_chart_data: tag_chart_data,
       portfolios: portfolios_with_chart_data,
       user_currency: user_currency,
-      portfolio_snapshots: portfolio_snapshots
+      portfolio_snapshots: portfolio_snapshots,
+      dividend_chart_data: dividend_chart_data
     )
   end
 
@@ -227,6 +231,73 @@ defmodule Boonorbust2Web.DashboardController do
       {:error, changeset} ->
         Logger.warning("Failed to save portfolio snapshot: #{inspect(changeset)}")
         :ok
+    end
+  end
+
+  @spec prepare_dividend_chart_data(String.t(), String.t()) :: %{
+          labels: [String.t()],
+          datasets: [map()]
+        }
+  defp prepare_dividend_chart_data(user_id, user_currency) do
+    # Get dividend data for the last 12 months (approximately 365 days)
+    raw_data = RealizedProfits.get_dividend_chart_data(user_id, days: 365)
+
+    # Convert all amounts to user's currency
+    converted_data = convert_dividend_data_to_currency(raw_data, user_currency)
+
+    # Get unique months and assets
+    months = converted_data |> Enum.map(& &1.month) |> Enum.uniq() |> Enum.sort()
+    assets = converted_data |> Enum.map(& &1.asset_name) |> Enum.uniq() |> Enum.sort()
+
+    # Build datasets: one dataset per asset
+    datasets = build_dividend_datasets(assets, months, converted_data)
+
+    %{
+      labels: months,
+      datasets: datasets
+    }
+  end
+
+  @spec convert_dividend_data_to_currency([map()], String.t()) :: [map()]
+  defp convert_dividend_data_to_currency(raw_data, user_currency) do
+    Enum.map(raw_data, fn item ->
+      money = Money.new!(item.amount, item.currency)
+      converted_money = convert_to_user_currency(money, user_currency)
+
+      %{
+        month: item.month,
+        asset_name: item.asset_name,
+        amount: Decimal.to_float(converted_money.amount)
+      }
+    end)
+  end
+
+  @spec build_dividend_datasets([String.t()], [String.t()], [map()]) :: [map()]
+  defp build_dividend_datasets(assets, months, converted_data) do
+    Enum.map(assets, fn asset_name ->
+      data = get_asset_amounts_by_month(asset_name, months, converted_data)
+
+      %{
+        label: asset_name,
+        data: data
+      }
+    end)
+  end
+
+  @spec get_asset_amounts_by_month(String.t(), [String.t()], [map()]) :: [float()]
+  defp get_asset_amounts_by_month(asset_name, months, converted_data) do
+    Enum.map(months, fn month ->
+      find_amount_for_asset_month(asset_name, month, converted_data)
+    end)
+  end
+
+  @spec find_amount_for_asset_month(String.t(), String.t(), [map()]) :: float()
+  defp find_amount_for_asset_month(asset_name, month, converted_data) do
+    case Enum.find(converted_data, fn item ->
+           item.month == month && item.asset_name == asset_name
+         end) do
+      nil -> 0.0
+      item -> item.amount
     end
   end
 end

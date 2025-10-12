@@ -198,4 +198,43 @@ defmodule Boonorbust2.RealizedProfits do
     )
     |> Repo.one()
   end
+
+  @doc """
+  Gets dividend-based realized profits grouped by month/year and asset for chart visualization.
+
+  Returns a list of maps with:
+  - month: the month/year (e.g., "2025-01")
+  - asset_name: the asset name
+  - amount: the aggregated realized profit amount for that asset in that month
+  - currency: the currency of the amount
+
+  Results are sorted by month (descending) and limited to recent months.
+  """
+  @spec get_dividend_chart_data(String.t(), keyword()) :: [map()]
+  def get_dividend_chart_data(user_id, opts \\ []) do
+    days = Keyword.get(opts, :days, 365)
+    cutoff_date = Date.add(Date.utc_today(), -days)
+
+    from(rp in RealizedProfit,
+      join: d in assoc(rp, :dividend),
+      join: a in assoc(rp, :asset),
+      where:
+        rp.user_id == ^user_id and
+          not is_nil(rp.dividend_id) and
+          d.date >= ^cutoff_date,
+      group_by: [
+        fragment("to_char(?, 'YYYY-MM')", d.date),
+        a.name,
+        fragment("(?->>'currency')::text", rp.amount)
+      ],
+      select: %{
+        month: fragment("to_char(?, 'YYYY-MM')", d.date),
+        asset_name: a.name,
+        amount: sum(fragment("(?)::numeric", fragment("(?->>'amount')::text", rp.amount))),
+        currency: fragment("(?->>'currency')::text", rp.amount)
+      },
+      order_by: [desc: fragment("to_char(?, 'YYYY-MM')", d.date), asc: a.name]
+    )
+    |> Repo.all()
+  end
 end
