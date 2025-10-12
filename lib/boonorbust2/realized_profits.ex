@@ -205,7 +205,7 @@ defmodule Boonorbust2.RealizedProfits do
   Returns a list of maps with:
   - month: the month/year (e.g., "2025-01")
   - asset_name: the asset name
-  - amount: the aggregated realized profit amount for that asset in that month
+  - amount: the Money.t() aggregated amount for that asset in that month
   - currency: the currency of the amount
 
   Results are sorted by month (descending) and limited to recent months.
@@ -215,26 +215,41 @@ defmodule Boonorbust2.RealizedProfits do
     days = Keyword.get(opts, :days, 365)
     cutoff_date = Date.add(Date.utc_today(), -days)
 
-    from(rp in RealizedProfit,
-      join: d in assoc(rp, :dividend),
-      join: a in assoc(rp, :asset),
-      where:
-        rp.user_id == ^user_id and
-          not is_nil(rp.dividend_id) and
-          d.date >= ^cutoff_date,
-      group_by: [
-        fragment("to_char(?, 'YYYY-MM')", d.date),
-        a.name,
-        fragment("(?->>'currency')::text", rp.amount)
-      ],
-      select: %{
-        month: fragment("to_char(?, 'YYYY-MM')", d.date),
-        asset_name: a.name,
-        amount: sum(fragment("(?)::numeric", fragment("(?->>'amount')::text", rp.amount))),
-        currency: fragment("(?->>'currency')::text", rp.amount)
-      },
-      order_by: [desc: fragment("to_char(?, 'YYYY-MM')", d.date), asc: a.name]
-    )
-    |> Repo.all()
+    # Query all realized profits with dividends in the date range
+    realized_profits =
+      from(rp in RealizedProfit,
+        join: d in assoc(rp, :dividend),
+        join: a in assoc(rp, :asset),
+        where:
+          rp.user_id == ^user_id and
+            not is_nil(rp.dividend_id) and
+            d.date >= ^cutoff_date,
+        select: %{
+          month: fragment("to_char(?, 'YYYY-MM')", d.date),
+          asset_name: a.name,
+          amount: rp.amount
+        },
+        order_by: [desc: fragment("to_char(?, 'YYYY-MM')", d.date), asc: a.name]
+      )
+      |> Repo.all()
+
+    # Group and sum amounts in Elixir
+    realized_profits
+    |> Enum.group_by(&{&1.month, &1.asset_name})
+    |> Enum.map(fn {{month, asset_name}, items} ->
+      # Sum all amounts for this month/asset combination
+      total_amount =
+        items
+        |> Enum.map(& &1.amount)
+        |> Enum.reduce(fn money, acc -> Money.add!(acc, money) end)
+
+      %{
+        month: month,
+        asset_name: asset_name,
+        amount: total_amount.amount,
+        currency: Money.to_currency_code(total_amount) |> Atom.to_string()
+      }
+    end)
+    |> Enum.sort_by(&{&1.month, &1.asset_name}, :desc)
   end
 end
