@@ -174,16 +174,23 @@ defmodule Boonorbust2.RealizedProfits do
 
   # Creates a realized profit record for a dividend and a specific user position.
   # Calculates the dividend amount: quantity_on_hand * dividend value * (1 - withholding_tax)
+  # Converts the dividend to the asset's currency before saving
   @spec create_dividend_realized_profit(Dividend.t(), PortfolioPosition.t()) ::
           {:ok, RealizedProfit.t()} | {:error, Ecto.Changeset.t()}
   defp create_dividend_realized_profit(%Dividend{} = dividend, %PortfolioPosition{} = position) do
-    # Load the asset to get withholding tax rate
+    # Load the asset to get withholding tax rate and currency
     dividend_with_asset = Repo.preload(dividend, :asset)
     asset = dividend_with_asset.asset
 
-    # Calculate gross dividend: quantity_on_hand * dividend value
+    # Create dividend value in dividend's currency
     dividend_value = Money.new(dividend.currency, dividend.value)
-    {:ok, gross_dividend} = Money.mult(dividend_value, position.quantity_on_hand)
+
+    # Convert dividend to asset's currency
+    dividend_value_in_asset_currency = convert_to_currency(dividend_value, asset.currency)
+
+    # Calculate gross dividend: quantity_on_hand * converted dividend value
+    {:ok, gross_dividend} =
+      Money.mult(dividend_value_in_asset_currency, position.quantity_on_hand)
 
     # Apply withholding tax if present
     net_dividend =
@@ -280,5 +287,34 @@ defmodule Boonorbust2.RealizedProfits do
       }
     end)
     |> Enum.sort_by(&{&1.month, &1.asset_name}, :desc)
+  end
+
+  # Converts money from one currency to another using exchange rates
+  @spec convert_to_currency(Money.t(), String.t()) :: Money.t()
+  defp convert_to_currency(money, target_currency) do
+    source_currency = money |> Money.to_currency_code() |> Atom.to_string()
+
+    # If already in target currency, return as-is
+    if source_currency == target_currency do
+      money
+    else
+      # Get exchange rate and convert
+      case Boonorbust2.ExchangeRates.get_rate(source_currency, target_currency) do
+        {:ok, rate} ->
+          converted_amount = Decimal.mult(money.amount, Decimal.from_float(rate))
+          Money.new!(converted_amount, target_currency)
+
+        {:error, _reason} ->
+          # If conversion fails, log a warning and return in original currency
+          # This maintains backward compatibility but should be monitored
+          require Logger
+
+          Logger.warning(
+            "Failed to convert #{source_currency} to #{target_currency}, using original currency"
+          )
+
+          money
+      end
+    end
   end
 end
