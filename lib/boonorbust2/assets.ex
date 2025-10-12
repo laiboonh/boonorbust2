@@ -52,7 +52,17 @@ defmodule Boonorbust2.Assets do
            :ok <- maybe_sync_dividends_from_url(updated_asset) do
         updated_asset
       else
-        {:error, changeset} -> Repo.rollback(changeset)
+        {:error, %Ecto.Changeset{} = changeset} ->
+          Repo.rollback(changeset)
+
+        {:error, reason} when is_binary(reason) ->
+          # Dividend sync error - convert to changeset error
+          changeset =
+            %Asset{}
+            |> Asset.changeset(attrs)
+            |> Ecto.Changeset.add_error(:dividend_url, "Failed to sync dividends: #{reason}")
+
+          Repo.rollback(changeset)
       end
     end)
   end
@@ -90,7 +100,17 @@ defmodule Boonorbust2.Assets do
          :ok <- maybe_sync_dividends(final_asset, should_sync_dividends) do
       final_asset
     else
-      {:error, changeset} -> Repo.rollback(changeset)
+      {:error, %Ecto.Changeset{} = changeset} ->
+        Repo.rollback(changeset)
+
+      {:error, reason} when is_binary(reason) ->
+        # Dividend sync error - convert to changeset error
+        changeset =
+          asset
+          |> Asset.changeset(attrs)
+          |> Ecto.Changeset.add_error(:dividend_url, "Failed to sync dividends: #{reason}")
+
+        Repo.rollback(changeset)
     end
   end
 
