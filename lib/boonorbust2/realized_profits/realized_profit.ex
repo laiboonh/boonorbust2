@@ -8,6 +8,7 @@ defmodule Boonorbust2.RealizedProfits.RealizedProfit do
 
   alias Boonorbust2.Accounts.User
   alias Boonorbust2.Assets.Asset
+  alias Boonorbust2.Dividends.Dividend
   alias Boonorbust2.PortfolioTransactions.PortfolioTransaction
 
   @type t :: %__MODULE__{
@@ -18,6 +19,8 @@ defmodule Boonorbust2.RealizedProfits.RealizedProfit do
           asset: Asset.t() | nil,
           portfolio_transaction_id: integer() | nil,
           portfolio_transaction: PortfolioTransaction.t() | nil,
+          dividend_id: integer() | nil,
+          dividend: Dividend.t() | nil,
           amount: Money.t() | nil,
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
@@ -27,6 +30,7 @@ defmodule Boonorbust2.RealizedProfits.RealizedProfit do
     belongs_to :user, User, type: :binary_id
     belongs_to :asset, Asset
     belongs_to :portfolio_transaction, PortfolioTransaction
+    belongs_to :dividend, Dividend
     field :amount, Money.Ecto.Composite.Type
 
     timestamps(type: :utc_datetime)
@@ -37,11 +41,34 @@ defmodule Boonorbust2.RealizedProfits.RealizedProfit do
     attrs = convert_money_params(attrs)
 
     realized_profit
-    |> cast(attrs, [:user_id, :asset_id, :portfolio_transaction_id, :amount])
-    |> validate_required([:user_id, :asset_id, :portfolio_transaction_id, :amount])
+    |> cast(attrs, [:user_id, :asset_id, :portfolio_transaction_id, :dividend_id, :amount])
+    |> validate_required([:user_id, :asset_id, :amount])
+    |> validate_transaction_or_dividend()
     |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:asset_id)
     |> foreign_key_constraint(:portfolio_transaction_id)
+    |> foreign_key_constraint(:dividend_id)
+  end
+
+  # Validates that at least one of portfolio_transaction_id or dividend_id is set
+  defp validate_transaction_or_dividend(changeset) do
+    transaction_id = get_field(changeset, :portfolio_transaction_id)
+    dividend_id = get_field(changeset, :dividend_id)
+
+    cond do
+      transaction_id != nil && dividend_id != nil ->
+        changeset
+        |> add_error(:portfolio_transaction_id, "cannot have both transaction and dividend")
+        |> add_error(:dividend_id, "cannot have both transaction and dividend")
+
+      transaction_id == nil && dividend_id == nil ->
+        changeset
+        |> add_error(:portfolio_transaction_id, "must have either transaction or dividend")
+        |> add_error(:dividend_id, "must have either transaction or dividend")
+
+      true ->
+        changeset
+    end
   end
 
   defp convert_money_params(attrs) do

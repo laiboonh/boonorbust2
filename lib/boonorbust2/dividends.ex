@@ -219,9 +219,16 @@ defmodule Boonorbust2.Dividends do
   Fetches and stores dividends for an asset.
 
   This will fetch all dividends from the API and insert/update them in the database.
+  For each successfully upserted dividend, it will automatically process realized profits
+  for all users who held the asset before the ex-date.
   """
   @spec sync_dividends(Asset.t()) ::
-          {:ok, %{inserted: non_neg_integer(), errors: non_neg_integer()}}
+          {:ok,
+           %{
+             inserted: non_neg_integer(),
+             errors: non_neg_integer(),
+             realized_profits_created: non_neg_integer()
+           }}
           | {:error, String.t()}
   def sync_dividends(%Asset{} = asset) do
     case fetch_dividends(asset) do
@@ -241,7 +248,22 @@ defmodule Boonorbust2.Dividends do
         inserted_count = Enum.count(results, fn {status, _} -> status == :ok end)
         error_count = Enum.count(results, fn {status, _} -> status == :error end)
 
-        {:ok, %{inserted: inserted_count, errors: error_count}}
+        # Process realized profits for all successfully upserted dividends
+        realized_profits_count =
+          results
+          |> Enum.filter(fn {status, _} -> status == :ok end)
+          |> Enum.map(fn {:ok, dividend} ->
+            {:ok, count} = Boonorbust2.RealizedProfits.process_dividend_for_all_users(dividend)
+            count
+          end)
+          |> Enum.sum()
+
+        {:ok,
+         %{
+           inserted: inserted_count,
+           errors: error_count,
+           realized_profits_created: realized_profits_count
+         }}
 
       {:error, reason} ->
         {:error, reason}
