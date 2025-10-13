@@ -272,10 +272,15 @@ defmodule Boonorbust2Web.AssetHTML do
                     >
                       <option value="">Select rate</option>
                       <option value="0.0">0%</option>
+                      <option value="0.05">5%</option>
                       <option value="0.1">10%</option>
+                      <option value="0.15">15%</option>
                       <option value="0.2">20%</option>
+                      <option value="0.25">25%</option>
                       <option value="0.3">30%</option>
+                      <option value="0.35">35%</option>
                       <option value="0.4">40%</option>
+                      <option value="0.45">45%</option>
                       <option value="0.5">50%</option>
                     </select>
                   </div>
@@ -523,6 +528,15 @@ defmodule Boonorbust2Web.AssetHTML do
                       0%
                     </option>
                     <option
+                      value="0.05"
+                      selected={
+                        @asset.dividend_withholding_tax &&
+                          Decimal.equal?(@asset.dividend_withholding_tax, Decimal.new("0.05"))
+                      }
+                    >
+                      5%
+                    </option>
+                    <option
                       value="0.1"
                       selected={
                         @asset.dividend_withholding_tax &&
@@ -530,6 +544,15 @@ defmodule Boonorbust2Web.AssetHTML do
                       }
                     >
                       10%
+                    </option>
+                    <option
+                      value="0.15"
+                      selected={
+                        @asset.dividend_withholding_tax &&
+                          Decimal.equal?(@asset.dividend_withholding_tax, Decimal.new("0.15"))
+                      }
+                    >
+                      15%
                     </option>
                     <option
                       value="0.2"
@@ -541,6 +564,15 @@ defmodule Boonorbust2Web.AssetHTML do
                       20%
                     </option>
                     <option
+                      value="0.25"
+                      selected={
+                        @asset.dividend_withholding_tax &&
+                          Decimal.equal?(@asset.dividend_withholding_tax, Decimal.new("0.25"))
+                      }
+                    >
+                      25%
+                    </option>
+                    <option
                       value="0.3"
                       selected={
                         @asset.dividend_withholding_tax &&
@@ -550,6 +582,15 @@ defmodule Boonorbust2Web.AssetHTML do
                       30%
                     </option>
                     <option
+                      value="0.35"
+                      selected={
+                        @asset.dividend_withholding_tax &&
+                          Decimal.equal?(@asset.dividend_withholding_tax, Decimal.new("0.35"))
+                      }
+                    >
+                      35%
+                    </option>
+                    <option
                       value="0.4"
                       selected={
                         @asset.dividend_withholding_tax &&
@@ -557,6 +598,15 @@ defmodule Boonorbust2Web.AssetHTML do
                       }
                     >
                       40%
+                    </option>
+                    <option
+                      value="0.45"
+                      selected={
+                        @asset.dividend_withholding_tax &&
+                          Decimal.equal?(@asset.dividend_withholding_tax, Decimal.new("0.45"))
+                      }
+                    >
+                      45%
                     </option>
                     <option
                       value="0.5"
@@ -761,10 +811,15 @@ defmodule Boonorbust2Web.AssetHTML do
                   options={[
                     {"Select rate", ""},
                     {"0%", "0.0"},
+                    {"5%", "0.05"},
                     {"10%", "0.1"},
+                    {"15%", "0.15"},
                     {"20%", "0.2"},
+                    {"25%", "0.25"},
                     {"30%", "0.3"},
+                    {"35%", "0.35"},
                     {"40%", "0.4"},
+                    {"45%", "0.45"},
                     {"50%", "0.5"}
                   ]}
                 />
@@ -851,10 +906,15 @@ defmodule Boonorbust2Web.AssetHTML do
                   options={[
                     {"Select rate", ""},
                     {"0%", "0.0"},
+                    {"5%", "0.05"},
                     {"10%", "0.1"},
+                    {"15%", "0.15"},
                     {"20%", "0.2"},
+                    {"25%", "0.25"},
                     {"30%", "0.3"},
+                    {"35%", "0.35"},
                     {"40%", "0.4"},
+                    {"45%", "0.45"},
                     {"50%", "0.5"}
                   ]}
                 />
