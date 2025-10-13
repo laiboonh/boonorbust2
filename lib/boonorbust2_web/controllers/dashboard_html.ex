@@ -258,7 +258,7 @@ defmodule Boonorbust2Web.DashboardHTML do
                 <h2 class="text-lg font-semibold text-gray-900">Dividend Income by Asset</h2>
                 <p class="text-sm text-gray-600 mt-1">Last 24 months</p>
               </div>
-              <div class="relative" style="height: 350px;">
+              <div class="relative" style="height: 500px;">
                 <canvas id="dividend-income-chart"></canvas>
               </div>
               <script>
