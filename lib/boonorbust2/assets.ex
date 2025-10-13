@@ -374,8 +374,9 @@ defmodule Boonorbust2.Assets do
   defp extract_numeric_price(elements) do
     text = Floki.text(elements) |> String.trim()
 
-    # Extract just the numeric part (e.g., "6.37" from "USD 6.37")
-    case Regex.run(~r/\d+\.\d+/, text) do
+    # Extract just the numeric part (e.g., "6.37" from "USD 6.37" or "1" from "SGD 1")
+    # Matches integers (e.g., "1") or decimals (e.g., "1.23")
+    case Regex.run(~r/\d+(?:\.\d+)?/, text) do
       [price] -> price
       _ -> nil
     end
@@ -384,6 +385,28 @@ defmodule Boonorbust2.Assets do
   @spec fetch_data(String.t(), (String.t() -> String.t())) :: String.t()
   def fetch_data(response, data_fetcher) do
     data_fetcher.(response)
+  end
+
+  @doc """
+  Debug function to inspect the HTML structure of a dividends.sg page.
+  Returns various elements that might contain the price.
+  """
+  def debug_dividends_sg_html(url) do
+    http_client =
+      Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
+
+    with {:ok, %{status: 200, body: body}} <- http_client.get(url),
+         {:ok, document} <- Floki.parse_document(body) do
+      {:ok,
+       %{
+         h4_elements: extract_h4_elements(document),
+         numeric_elements: extract_numeric_elements(document),
+         all_spans: extract_all_spans(document)
+       }}
+    else
+      {:error, error} -> {:error, error}
+      {:ok, %{status: _status}} -> {:error, "HTTP request failed"}
+    end
   end
 
   @doc """
@@ -460,6 +483,31 @@ defmodule Boonorbust2.Assets do
       String.contains?(text, "price") or String.contains?(text, "Price")
     end)
     |> Enum.take(3)
+  end
+
+  defp extract_h4_elements(document) do
+    document
+    |> Floki.find("h4")
+    |> Enum.map(fn {tag, attrs, children} ->
+      class = List.keyfind(attrs, "class", 0)
+      text = Floki.text({tag, attrs, children}) |> String.trim() |> String.slice(0..200)
+      {tag, class, text, inspect(children) |> String.slice(0..300)}
+    end)
+  end
+
+  defp extract_all_spans(document) do
+    document
+    |> Floki.find("span")
+    |> Enum.map(fn {tag, attrs, children} ->
+      class = List.keyfind(attrs, "class", 0)
+      text = Floki.text({tag, attrs, children}) |> String.trim()
+      {class, text}
+    end)
+    |> Enum.filter(fn {_class, text} ->
+      # Filter to spans that contain numbers
+      String.match?(text, ~r/\d/)
+    end)
+    |> Enum.take(20)
   end
 
   @spec maybe_update_price_from_url(Asset.t()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
