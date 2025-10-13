@@ -244,6 +244,34 @@ defmodule Boonorbust2.Assets do
     end
   end
 
+  def fetch_price(%Asset{price_url: "https://www.alphavantage.co/" <> _rest = price_url}) do
+    access_key = Application.get_env(:boonorbust2, :alphavantage_api_key)
+
+    http_client =
+      Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
+
+    case http_client.get(price_url, params: [apikey: access_key]) do
+      {:ok, %{status: 200, body: body}} ->
+        with %{"Time Series (Daily)" => time_series} <- body,
+             # Get the most recent date (first key in the map)
+             [first_date | _] <- Map.keys(time_series) |> Enum.sort(:desc),
+             %{"4. close" => close_value} <- time_series[first_date] do
+          {:ok, close_value}
+        else
+          %{"Time Series (Daily)" => _} -> {:error, "No data available"}
+          %{"Error Message" => error_msg} -> {:error, "API error: #{error_msg}"}
+          %{"Note" => note} -> {:error, "API limit reached: #{note}"}
+          _ -> {:error, "Invalid response format"}
+        end
+
+      {:ok, %{status: status}} ->
+        {:error, "HTTP request failed with status #{status}"}
+
+      {:error, error} ->
+        {:error, "Request failed: #{inspect(error)}"}
+    end
+  end
+
   def fetch_price(%Asset{price_url: price_url}) do
     {:error, "Request failed: Unexpected price url #{price_url}"}
   end
