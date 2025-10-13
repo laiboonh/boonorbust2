@@ -137,6 +137,29 @@ defmodule Boonorbust2.Dividends do
     end
   end
 
+  def fetch_dividends(%Asset{dividend_url: "https://www.digrin.com/" <> _rest = dividend_url}) do
+    # Scrape dividends from digrin.com website
+    http_client =
+      Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
+
+    case http_client.get(dividend_url, []) do
+      {:ok, %{status: 200, body: body}} ->
+        case Floki.parse_document(body) do
+          {:ok, document} ->
+            parse_dividends_digrin(document)
+
+          {:error, _reason} ->
+            {:error, "Failed to parse HTML document"}
+        end
+
+      {:ok, %{status: status}} ->
+        {:error, "HTTP request failed with status #{status}"}
+
+      {:error, error} ->
+        {:error, "Request failed: #{inspect(error)}"}
+    end
+  end
+
   def fetch_dividends(%Asset{dividend_url: dividend_url}) do
     {:error, "Request failed: Unexpected dividend url #{dividend_url}"}
   end
@@ -170,6 +193,24 @@ defmodule Boonorbust2.Dividends do
     dividends =
       data_rows
       |> Enum.map(&parse_dividend_hk_row/1)
+      |> Enum.reject(&is_nil/1)
+
+    if Enum.empty?(dividends) do
+      {:error, "No valid dividend data found"}
+    else
+      {:ok, dividends}
+    end
+  end
+
+  @spec parse_dividends_digrin(Floki.html_tree()) :: {:ok, [map()]} | {:error, String.t()}
+  defp parse_dividends_digrin(document) do
+    # Find all dividend rows in the table
+    # digrin.com uses standard table structure with tbody
+    rows = Floki.find(document, "table tbody tr")
+
+    dividends =
+      rows
+      |> Enum.map(&parse_dividend_digrin_row/1)
       |> Enum.reject(&is_nil/1)
 
     if Enum.empty?(dividends) do
@@ -216,6 +257,42 @@ defmodule Boonorbust2.Dividends do
     end
   end
 
+  @spec parse_dividend_digrin_row(Floki.html_tree()) :: map() | nil
+  defp parse_dividend_digrin_row(row) do
+    cells = Floki.find(row, "td")
+
+    # Column 0: Ex-dividend date (format: YYYY-MM-DD)
+    # Column 2: Dividend amount (format: "0.0106 SGD (-0.92%)")
+    ex_date_text =
+      cells
+      |> Enum.at(0)
+      |> then(fn cell -> if cell, do: Floki.text(cell), else: "" end)
+      |> String.trim()
+
+    amount_text =
+      cells
+      |> Enum.at(2)
+      |> then(fn cell -> if cell, do: Floki.text(cell), else: "" end)
+      |> String.trim()
+
+    # Skip rows with "Upcoming dividend" or invalid data
+    if String.contains?(amount_text, "Upcoming") or amount_text == "N/A" do
+      nil
+    else
+      # Parse the data
+      with {:ok, {currency, amount}} <- parse_digrin_amount(amount_text),
+           {:ok, date} <- parse_date(ex_date_text) do
+        %{
+          date: date,
+          value: amount,
+          currency: currency
+        }
+      else
+        _ -> nil
+      end
+    end
+  end
+
   @spec parse_hk_particular(String.t()) :: {:ok, {String.t(), Decimal.t()}} | {:error, String.t()}
   defp parse_hk_particular(text) do
     # Extract currency and amount from format like "Fin Div USD 0.13125" or "Sp Div USD 0.11875"
@@ -229,6 +306,22 @@ defmodule Boonorbust2.Dividends do
 
       _ ->
         {:error, "Invalid particular format"}
+    end
+  end
+
+  @spec parse_digrin_amount(String.t()) :: {:ok, {String.t(), Decimal.t()}} | {:error, String.t()}
+  defp parse_digrin_amount(text) do
+    # Extract amount and currency from format like "0.0106 SGD (-0.92%)"
+    # Pattern: decimal number, space, 3-letter currency code
+    case Regex.run(~r/([\d\.]+)\s+([A-Z]{3})/, text) do
+      [_, amount, currency] ->
+        case Decimal.parse(amount) do
+          {decimal, _} -> {:ok, {currency, decimal}}
+          :error -> {:error, "Invalid amount format"}
+        end
+
+      _ ->
+        {:error, "Invalid digrin amount format"}
     end
   end
 
