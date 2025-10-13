@@ -293,6 +293,27 @@ defmodule Boonorbust2.Assets do
     end
   end
 
+  def fetch_price(%Asset{price_url: "https://www.dividends.sg/" <> _rest = price_url}) do
+    # Scrape price from dividends.sg website
+    http_client =
+      Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
+
+    with {:ok, %{status: 200, body: body}} <- http_client.get(price_url),
+         {:ok, document} <- Floki.parse_document(body),
+         {:ok, price} <- parse_dividends_sg_price(document) do
+      {:ok, price}
+    else
+      {:ok, %{status: status}} ->
+        {:error, "HTTP request failed with status #{status}"}
+
+      {:error, :price_not_found} ->
+        {:error, "Price not found on page"}
+
+      {:error, reason} ->
+        {:error, "Request failed: #{inspect(reason)}"}
+    end
+  end
+
   def fetch_price(%Asset{price_url: price_url}) do
     {:error, "Request failed: Unexpected price url #{price_url}"}
   end
@@ -324,6 +345,41 @@ defmodule Boonorbust2.Assets do
   end
 
   defp extract_header_txt_price(_), do: nil
+
+  @spec parse_dividends_sg_price(Floki.html_tree()) ::
+          {:ok, String.t()} | {:error, :price_not_found}
+  defp parse_dividends_sg_price(document) do
+    # Try multiple selectors to find the price
+    result =
+      [".col-md-8 h4 span", "h4 span", "div.col-md-8 > h4 > span"]
+      |> Enum.find_value(&extract_price_from_selector(document, &1))
+
+    case result do
+      nil -> {:error, :price_not_found}
+      price -> {:ok, price}
+    end
+  end
+
+  @spec extract_price_from_selector(Floki.html_tree(), String.t()) :: String.t() | nil
+  defp extract_price_from_selector(document, selector) do
+    document
+    |> Floki.find(selector)
+    |> case do
+      [] -> nil
+      elements -> extract_numeric_price(elements)
+    end
+  end
+
+  @spec extract_numeric_price(list()) :: String.t() | nil
+  defp extract_numeric_price(elements) do
+    text = Floki.text(elements) |> String.trim()
+
+    # Extract just the numeric part (e.g., "6.37" from "USD 6.37")
+    case Regex.run(~r/\d+\.\d+/, text) do
+      [price] -> price
+      _ -> nil
+    end
+  end
 
   @spec fetch_data(String.t(), (String.t() -> String.t())) :: String.t()
   def fetch_data(response, data_fetcher) do
