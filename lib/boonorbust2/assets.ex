@@ -272,13 +272,138 @@ defmodule Boonorbust2.Assets do
     end
   end
 
+  def fetch_price(%Asset{price_url: "https://www.etnet.com.hk/" <> _rest = price_url}) do
+    # Scrape price from etnet.com.hk website
+    http_client =
+      Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
+
+    with {:ok, %{status: 200, body: body}} <- http_client.get(price_url),
+         {:ok, document} <- Floki.parse_document(body),
+         {:ok, price} <- parse_etnet_price(document) do
+      {:ok, price}
+    else
+      {:ok, %{status: status}} ->
+        {:error, "HTTP request failed with status #{status}"}
+
+      {:error, :price_not_found} ->
+        {:error, "Price not found on page"}
+
+      {:error, reason} ->
+        {:error, "Request failed: #{inspect(reason)}"}
+    end
+  end
+
   def fetch_price(%Asset{price_url: price_url}) do
     {:error, "Request failed: Unexpected price url #{price_url}"}
   end
 
+  @spec parse_etnet_price(Floki.html_tree()) :: {:ok, String.t()} | {:error, :price_not_found}
+  defp parse_etnet_price(document) do
+    # Find span with class HeaderTxt (can be "HeaderTxt up" or "HeaderTxt down")
+    result =
+      document
+      |> Floki.find("span")
+      |> Enum.find_value(fn element ->
+        extract_header_txt_price(element)
+      end)
+
+    case result do
+      nil -> {:error, :price_not_found}
+      price -> {:ok, price}
+    end
+  end
+
+  @spec extract_header_txt_price(Floki.html_node()) :: String.t() | nil
+  defp extract_header_txt_price({_tag, attrs, [text | _]}) when is_binary(text) do
+    with {"class", class_value} <- List.keyfind(attrs, "class", 0),
+         true <- String.contains?(class_value, "HeaderTxt") do
+      String.trim(text)
+    else
+      _ -> nil
+    end
+  end
+
+  defp extract_header_txt_price(_), do: nil
+
   @spec fetch_data(String.t(), (String.t() -> String.t())) :: String.t()
   def fetch_data(response, data_fetcher) do
     data_fetcher.(response)
+  end
+
+  @doc """
+  Debug function to inspect the HTML structure of an etnet.com.hk page.
+  Returns a list of all elements with class attributes containing "price" (case-insensitive).
+  """
+  def debug_etnet_html(url) do
+    http_client =
+      Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
+
+    with {:ok, %{status: 200, body: body}} <- http_client.get(url),
+         {:ok, document} <- Floki.parse_document(body) do
+      {:ok,
+       %{
+         relevant_ids: extract_relevant_ids(document),
+         numeric_elements: extract_numeric_elements(document),
+         scripts_with_price: extract_price_scripts(document)
+       }}
+    else
+      {:error, error} -> {:error, error}
+      {:ok, %{status: _status}} -> {:error, "HTTP request failed"}
+    end
+  end
+
+  defp extract_relevant_ids(document) do
+    document
+    |> Floki.find("[id]")
+    |> Enum.filter(&has_relevant_id?/1)
+    |> Enum.map(fn {tag, attrs, children} ->
+      id = List.keyfind(attrs, "id", 0)
+      text = Floki.text({tag, attrs, children}) |> String.trim() |> String.slice(0..100)
+      {tag, id, text}
+    end)
+  end
+
+  defp has_relevant_id?({_tag, attrs, _children}) do
+    case List.keyfind(attrs, "id", 0) do
+      {"id", id_value} ->
+        id_lower = String.downcase(id_value)
+
+        String.contains?(id_lower, "stock") or
+          String.contains?(id_lower, "detail") or
+          String.contains?(id_lower, "main") or
+          String.contains?(id_lower, "price")
+
+      _ ->
+        false
+    end
+  end
+
+  defp extract_numeric_elements(document) do
+    document
+    |> Floki.find("span, div")
+    |> Enum.filter(fn element ->
+      text = Floki.text(element) |> String.trim()
+      String.match?(text, ~r/^\d+\.\d{2,3}$/)
+    end)
+    |> Enum.map(fn {tag, attrs, children} ->
+      id = List.keyfind(attrs, "id", 0)
+      class = List.keyfind(attrs, "class", 0)
+      text = Floki.text({tag, attrs, children}) |> String.trim()
+      {tag, id, class, text}
+    end)
+    |> Enum.take(10)
+  end
+
+  defp extract_price_scripts(document) do
+    document
+    |> Floki.find("script")
+    |> Enum.map(fn element ->
+      Floki.text(element) |> String.slice(0..200)
+    end)
+    |> Enum.filter(fn text ->
+      String.contains?(text, "price") or String.contains?(text, "Price")
+    end)
+    |> Enum.take(3)
   end
 
   @spec maybe_update_price_from_url(Asset.t()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
