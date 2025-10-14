@@ -369,7 +369,10 @@ defmodule Boonorbust2Web.AssetHTML do
               <p class="text-gray-500 italic">Price not set</p>
             <% end %>
             <p class="text-sm text-gray-500 mt-2">
-              Updated {Calendar.strftime(@asset.updated_at, "%B %d, %Y at %I:%M %p")}
+              Updated
+              <span class="local-time" data-utc-time={DateTime.to_iso8601(@asset.updated_at)}>
+                {Calendar.strftime(@asset.updated_at, "%B %d, %Y at %I:%M %p")}
+              </span>
             </p>
           </div>
 

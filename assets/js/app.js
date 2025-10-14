@@ -41,3 +41,35 @@ import "phoenix_html"
 // >> liveSocket.enableLatencySim(1000)  // enabled for duration of browser session
 // >> liveSocket.disableLatencySim()
 // window.liveSocket = liveSocket
+
+// Convert UTC timestamps to local timezone
+function formatLocalTime(utcString) {
+  const date = new Date(utcString);
+
+  // Format: "Month Day, Year at HH:MM AM/PM"
+  const options = {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  };
+
+  return date.toLocaleString('en-US', options).replace(',', ' at');
+}
+
+function updateLocalTimes() {
+  document.querySelectorAll('.local-time[data-utc-time]').forEach(element => {
+    const utcTime = element.getAttribute('data-utc-time');
+    if (utcTime) {
+      element.textContent = formatLocalTime(utcTime);
+    }
+  });
+}
+
+// Update times on page load
+document.addEventListener('DOMContentLoaded', updateLocalTimes);
+
+// Update times after HTMX swaps content
+document.body.addEventListener('htmx:afterSwap', updateLocalTimes);
