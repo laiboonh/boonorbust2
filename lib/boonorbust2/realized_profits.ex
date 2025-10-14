@@ -48,6 +48,30 @@ defmodule Boonorbust2.RealizedProfits do
     |> Repo.all()
   end
 
+  @doc """
+  Lists upcoming dividend payments within the next 2 weeks.
+  Returns realized profits with dividends whose pay_date is within 2 weeks from today.
+  """
+  @spec list_upcoming_dividend_payments(String.t()) :: [RealizedProfit.t()]
+  def list_upcoming_dividend_payments(user_id) do
+    today = Date.utc_today()
+    two_weeks_from_now = Date.add(today, 14)
+
+    from(rp in RealizedProfit,
+      join: d in assoc(rp, :dividend),
+      join: a in assoc(rp, :asset),
+      where:
+        rp.user_id == ^user_id and
+          not is_nil(rp.dividend_id) and
+          not is_nil(d.pay_date) and
+          d.pay_date >= ^today and
+          d.pay_date <= ^two_weeks_from_now,
+      order_by: [asc: d.pay_date],
+      preload: [dividend: d, asset: a]
+    )
+    |> Repo.all()
+  end
+
   @spec delete_realized_profit(RealizedProfit.t()) ::
           {:ok, RealizedProfit.t()} | {:error, Ecto.Changeset.t()}
   def delete_realized_profit(%RealizedProfit{} = realized_profit) do
@@ -132,8 +156,8 @@ defmodule Boonorbust2.RealizedProfits do
   @spec process_dividend_for_all_users(Dividend.t()) ::
           {:ok, non_neg_integer()} | {:error, String.t()}
   def process_dividend_for_all_users(%Dividend{} = dividend) do
-    # Convert dividend date to DateTime for comparison with transaction_date
-    dividend_datetime = DateTime.new!(dividend.date, ~T[00:00:00], "Etc/UTC")
+    # Convert dividend ex-date to DateTime for comparison with transaction_date
+    dividend_datetime = DateTime.new!(dividend.ex_date, ~T[00:00:00], "Etc/UTC")
 
     # Get the latest position for each user before the ex-date
     # Using a subquery to find the max transaction_date and max id for each user
@@ -259,13 +283,13 @@ defmodule Boonorbust2.RealizedProfits do
         where:
           rp.user_id == ^user_id and
             not is_nil(rp.dividend_id) and
-            d.date >= ^cutoff_date,
+            d.ex_date >= ^cutoff_date,
         select: %{
-          month: fragment("to_char(?, 'YYYY-MM')", d.date),
+          month: fragment("to_char(?, 'YYYY-MM')", d.ex_date),
           asset_name: a.name,
           amount: rp.amount
         },
-        order_by: [desc: fragment("to_char(?, 'YYYY-MM')", d.date), asc: a.name]
+        order_by: [desc: fragment("to_char(?, 'YYYY-MM')", d.ex_date), asc: a.name]
       )
       |> Repo.all()
 

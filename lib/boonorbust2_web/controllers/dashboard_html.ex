@@ -6,6 +6,51 @@ defmodule Boonorbust2Web.DashboardHTML do
     <.tab_content class="min-h-screen bg-gray-50">
       <div class="px-4 py-8">
         <div class="max-w-lg mx-auto">
+          <%= if !Enum.empty?(@upcoming_dividends) do %>
+            <div class="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+              <h2 class="text-base sm:text-lg font-semibold text-gray-900 mb-4">
+                Upcoming Dividends (Next 2 Weeks)
+              </h2>
+              <div class="space-y-3">
+                <%= for dividend <- @upcoming_dividends do %>
+                  <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                    <div class="flex justify-between items-start mb-2">
+                      <div class="flex-1 pr-2">
+                        <h3 class="text-sm font-medium text-gray-900 break-words">
+                          {dividend.asset.name}
+                        </h3>
+                      </div>
+                      <div class="text-right">
+                        <p class="text-base font-semibold text-emerald-600 whitespace-nowrap">
+                          {Money.to_string!(dividend.converted_amount)}
+                        </p>
+                      </div>
+                    </div>
+                    <div class="flex items-center">
+                      <svg
+                        class="w-4 h-4 text-gray-400 mr-1.5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          stroke-width="2"
+                          d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        >
+                        </path>
+                      </svg>
+                      <p class="text-xs text-gray-500">
+                        Pay date: {Calendar.strftime(dividend.dividend.pay_date, "%b %d, %Y")}
+                      </p>
+                    </div>
+                  </div>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+
           <%= if Enum.empty?(@portfolios) do %>
             <div class="bg-white rounded-lg shadow p-8 text-center">
               <p class="text-gray-500 mb-4">No portfolios yet.</p>

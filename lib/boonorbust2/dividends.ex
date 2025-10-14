@@ -12,7 +12,7 @@ defmodule Boonorbust2.Dividends do
   def list_dividends(opts \\ []) do
     asset_id = Keyword.get(opts, :asset_id, nil)
 
-    query = from d in Dividend, order_by: [desc: d.date]
+    query = from d in Dividend, order_by: [desc: d.ex_date]
     query = if asset_id, do: where(query, [d], d.asset_id == ^asset_id), else: query
 
     Repo.all(query)
@@ -69,15 +69,7 @@ defmodule Boonorbust2.Dividends do
 
     case http_client.get(dividend_url, params: [api_token: api_key]) do
       {:ok, %{status: 200, body: body}} when is_list(body) ->
-        dividends =
-          Enum.map(body, fn dividend ->
-            %{
-              date: dividend["date"] |> Date.from_iso8601!(),
-              value: dividend["value"] |> Float.to_string(),
-              currency: dividend["currency"] || "USD"
-            }
-          end)
-
+        dividends = Enum.map(body, &parse_eodhd_dividend/1)
         {:ok, dividends}
 
       {:ok, %{status: 200, body: body}} ->
@@ -226,6 +218,7 @@ defmodule Boonorbust2.Dividends do
 
     # Column 2 (index 2): Particular (e.g., "Fin Div USD 0.13125")
     # Column 3 (index 3): Ex-date
+    # Column 4 (index 4): Pay date
     particular_text =
       cells
       |> Enum.at(2)
@@ -238,6 +231,12 @@ defmodule Boonorbust2.Dividends do
       |> then(fn cell -> if cell, do: Floki.text(cell), else: "" end)
       |> String.trim()
 
+    pay_date_text =
+      cells
+      |> Enum.at(4)
+      |> then(fn cell -> if cell, do: Floki.text(cell), else: "" end)
+      |> String.trim()
+
     # Skip rows with no dividend (e.g., "No Int Div", "No 1st Int Div")
     # Only process rows with actual dividend amounts
     if String.contains?(particular_text, "No") or ex_date_text == "--" do
@@ -245,9 +244,17 @@ defmodule Boonorbust2.Dividends do
     else
       # Parse the data
       with {:ok, {currency, amount}} <- parse_hk_particular(particular_text),
-           {:ok, date} <- parse_date(ex_date_text) do
+           {:ok, ex_date} <- parse_date(ex_date_text) do
+        # Parse pay_date, but allow it to be nil if parsing fails
+        pay_date =
+          case parse_date(pay_date_text) do
+            {:ok, date} -> date
+            _ -> nil
+          end
+
         %{
-          date: date,
+          ex_date: ex_date,
+          pay_date: pay_date,
           value: amount,
           currency: currency
         }
@@ -262,10 +269,17 @@ defmodule Boonorbust2.Dividends do
     cells = Floki.find(row, "td")
 
     # Column 0: Ex-dividend date (format: YYYY-MM-DD)
+    # Column 1: Payment date (format: YYYY-MM-DD)
     # Column 2: Dividend amount (format: "0.0106 SGD (-0.92%)")
     ex_date_text =
       cells
       |> Enum.at(0)
+      |> then(fn cell -> if cell, do: Floki.text(cell), else: "" end)
+      |> String.trim()
+
+    pay_date_text =
+      cells
+      |> Enum.at(1)
       |> then(fn cell -> if cell, do: Floki.text(cell), else: "" end)
       |> String.trim()
 
@@ -281,9 +295,17 @@ defmodule Boonorbust2.Dividends do
     else
       # Parse the data
       with {:ok, {currency, amount}} <- parse_digrin_amount(amount_text),
-           {:ok, date} <- parse_date(ex_date_text) do
+           {:ok, ex_date} <- parse_date(ex_date_text) do
+        # Parse pay_date, but allow it to be nil if parsing fails
+        pay_date =
+          case parse_date(pay_date_text) do
+            {:ok, date} -> date
+            _ -> nil
+          end
+
         %{
-          date: date,
+          ex_date: ex_date,
+          pay_date: pay_date,
           value: amount,
           currency: currency
         }
@@ -331,10 +353,11 @@ defmodule Boonorbust2.Dividends do
   @spec aggregate_dividends_by_date([map()]) :: [map()]
   defp aggregate_dividends_by_date(dividends) do
     dividends
-    |> Enum.group_by(& &1.date)
-    |> Enum.map(fn {date, date_dividends} ->
-      # All dividends for the same date should have the same currency
+    |> Enum.group_by(& &1.ex_date)
+    |> Enum.map(fn {ex_date, date_dividends} ->
+      # All dividends for the same date should have the same currency and pay_date
       currency = hd(date_dividends).currency
+      pay_date = Map.get(hd(date_dividends), :pay_date)
 
       # Sum all values for this date
       total_value =
@@ -343,12 +366,13 @@ defmodule Boonorbust2.Dividends do
         |> Enum.reduce(Decimal.new(0), &Decimal.add/2)
 
       %{
-        date: date,
+        ex_date: ex_date,
+        pay_date: pay_date,
         value: total_value,
         currency: currency
       }
     end)
-    |> Enum.sort_by(& &1.date, {:desc, Date})
+    |> Enum.sort_by(& &1.ex_date, {:desc, Date})
   end
 
   @spec parse_dividend_row(Floki.html_tree()) :: map() | nil
@@ -359,11 +383,11 @@ defmodule Boonorbust2.Dividends do
     # Handle rowspan: rows with 7 cells vs rows with 4 cells
     # Full row (7 cells): Year | Yield | Total | Amount | Ex Date | Pay Date | Particulars
     # Rowspan row (4 cells): Amount | Ex Date | Pay Date | Particulars
-    {amount_idx, date_idx} =
+    {amount_idx, ex_date_idx, pay_date_idx} =
       if cell_count >= 7 do
-        {3, 4}
+        {3, 4, 5}
       else
-        {0, 1}
+        {0, 1, 2}
       end
 
     # Extract currency and amount
@@ -376,15 +400,30 @@ defmodule Boonorbust2.Dividends do
     # Extract ex-date
     ex_date_text =
       cells
-      |> Enum.at(date_idx)
+      |> Enum.at(ex_date_idx)
+      |> then(fn cell -> if cell, do: Floki.text(cell), else: "" end)
+      |> String.trim()
+
+    # Extract pay-date
+    pay_date_text =
+      cells
+      |> Enum.at(pay_date_idx)
       |> then(fn cell -> if cell, do: Floki.text(cell), else: "" end)
       |> String.trim()
 
     # Parse the data
     with {:ok, {currency, amount}} <- parse_currency_and_amount(currency_amount_text),
-         {:ok, date} <- parse_date(ex_date_text) do
+         {:ok, ex_date} <- parse_date(ex_date_text) do
+      # Parse pay_date, but allow it to be nil if parsing fails
+      pay_date =
+        case parse_date(pay_date_text) do
+          {:ok, date} -> date
+          _ -> nil
+        end
+
       %{
-        date: date,
+        ex_date: ex_date,
+        pay_date: pay_date,
         value: amount,
         currency: currency
       }
@@ -445,6 +484,24 @@ defmodule Boonorbust2.Dividends do
     end
   end
 
+  @spec parse_eodhd_dividend(map()) :: map()
+  defp parse_eodhd_dividend(dividend) do
+    # Parse paymentDate if present (EODHD API uses camelCase)
+    pay_date = parse_optional_date(dividend["paymentDate"])
+
+    %{
+      ex_date: dividend["date"] |> Date.from_iso8601!(),
+      pay_date: pay_date,
+      value: dividend["value"] |> Float.to_string(),
+      currency: dividend["currency"] || "USD"
+    }
+  end
+
+  @spec parse_optional_date(String.t() | nil) :: Date.t() | nil
+  defp parse_optional_date(nil), do: nil
+  defp parse_optional_date(""), do: nil
+  defp parse_optional_date(date_str), do: Date.from_iso8601!(date_str)
+
   @doc """
   Fetches and stores dividends for an asset.
 
@@ -473,8 +530,8 @@ defmodule Boonorbust2.Dividends do
             %Dividend{}
             |> Dividend.changeset(attrs)
             |> Repo.insert(
-              on_conflict: {:replace, [:value, :currency, :updated_at]},
-              conflict_target: [:asset_id, :date]
+              on_conflict: {:replace, [:value, :currency, :pay_date, :updated_at]},
+              conflict_target: [:asset_id, :ex_date]
             )
           end)
 

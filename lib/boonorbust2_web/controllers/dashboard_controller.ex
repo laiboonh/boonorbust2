@@ -98,6 +98,16 @@ defmodule Boonorbust2Web.DashboardController do
     # Load dividend chart data for the last 24 months
     dividend_chart_data = prepare_dividend_chart_data(user_id, user_currency)
 
+    # Load upcoming dividend payments (within next 2 weeks)
+    upcoming_dividends = RealizedProfits.list_upcoming_dividend_payments(user_id)
+
+    # Convert upcoming dividends to user's currency
+    upcoming_dividends_with_converted_amounts =
+      Enum.map(upcoming_dividends, fn dividend ->
+        converted_amount = convert_to_user_currency(dividend.amount, user_currency)
+        Map.put(dividend, :converted_amount, converted_amount)
+      end)
+
     render(conn, :index,
       positions: sorted_positions,
       realized_profits_by_asset: realized_profits_by_asset,
@@ -107,7 +117,8 @@ defmodule Boonorbust2Web.DashboardController do
       portfolios: portfolios_with_chart_data,
       user_currency: user_currency,
       portfolio_snapshots: portfolio_snapshots,
-      dividend_chart_data: dividend_chart_data
+      dividend_chart_data: dividend_chart_data,
+      upcoming_dividends: upcoming_dividends_with_converted_amounts
     )
   end
 

@@ -550,7 +550,7 @@ defmodule Boonorbust2Web.PositionsHTML do
                         <span class="sm:hidden">
                           {Calendar.strftime(
                             position.portfolio_transaction.transaction_date,
-                            "%m/%d/%y"
+                            "%b %d, %Y"
                           )}
                         </span>
                       </td>
@@ -667,7 +667,7 @@ defmodule Boonorbust2Web.PositionsHTML do
                             <span class="sm:hidden">
                               {Calendar.strftime(
                                 rp.portfolio_transaction.transaction_date,
-                                "%m/%d/%y"
+                                "%b %d, %Y"
                               )}
                             </span>
                           </td>
@@ -711,6 +711,9 @@ defmodule Boonorbust2Web.PositionsHTML do
                         <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Ex-Date
                         </th>
+                        <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Pay Date
+                        </th>
                         <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Dividend Per Share
                         </th>
@@ -724,11 +727,23 @@ defmodule Boonorbust2Web.PositionsHTML do
                         <tr>
                           <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
                             <span class="hidden sm:inline">
-                              {Calendar.strftime(rp.dividend.date, "%B %d, %Y")}
+                              {Calendar.strftime(rp.dividend.ex_date, "%B %d, %Y")}
                             </span>
                             <span class="sm:hidden">
-                              {Calendar.strftime(rp.dividend.date, "%m/%d/%y")}
+                              {Calendar.strftime(rp.dividend.ex_date, "%b %d, %Y")}
                             </span>
+                          </td>
+                          <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
+                            <%= if rp.dividend.pay_date do %>
+                              <span class="hidden sm:inline">
+                                {Calendar.strftime(rp.dividend.pay_date, "%B %d, %Y")}
+                              </span>
+                              <span class="sm:hidden">
+                                {Calendar.strftime(rp.dividend.pay_date, "%b %d, %Y")}
+                              </span>
+                            <% else %>
+                              <span class="text-gray-400 italic">N/A</span>
+                            <% end %>
                           </td>
                           <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-medium text-gray-900">
                             {Money.to_string!(Money.new(rp.dividend.currency, rp.dividend.value))}

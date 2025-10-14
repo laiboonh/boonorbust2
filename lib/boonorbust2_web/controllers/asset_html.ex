@@ -369,7 +369,7 @@ defmodule Boonorbust2Web.AssetHTML do
               <p class="text-gray-500 italic">Price not set</p>
             <% end %>
             <p class="text-sm text-gray-500 mt-2">
-              Added {Calendar.strftime(@asset.inserted_at, "%B %d, %Y")}
+              Updated {Calendar.strftime(@asset.updated_at, "%B %d, %Y")}
             </p>
           </div>
 
@@ -979,6 +979,9 @@ defmodule Boonorbust2Web.AssetHTML do
                     <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Ex-Date
                     </th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Pay Date
+                    </th>
                     <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Value
                     </th>
@@ -991,7 +994,14 @@ defmodule Boonorbust2Web.AssetHTML do
                   <%= for dividend <- @dividends do %>
                     <tr>
                       <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                        {Calendar.strftime(dividend.date, "%B %d, %Y")}
+                        {Calendar.strftime(dividend.ex_date, "%B %d, %Y")}
+                      </td>
+                      <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        <%= if dividend.pay_date do %>
+                          {Calendar.strftime(dividend.pay_date, "%B %d, %Y")}
+                        <% else %>
+                          <span class="text-gray-400 italic">N/A</span>
+                        <% end %>
                       </td>
                       <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
                         {Decimal.to_string(dividend.value)}

@@ -12,7 +12,8 @@ defmodule Boonorbust2.Dividends.Dividend do
   @type t :: %__MODULE__{
           id: integer() | nil,
           asset_id: integer() | nil,
-          date: Date.t() | nil,
+          ex_date: Date.t() | nil,
+          pay_date: Date.t() | nil,
           value: Decimal.t() | nil,
           currency: String.t() | nil,
           inserted_at: NaiveDateTime.t() | nil,
@@ -20,7 +21,8 @@ defmodule Boonorbust2.Dividends.Dividend do
         }
 
   schema "dividends" do
-    field :date, :date
+    field :ex_date, :date
+    field :pay_date, :date
     field :value, :decimal
     field :currency, :string
 
@@ -32,11 +34,11 @@ defmodule Boonorbust2.Dividends.Dividend do
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(dividend, attrs) do
     dividend
-    |> cast(attrs, [:asset_id, :date, :value, :currency])
-    |> validate_required([:asset_id, :date, :value, :currency])
+    |> cast(attrs, [:asset_id, :ex_date, :pay_date, :value, :currency])
+    |> validate_required([:asset_id, :ex_date, :value, :currency])
     |> validate_number(:value, greater_than_or_equal_to: 0)
     |> validate_inclusion(:currency, Currency.supported_currencies())
     |> foreign_key_constraint(:asset_id)
-    |> unique_constraint([:asset_id, :date])
+    |> unique_constraint([:asset_id, :ex_date])
   end
 end
