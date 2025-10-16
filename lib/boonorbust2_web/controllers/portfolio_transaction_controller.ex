@@ -59,17 +59,39 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
     case PortfolioTransactions.create_portfolio_transaction(params) do
       {:ok, portfolio_transaction} ->
         # Recalculate positions for the affected asset
-        PortfolioPositions.calculate_and_upsert_positions_for_asset(
-          portfolio_transaction.asset_id,
-          user_id
-        )
+        try do
+          PortfolioPositions.calculate_and_upsert_positions_for_asset(
+            portfolio_transaction.asset_id,
+            user_id
+          )
 
-        if get_req_header(conn, "hx-request") != [] do
-          conn
-          |> put_layout(false)
-          |> render(:portfolio_transaction_item, portfolio_transaction: portfolio_transaction)
-        else
-          redirect(conn, to: ~p"/portfolio_transactions")
+          if get_req_header(conn, "hx-request") != [] do
+            conn
+            |> put_layout(false)
+            |> render(:portfolio_transaction_item, portfolio_transaction: portfolio_transaction)
+          else
+            redirect(conn, to: ~p"/portfolio_transactions")
+          end
+        rescue
+          e in ArgumentError ->
+            # Delete the transaction since position calculation failed
+            PortfolioTransactions.delete_portfolio_transaction(portfolio_transaction)
+
+            if get_req_header(conn, "hx-request") != [] do
+              conn
+              |> put_status(:unprocessable_entity)
+              |> put_layout(false)
+              |> put_view(Boonorbust2Web.CoreComponents)
+              |> render(:error_message, message: e.message)
+            else
+              assets = Assets.list_assets()
+
+              changeset =
+                PortfolioTransactions.change_portfolio_transaction(portfolio_transaction)
+
+              changeset = Ecto.Changeset.add_error(changeset, :base, e.message)
+              render(conn, :new, changeset: changeset, assets: assets)
+            end
         end
 
       {:error, changeset} ->
@@ -111,19 +133,49 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
          ) do
       {:ok, updated_portfolio_transaction} ->
         # Recalculate positions for the affected asset
-        PortfolioPositions.calculate_and_upsert_positions_for_asset(
-          updated_portfolio_transaction.asset_id,
-          user_id
-        )
-
-        if get_req_header(conn, "hx-request") != [] do
-          conn
-          |> put_layout(false)
-          |> render(:portfolio_transaction_item,
-            portfolio_transaction: updated_portfolio_transaction
+        try do
+          PortfolioPositions.calculate_and_upsert_positions_for_asset(
+            updated_portfolio_transaction.asset_id,
+            user_id
           )
-        else
-          redirect(conn, to: ~p"/portfolio_transactions/#{updated_portfolio_transaction}")
+
+          if get_req_header(conn, "hx-request") != [] do
+            conn
+            |> put_layout(false)
+            |> render(:portfolio_transaction_item,
+              portfolio_transaction: updated_portfolio_transaction
+            )
+          else
+            redirect(conn, to: ~p"/portfolio_transactions/#{updated_portfolio_transaction}")
+          end
+        rescue
+          e in ArgumentError ->
+            # Revert the transaction update since position calculation failed
+            PortfolioTransactions.update_portfolio_transaction(
+              updated_portfolio_transaction,
+              Map.from_struct(portfolio_transaction)
+            )
+
+            if get_req_header(conn, "hx-request") != [] do
+              conn
+              |> put_status(:unprocessable_entity)
+              |> put_layout(false)
+              |> put_view(Boonorbust2Web.CoreComponents)
+              |> render(:error_message, message: e.message)
+            else
+              assets = Assets.list_assets()
+
+              changeset =
+                PortfolioTransactions.change_portfolio_transaction(portfolio_transaction)
+
+              changeset = Ecto.Changeset.add_error(changeset, :base, e.message)
+
+              render(conn, :edit,
+                portfolio_transaction: portfolio_transaction,
+                changeset: changeset,
+                assets: assets
+              )
+            end
         end
 
       {:error, changeset} ->
@@ -153,12 +205,27 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
       PortfolioTransactions.delete_portfolio_transaction(portfolio_transaction)
 
     # Recalculate positions for the affected asset
-    PortfolioPositions.calculate_and_upsert_positions_for_asset(asset_id, user_id)
+    try do
+      PortfolioPositions.calculate_and_upsert_positions_for_asset(asset_id, user_id)
 
-    if get_req_header(conn, "hx-request") != [] do
-      send_resp(conn, 200, "")
-    else
-      redirect(conn, to: ~p"/portfolio_transactions")
+      if get_req_header(conn, "hx-request") != [] do
+        send_resp(conn, 200, "")
+      else
+        redirect(conn, to: ~p"/portfolio_transactions")
+      end
+    rescue
+      e in ArgumentError ->
+        if get_req_header(conn, "hx-request") != [] do
+          conn
+          |> put_status(:unprocessable_entity)
+          |> put_layout(false)
+          |> put_view(Boonorbust2Web.CoreComponents)
+          |> render(:error_message, message: e.message)
+        else
+          conn
+          |> put_flash(:error, e.message)
+          |> redirect(to: ~p"/portfolio_transactions")
+        end
     end
   end
 
@@ -185,12 +252,17 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
          affected_asset_ids: asset_ids
        }} ->
         # Recalculate positions for all affected assets
-        Enum.each(asset_ids, fn asset_id ->
-          PortfolioPositions.calculate_and_upsert_positions_for_asset(asset_id, user_id)
-        end)
+        try do
+          Enum.each(asset_ids, fn asset_id ->
+            PortfolioPositions.calculate_and_upsert_positions_for_asset(asset_id, user_id)
+          end)
 
-        message = format_success_message(success_count, error_count, total_count)
-        respond_with_success(conn, message)
+          message = format_success_message(success_count, error_count, total_count)
+          respond_with_success(conn, message)
+        rescue
+          e in ArgumentError ->
+            respond_with_error(conn, "Import failed: #{e.message}")
+        end
 
       {:error, reason} ->
         respond_with_error(conn, "Import failed: #{reason}")
