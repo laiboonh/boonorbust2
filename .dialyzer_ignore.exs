@@ -5,7 +5,10 @@
   # {":0:unknown_function Function 'Elixir.SuperModule':'some_func'/0 does not exist", :unknown_function}
 
   # Authentication plug halts connection when auth fails - this is expected behavior
-  ~r/Function require_authenticated_user\/2 has no local return/
+  ~r/Function require_authenticated_user\/2 has no local return/,
+
+  # Asset update - typespec is intentionally general (Asset.t() vs full struct)
+  ~r/lib\/boonorbust2\/assets\.ex:150:contract_supertype/
 
   # # Portfolio transactions - Ecto patterns that work correctly but Dialyzer doesn't understand
   # ~r/lib\/boonorbust2\/portfolio_transactions\.ex.+invalid_contract/,

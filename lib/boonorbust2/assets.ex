@@ -75,24 +75,50 @@ defmodule Boonorbust2.Assets do
   @spec create_asset(map()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
   def create_asset(attrs \\ %{}) do
     Repo.transaction(fn ->
-      with {:ok, asset} <- %Asset{} |> Asset.changeset(attrs) |> Repo.insert(),
-           {:ok, updated_asset} <- maybe_update_price_from_url(asset),
-           :ok <- maybe_sync_dividends_from_url(updated_asset) do
-        updated_asset
-      else
-        {:error, %Ecto.Changeset{} = changeset} ->
-          Repo.rollback(changeset)
-
-        {:error, reason} when is_binary(reason) ->
-          # Dividend sync error - convert to changeset error
-          changeset =
-            %Asset{}
-            |> Asset.changeset(attrs)
-            |> Ecto.Changeset.add_error(:dividend_url, "Failed to sync dividends: #{reason}")
-
-          Repo.rollback(changeset)
+      case %Asset{} |> Asset.changeset(attrs) |> Repo.insert() do
+        {:ok, asset} -> handle_asset_creation(asset)
+        {:error, %Ecto.Changeset{} = changeset} -> Repo.rollback(changeset)
       end
     end)
+  end
+
+  @spec handle_asset_creation(Asset.t()) :: Asset.t()
+  defp handle_asset_creation(asset) do
+    if can_use_combined_fetch?(asset) do
+      do_combined_create(asset)
+    else
+      do_separate_creates(asset)
+    end
+  end
+
+  @spec do_combined_create(Asset.t()) :: Asset.t()
+  defp do_combined_create(asset) do
+    case fetch_combined_data(asset) do
+      {:ok, {price, dividends}} ->
+        with {:ok, price_updated_asset} <- update_asset_price(asset, price),
+             {:ok, final_asset} <- sync_dividends_from_data(price_updated_asset, dividends) do
+          final_asset
+        else
+          {:error, %Ecto.Changeset{} = changeset} -> Repo.rollback(changeset)
+        end
+
+      {:error, reason} ->
+        rollback_with_price_error(asset, reason)
+    end
+  end
+
+  @spec do_separate_creates(Asset.t()) :: Asset.t()
+  defp do_separate_creates(asset) do
+    with {:ok, updated_asset} <- maybe_update_price_from_url(asset),
+         :ok <- maybe_sync_dividends_from_url(updated_asset) do
+      updated_asset
+    else
+      {:error, %Ecto.Changeset{} = changeset} ->
+        Repo.rollback(changeset)
+
+      {:error, reason} when is_binary(reason) ->
+        rollback_with_dividend_error(asset, reason)
+    end
   end
 
   @spec update_asset(Asset.t(), map()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
@@ -123,8 +149,64 @@ defmodule Boonorbust2.Assets do
 
   @spec do_update_asset(Asset.t(), map(), boolean(), boolean()) :: Asset.t()
   defp do_update_asset(asset, attrs, should_fetch_price, should_sync_dividends) do
-    with {:ok, updated_asset} <- asset |> Asset.changeset(attrs) |> Repo.update(),
-         {:ok, price_updated_asset} <- maybe_fetch_price(updated_asset, should_fetch_price),
+    case asset |> Asset.changeset(attrs) |> Repo.update() do
+      {:ok, updated_asset} ->
+        handle_asset_update(updated_asset, should_fetch_price, should_sync_dividends)
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        Repo.rollback(changeset)
+    end
+  end
+
+  @spec handle_asset_update(Asset.t(), boolean(), boolean()) :: Asset.t()
+  defp handle_asset_update(asset, should_fetch_price, should_sync_dividends) do
+    # Try combined fetch if both price and dividends need updating and URLs match
+    if should_fetch_price and should_sync_dividends and can_use_combined_fetch?(asset) do
+      do_combined_update(asset)
+    else
+      # Fall back to separate fetches
+      do_separate_updates(asset, should_fetch_price, should_sync_dividends)
+    end
+  end
+
+  @spec can_use_combined_fetch?(Asset.t()) :: boolean()
+  defp can_use_combined_fetch?(%Asset{
+         price_url: url,
+         dividend_url: url,
+         distributes_dividends: true
+       })
+       when not is_nil(url) do
+    # Check if URL is supported for combined fetch
+    case url do
+      "https://www.dividends.sg/" <> _ -> true
+      "https://www.etnet.com.hk/" <> _ -> true
+      _ -> false
+    end
+  end
+
+  defp can_use_combined_fetch?(_asset), do: false
+
+  @spec do_combined_update(Asset.t()) :: Asset.t()
+  defp do_combined_update(asset) do
+    case fetch_combined_data(asset) do
+      {:ok, {price, dividends}} ->
+        # Update both price and dividends from the single fetch
+        with {:ok, price_updated_asset} <- update_asset_price(asset, price),
+             {:ok, final_asset} <- sync_dividends_from_data(price_updated_asset, dividends) do
+          final_asset
+        else
+          {:error, %Ecto.Changeset{} = changeset} -> Repo.rollback(changeset)
+        end
+
+      {:error, reason} ->
+        # Combined fetch failed, rollback with error
+        rollback_with_price_error(asset, reason)
+    end
+  end
+
+  @spec do_separate_updates(Asset.t(), boolean(), boolean()) :: Asset.t()
+  defp do_separate_updates(asset, should_fetch_price, should_sync_dividends) do
+    with {:ok, price_updated_asset} <- maybe_fetch_price(asset, should_fetch_price),
          {:ok, final_asset} <- maybe_sync_dividends(price_updated_asset, should_sync_dividends) do
       final_asset
     else
@@ -132,14 +214,51 @@ defmodule Boonorbust2.Assets do
         Repo.rollback(changeset)
 
       {:error, reason} when is_binary(reason) ->
-        # Dividend sync error - convert to changeset error
-        changeset =
-          asset
-          |> Asset.changeset(attrs)
-          |> Ecto.Changeset.add_error(:dividend_url, "Failed to sync dividends: #{reason}")
-
-        Repo.rollback(changeset)
+        rollback_with_dividend_error(asset, reason)
     end
+  end
+
+  @spec update_asset_price(Asset.t(), any()) ::
+          {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
+  defp update_asset_price(asset, price_value) do
+    asset
+    |> Asset.changeset(%{price: price_value})
+    |> Ecto.Changeset.force_change(:updated_at, DateTime.utc_now() |> DateTime.truncate(:second))
+    |> Repo.update()
+  end
+
+  @spec sync_dividends_from_data(Asset.t(), [map()]) :: {:ok, Asset.t()}
+  defp sync_dividends_from_data(asset, dividends) do
+    {:ok, _result} = Boonorbust2.Dividends.sync_dividends_from_data(asset, dividends)
+
+    # Force updated_at to be set
+    asset
+    |> Asset.changeset(%{})
+    |> Ecto.Changeset.force_change(
+      :updated_at,
+      DateTime.utc_now() |> DateTime.truncate(:second)
+    )
+    |> Repo.update()
+  end
+
+  @spec rollback_with_dividend_error(Asset.t(), String.t()) :: no_return()
+  defp rollback_with_dividend_error(asset, reason) do
+    changeset =
+      asset
+      |> Asset.changeset(%{})
+      |> Ecto.Changeset.add_error(:dividend_url, "Failed to sync dividends: #{reason}")
+
+    Repo.rollback(changeset)
+  end
+
+  @spec rollback_with_price_error(Asset.t(), String.t()) :: no_return()
+  defp rollback_with_price_error(asset, reason) do
+    changeset =
+      asset
+      |> Asset.changeset(%{})
+      |> Ecto.Changeset.add_error(:price_url, "Failed to fetch price: #{reason}")
+
+    Repo.rollback(changeset)
   end
 
   @spec maybe_fetch_price(Asset.t(), boolean()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
@@ -379,6 +498,80 @@ defmodule Boonorbust2.Assets do
     case Regex.run(~r/\d+(?:\.\d+)?/, text) do
       [price] -> price
       _ -> nil
+    end
+  end
+
+  @doc """
+  Fetches both price and dividends from a single URL when price_url == dividend_url.
+  This optimization reduces HTTP calls when an asset uses the same URL for both data sources.
+
+  Returns {:ok, {price, dividends}} or {:error, reason}.
+  Only works for URLs that support both price and dividend data.
+  """
+  @spec fetch_combined_data(Asset.t()) ::
+          {:ok, {any(), [map()]}} | {:error, String.t()} | {:error, :unsupported}
+  def fetch_combined_data(%Asset{price_url: nil}), do: {:error, "No price URL configured"}
+  def fetch_combined_data(%Asset{dividend_url: nil}), do: {:error, "No dividend URL configured"}
+
+  def fetch_combined_data(%Asset{price_url: url, dividend_url: url} = asset)
+      when is_binary(url) do
+    # URLs match - we can fetch both from the same response
+    case url do
+      "https://www.dividends.sg/" <> _rest -> fetch_combined_dividends_sg(asset, url)
+      "https://www.etnet.com.hk/" <> _rest -> fetch_combined_etnet(asset, url)
+      _ -> {:error, :unsupported}
+    end
+  end
+
+  def fetch_combined_data(%Asset{}), do: {:error, :unsupported}
+
+  @spec fetch_combined_dividends_sg(Asset.t(), String.t()) ::
+          {:ok, {String.t(), [map()]}} | {:error, String.t()}
+  defp fetch_combined_dividends_sg(_asset, url) do
+    http_client =
+      Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
+
+    case http_client.get(url) do
+      {:ok, %{status: 200, body: body}} ->
+        with {:ok, document} <- Floki.parse_document(body),
+             {:ok, price} <- parse_dividends_sg_price(document),
+             {:ok, dividends} <- Boonorbust2.Dividends.parse_dividends_sg_document(document) do
+          {:ok, {price, dividends}}
+        else
+          {:error, :price_not_found} -> {:error, "Price not found on page"}
+          {:error, reason} -> {:error, reason}
+        end
+
+      {:ok, %{status: status}} ->
+        {:error, "HTTP request failed with status #{status}"}
+
+      {:error, error} ->
+        {:error, "Request failed: #{inspect(error)}"}
+    end
+  end
+
+  @spec fetch_combined_etnet(Asset.t(), String.t()) ::
+          {:ok, {String.t(), [map()]}} | {:error, String.t()}
+  defp fetch_combined_etnet(_asset, url) do
+    http_client =
+      Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
+
+    case http_client.get(url) do
+      {:ok, %{status: 200, body: body}} ->
+        with {:ok, document} <- Floki.parse_document(body),
+             {:ok, price} <- parse_etnet_price(document),
+             {:ok, dividends} <- Boonorbust2.Dividends.parse_etnet_document(document) do
+          {:ok, {price, dividends}}
+        else
+          {:error, :price_not_found} -> {:error, "Price not found on page"}
+          {:error, reason} -> {:error, reason}
+        end
+
+      {:ok, %{status: status}} ->
+        {:error, "HTTP request failed with status #{status}"}
+
+      {:error, error} ->
+        {:error, "Request failed: #{inspect(error)}"}
     end
   end
 
@@ -632,6 +825,8 @@ defmodule Boonorbust2.Assets do
   Only updates assets where ANY user currently has holdings (quantity > 0).
   Processes assets in parallel with a maximum concurrency of 5.
 
+  Optimizes by making a single HTTP call when price_url == dividend_url.
+
   Returns a tuple with counts for prices and dividends (actually fetched/synced).
   Assets skipped due to rate limiting are not counted as successes.
   """
@@ -655,9 +850,43 @@ defmodule Boonorbust2.Assets do
         asset.id in asset_ids_with_holdings
       end)
 
-    # Update prices for assets with price_url
+    # Separate assets into those that can use combined fetch and those that can't
+    {assets_for_combined, assets_for_separate} =
+      Enum.split_with(assets_with_holdings, fn asset ->
+        should_update_price?(asset) and should_update_dividends?(asset) and
+          can_use_combined_fetch?(asset)
+      end)
+
+    # Process combined fetch assets (single HTTP call per asset)
+    combined_results =
+      assets_for_combined
+      |> Task.async_stream(
+        &fetch_and_update_combined/1,
+        max_concurrency: 5,
+        timeout: 30_000,
+        on_timeout: :kill_task
+      )
+      |> Enum.to_list()
+
+    combined_prices_success =
+      Enum.count(combined_results, fn
+        {:ok, {:fetched, :synced}} -> true
+        _ -> false
+      end)
+
+    combined_prices_errors =
+      Enum.count(combined_results, fn
+        {:ok, {:error, _}} -> true
+        _ -> false
+      end)
+
+    combined_dividends_success = combined_prices_success
+    combined_dividends_errors = combined_prices_errors
+
+    # Process remaining assets separately
+    # Update prices for assets with price_url (excluding those already processed)
     assets_with_price_url =
-      Enum.filter(assets_with_holdings, fn asset -> not is_nil(asset.price_url) end)
+      Enum.filter(assets_for_separate, fn asset -> not is_nil(asset.price_url) end)
 
     price_results =
       assets_with_price_url
@@ -676,8 +905,9 @@ defmodule Boonorbust2.Assets do
       Enum.count(price_results, fn {status, result} -> status == :ok and result == :error end)
 
     # Update dividends for assets with dividend_url and distributes_dividends = true
+    # (excluding those already processed)
     assets_with_dividend_url =
-      Enum.filter(assets_with_holdings, fn asset ->
+      Enum.filter(assets_for_separate, fn asset ->
         not is_nil(asset.dividend_url) and asset.distributes_dividends
       end)
 
@@ -699,10 +929,27 @@ defmodule Boonorbust2.Assets do
 
     {:ok,
      %{
-       prices_success: prices_success,
-       prices_errors: prices_errors,
-       dividends_success: dividends_success,
-       dividends_errors: dividends_errors
+       prices_success: prices_success + combined_prices_success,
+       prices_errors: prices_errors + combined_prices_errors,
+       dividends_success: dividends_success + combined_dividends_success,
+       dividends_errors: dividends_errors + combined_dividends_errors
      }}
+  end
+
+  @spec fetch_and_update_combined(Asset.t()) ::
+          {:fetched, :synced} | {:error, String.t()}
+  defp fetch_and_update_combined(asset) do
+    case fetch_combined_data(asset) do
+      {:ok, {price, dividends}} ->
+        with {:ok, _price_asset} <- update_asset_price(asset, price),
+             {:ok, _div_result} <- sync_dividends_from_data(asset, dividends) do
+          {:fetched, :synced}
+        else
+          {:error, _} -> {:error, "Failed to update asset"}
+        end
+
+      {:error, _reason} ->
+        {:error, "Failed to fetch combined data"}
+    end
   end
 end

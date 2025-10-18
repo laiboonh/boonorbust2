@@ -156,6 +156,22 @@ defmodule Boonorbust2.Dividends do
     {:error, "Request failed: Unexpected dividend url #{dividend_url}"}
   end
 
+  @doc """
+  Parses dividends from a dividends.sg HTML document.
+  This is exposed publicly to allow parsing from a pre-fetched document
+  when combining price and dividend fetching.
+  """
+  @spec parse_dividends_sg_document(Floki.html_tree()) :: {:ok, [map()]} | {:error, String.t()}
+  def parse_dividends_sg_document(document), do: parse_dividends_sg(document)
+
+  @doc """
+  Parses dividends from an etnet.com.hk HTML document.
+  This is exposed publicly to allow parsing from a pre-fetched document
+  when combining price and dividend fetching.
+  """
+  @spec parse_etnet_document(Floki.html_tree()) :: {:ok, [map()]} | {:error, String.t()}
+  def parse_etnet_document(document), do: parse_dividends_hk(document)
+
   @spec parse_dividends_sg(Floki.html_tree()) :: {:ok, [map()]} | {:error, String.t()}
   defp parse_dividends_sg(document) do
     # Find all dividend rows in the table
@@ -520,43 +536,59 @@ defmodule Boonorbust2.Dividends do
   def sync_dividends(%Asset{} = asset) do
     case fetch_dividends(asset) do
       {:ok, dividends} ->
-        # Group dividends by date and sum values for same date
-        aggregated_dividends = aggregate_dividends_by_date(dividends)
-
-        results =
-          Enum.map(aggregated_dividends, fn dividend_data ->
-            attrs = Map.put(dividend_data, :asset_id, asset.id)
-
-            %Dividend{}
-            |> Dividend.changeset(attrs)
-            |> Repo.insert(
-              on_conflict: {:replace, [:value, :currency, :pay_date, :updated_at]},
-              conflict_target: [:asset_id, :ex_date]
-            )
-          end)
-
-        inserted_count = Enum.count(results, fn {status, _} -> status == :ok end)
-        error_count = Enum.count(results, fn {status, _} -> status == :error end)
-
-        # Process realized profits for all successfully upserted dividends
-        realized_profits_count =
-          results
-          |> Enum.filter(fn {status, _} -> status == :ok end)
-          |> Enum.map(fn {:ok, dividend} ->
-            {:ok, count} = Boonorbust2.RealizedProfits.process_dividend_for_all_users(dividend)
-            count
-          end)
-          |> Enum.sum()
-
-        {:ok,
-         %{
-           inserted: inserted_count,
-           errors: error_count,
-           realized_profits_created: realized_profits_count
-         }}
+        sync_dividends_from_data(asset, dividends)
 
       {:error, reason} ->
         {:error, reason}
     end
+  end
+
+  @doc """
+  Syncs dividends from pre-fetched data instead of fetching from URL.
+  This is used when combining price and dividend fetching to avoid duplicate HTTP calls.
+  """
+  @spec sync_dividends_from_data(Asset.t(), [map()]) ::
+          {:ok,
+           %{
+             inserted: non_neg_integer(),
+             errors: non_neg_integer(),
+             realized_profits_created: non_neg_integer()
+           }}
+          | {:error, String.t()}
+  def sync_dividends_from_data(%Asset{} = asset, dividends) do
+    # Group dividends by date and sum values for same date
+    aggregated_dividends = aggregate_dividends_by_date(dividends)
+
+    results =
+      Enum.map(aggregated_dividends, fn dividend_data ->
+        attrs = Map.put(dividend_data, :asset_id, asset.id)
+
+        %Dividend{}
+        |> Dividend.changeset(attrs)
+        |> Repo.insert(
+          on_conflict: {:replace, [:value, :currency, :pay_date, :updated_at]},
+          conflict_target: [:asset_id, :ex_date]
+        )
+      end)
+
+    inserted_count = Enum.count(results, fn {status, _} -> status == :ok end)
+    error_count = Enum.count(results, fn {status, _} -> status == :error end)
+
+    # Process realized profits for all successfully upserted dividends
+    realized_profits_count =
+      results
+      |> Enum.filter(fn {status, _} -> status == :ok end)
+      |> Enum.map(fn {:ok, dividend} ->
+        {:ok, count} = Boonorbust2.RealizedProfits.process_dividend_for_all_users(dividend)
+        count
+      end)
+      |> Enum.sum()
+
+    {:ok,
+     %{
+       inserted: inserted_count,
+       errors: error_count,
+       realized_profits_created: realized_profits_count
+     }}
   end
 end
