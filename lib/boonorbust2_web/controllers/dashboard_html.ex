@@ -429,6 +429,118 @@ defmodule Boonorbust2Web.DashboardHTML do
               </script>
             </div>
           <% end %>
+          
+    <!-- Investment Allocation Horizontal Bar Chart -->
+          <%= if !Enum.empty?(@investment_allocation_chart_data) do %>
+            <div class="bg-white rounded-lg shadow p-6 mt-6">
+              <div class="mb-4">
+                <h2 class="text-lg font-semibold text-gray-900">Investment Allocation</h2>
+                <p class="text-sm text-gray-600 mt-1">Percentage of total portfolio value</p>
+              </div>
+              <div id="investment-allocation-chart-container" class="relative">
+                <canvas id="investment-allocation-chart"></canvas>
+              </div>
+              <script>
+                (function() {
+                  const ctx = document.getElementById('investment-allocation-chart');
+                  const container = document.getElementById('investment-allocation-chart-container');
+                  if (ctx && typeof Chart !== 'undefined') {
+                    const chartData = <%= raw Jason.encode!(@investment_allocation_chart_data) %>;
+                    const labels = chartData.map(item => item.label);
+                    const percentages = chartData.map(item => item.percentage);
+
+                    // Set dynamic height based on number of items (50px per item, max 600px)
+                    const height = Math.min(600, chartData.length * 50);
+                    container.style.height = height + 'px';
+
+                    new Chart(ctx, {
+                      type: 'bar',
+                      data: {
+                        labels: labels,
+                        datasets: [{
+                          label: 'Allocation %',
+                          data: percentages,
+                          backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                          borderColor: 'rgb(16, 185, 129)',
+                          borderWidth: 1
+                        }]
+                      },
+                      options: {
+                        indexAxis: 'y',
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            display: false
+                          },
+                          tooltip: {
+                            callbacks: {
+                              title: function(context) {
+                                return context[0].label;
+                              },
+                              label: function(context) {
+                                const percentage = context.parsed.x;
+                                const dataIndex = context.dataIndex;
+                                const value = chartData[dataIndex].value;
+                                const currency = '<%= @user_currency %>';
+                                const formattedValue = new Intl.NumberFormat('en-US', {
+                                  style: 'currency',
+                                  currency: currency,
+                                  minimumFractionDigits: 2,
+                                  maximumFractionDigits: 2
+                                }).format(value);
+                                return [
+                                  percentage.toFixed(2) + '% of portfolio',
+                                  'Value: ' + formattedValue
+                                ];
+                              }
+                            }
+                          }
+                        },
+                        scales: {
+                          x: {
+                            beginAtZero: true,
+                            max: 100,
+                            grid: {
+                              color: 'rgba(0, 0, 0, 0.05)'
+                            },
+                            ticks: {
+                              font: {
+                                size: 10
+                              },
+                              callback: function(value) {
+                                return value + '%';
+                              }
+                            },
+                            title: {
+                              display: true,
+                              text: 'Percentage of Portfolio',
+                              font: {
+                                size: 11,
+                                weight: 'bold'
+                              },
+                              color: '#374151'
+                            }
+                          },
+                          y: {
+                            grid: {
+                              display: false
+                            },
+                            ticks: {
+                              font: {
+                                size: 10
+                              },
+                              autoSkip: false
+                            }
+                          }
+                        }
+                      }
+                    });
+                  }
+                })();
+              </script>
+            </div>
+          <% end %>
         </div>
 
         <.tab_bar current_tab="dashboard">

@@ -108,6 +108,10 @@ defmodule Boonorbust2Web.DashboardController do
         Map.put(dividend, :converted_amount, converted_amount)
       end)
 
+    # Calculate investment allocation percentages for bar chart
+    investment_allocation_chart_data =
+      calculate_investment_allocation_data(sorted_positions, total_portfolio_value)
+
     render(conn, :index,
       positions: sorted_positions,
       realized_profits_by_asset: realized_profits_by_asset,
@@ -118,7 +122,8 @@ defmodule Boonorbust2Web.DashboardController do
       user_currency: user_currency,
       portfolio_snapshots: portfolio_snapshots,
       dividend_chart_data: dividend_chart_data,
-      upcoming_dividends: upcoming_dividends_with_converted_amounts
+      upcoming_dividends: upcoming_dividends_with_converted_amounts,
+      investment_allocation_chart_data: investment_allocation_chart_data
     )
   end
 
@@ -310,5 +315,31 @@ defmodule Boonorbust2Web.DashboardController do
       nil -> 0.0
       item -> item.amount
     end
+  end
+
+  @spec calculate_investment_allocation_data([map()], Money.t()) :: [map()]
+  defp calculate_investment_allocation_data(positions, total_portfolio_value) do
+    total_value_float = Decimal.to_float(total_portfolio_value.amount)
+
+    positions
+    |> Enum.map(fn position ->
+      position_value = Decimal.to_float(position.converted_total_value.amount)
+
+      percentage =
+        if total_value_float > 0 do
+          (position_value / total_value_float * 100)
+          |> Float.round(2)
+        else
+          0.0
+        end
+
+      %{
+        label: position.asset.name,
+        value: position_value,
+        percentage: percentage
+      }
+    end)
+    |> Enum.filter(&(&1.percentage > 0))
+    |> Enum.sort_by(& &1.percentage, :desc)
   end
 end
