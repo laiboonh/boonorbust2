@@ -192,8 +192,9 @@ defmodule Boonorbust2.Dividends do
   @spec parse_dividends_hk(Floki.html_tree()) :: {:ok, [map()]} | {:error, String.t()}
   defp parse_dividends_hk(document) do
     # Find all dividend rows in the table
-    # etnet.com.hk uses tables with class "figureTable"
-    rows = Floki.find(document, "table.figureTable tr")
+    # etnet.com.hk uses standard table elements without specific classes
+    # We look for tables that contain dividend data (with "Announcement Date" header)
+    rows = Floki.find(document, "table tr")
 
     # Skip the header row (first row)
     data_rows = Enum.drop(rows, 1)
@@ -232,51 +233,70 @@ defmodule Boonorbust2.Dividends do
   defp parse_dividend_hk_row(row) do
     cells = Floki.find(row, "td")
 
-    # Column 2 (index 2): Particular (e.g., "Fin Div USD 0.13125")
-    # Column 3 (index 3): Ex-date
-    # Column 4 (index 4): Pay date
-    particular_text =
-      cells
-      |> Enum.at(2)
-      |> then(fn cell -> if cell, do: Floki.text(cell), else: "" end)
-      |> String.trim()
-
-    ex_date_text =
-      cells
-      |> Enum.at(3)
-      |> then(fn cell -> if cell, do: Floki.text(cell), else: "" end)
-      |> String.trim()
-
-    pay_date_text =
-      cells
-      |> Enum.at(4)
-      |> then(fn cell -> if cell, do: Floki.text(cell), else: "" end)
-      |> String.trim()
+    # etnet.com.hk column structure:
+    # Column 0: Announcement Date
+    # Column 1: Financial Year
+    # Column 2: Particular (e.g., "Int Div RMB 0.95 or HKD 1.04048")
+    # Column 3: Ex-date
+    # Column 4-5: Book Closed Dates
+    # Column 6: Payable Date (may vary, so we check last non-empty cell)
+    particular_text = extract_cell_text(cells, 2)
+    ex_date_text = extract_cell_text(cells, 3)
+    pay_date_text = extract_hk_pay_date(cells)
 
     # Skip rows with no dividend (e.g., "No Int Div", "No 1st Int Div")
-    # Only process rows with actual dividend amounts
-    if String.contains?(particular_text, "No") or ex_date_text == "--" do
+    if should_skip_hk_row?(particular_text, ex_date_text) do
       nil
     else
-      # Parse the data
-      with {:ok, {currency, amount}} <- parse_hk_particular(particular_text),
-           {:ok, ex_date} <- parse_date(ex_date_text) do
-        # Parse pay_date, but allow it to be nil if parsing fails
-        pay_date =
-          case parse_date(pay_date_text) do
-            {:ok, date} -> date
-            _ -> nil
-          end
+      build_hk_dividend(particular_text, ex_date_text, pay_date_text)
+    end
+  end
 
-        %{
-          ex_date: ex_date,
-          pay_date: pay_date,
-          value: amount,
-          currency: currency
-        }
-      else
-        _ -> nil
-      end
+  @spec extract_cell_text([Floki.html_tree()], non_neg_integer()) :: String.t()
+  defp extract_cell_text(cells, index) do
+    cells
+    |> Enum.at(index)
+    |> then(fn cell -> if cell, do: Floki.text(cell), else: "" end)
+    |> String.trim()
+  end
+
+  @spec extract_hk_pay_date([Floki.html_tree()]) :: String.t()
+  defp extract_hk_pay_date(cells) do
+    # Payable date is at index 6 or 7 depending on row structure
+    cond do
+      length(cells) >= 8 -> extract_cell_text(cells, 7)
+      length(cells) >= 7 -> extract_cell_text(cells, 6)
+      true -> ""
+    end
+  end
+
+  @spec should_skip_hk_row?(String.t(), String.t()) :: boolean()
+  defp should_skip_hk_row?(particular_text, ex_date_text) do
+    String.contains?(particular_text, "No") or ex_date_text == "--"
+  end
+
+  @spec build_hk_dividend(String.t(), String.t(), String.t()) :: map() | nil
+  defp build_hk_dividend(particular_text, ex_date_text, pay_date_text) do
+    with {:ok, {currency, amount}} <- parse_hk_particular(particular_text),
+         {:ok, ex_date} <- parse_date(ex_date_text) do
+      pay_date = parse_optional_pay_date(pay_date_text)
+
+      %{
+        ex_date: ex_date,
+        pay_date: pay_date,
+        value: amount,
+        currency: currency
+      }
+    else
+      _ -> nil
+    end
+  end
+
+  @spec parse_optional_pay_date(String.t()) :: Date.t() | nil
+  defp parse_optional_pay_date(date_text) do
+    case parse_date(date_text) do
+      {:ok, date} -> date
+      _ -> nil
     end
   end
 
@@ -333,17 +353,38 @@ defmodule Boonorbust2.Dividends do
 
   @spec parse_hk_particular(String.t()) :: {:ok, {String.t(), Decimal.t()}} | {:error, String.t()}
   defp parse_hk_particular(text) do
-    # Extract currency and amount from format like "Fin Div USD 0.13125" or "Sp Div USD 0.11875"
-    # Pattern: Any text followed by 3-letter currency code and decimal number
+    # Extract currency and amount from formats like:
+    # "Fin Div USD 0.13125" or "Sp Div USD 0.11875"
+    # "Int Div RMB 0.95 or HKD 1.04048" (multiple currencies - prefer HKD)
+
+    # Try to find HKD amount first (preferred for HK stocks)
+    with {:hkd, [_, amount]} <- {:hkd, Regex.run(~r/HKD\s+([\d\.]+)/, text)},
+         {decimal, _} <- Decimal.parse(amount) do
+      {:ok, {"HKD", decimal}}
+    else
+      {:hkd, nil} -> parse_any_currency(text)
+      :error -> {:error, "Invalid HKD amount format"}
+    end
+  end
+
+  @spec parse_any_currency(String.t()) :: {:ok, {String.t(), Decimal.t()}} | {:error, String.t()}
+  defp parse_any_currency(text) do
+    # No HKD found, try any currency
     case Regex.run(~r/([A-Z]{3})\s+([\d\.]+)/, text) do
       [_, currency, amount] ->
-        case Decimal.parse(amount) do
-          {decimal, _} -> {:ok, {currency, decimal}}
-          :error -> {:error, "Invalid amount format"}
-        end
+        parse_currency_amount(currency, amount)
 
       _ ->
         {:error, "Invalid particular format"}
+    end
+  end
+
+  @spec parse_currency_amount(String.t(), String.t()) ::
+          {:ok, {String.t(), Decimal.t()}} | {:error, String.t()}
+  defp parse_currency_amount(currency, amount) do
+    case Decimal.parse(amount) do
+      {decimal, _} -> {:ok, {currency, decimal}}
+      :error -> {:error, "Invalid amount format"}
     end
   end
 
