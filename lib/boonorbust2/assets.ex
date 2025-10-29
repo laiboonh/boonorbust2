@@ -391,6 +391,30 @@ defmodule Boonorbust2.Assets do
     end
   end
 
+  def fetch_price(%Asset{price_url: "https://v6.exchangerate-api.com/" <> _rest = price_url}) do
+    api_key = Application.get_env(:boonorbust2, :exchange_rate_api_key)
+
+    http_client =
+      Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
+
+    case http_client.get(price_url, auth: {:bearer, api_key}) do
+      {:ok, %{status: 200, body: body}} ->
+        case body do
+          %{"conversion_rate" => rate} ->
+            {:ok, rate}
+
+          _ ->
+            {:error, "Invalid response format"}
+        end
+
+      {:ok, %{status: status}} ->
+        {:error, "HTTP request failed with status #{status}"}
+
+      {:error, error} ->
+        {:error, "Request failed: #{inspect(error)}"}
+    end
+  end
+
   def fetch_price(%Asset{price_url: "https://www.etnet.com.hk/" <> _rest = price_url}) do
     # Scrape price from etnet.com.hk website
     http_client =
