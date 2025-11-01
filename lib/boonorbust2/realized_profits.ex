@@ -72,6 +72,30 @@ defmodule Boonorbust2.RealizedProfits do
     |> Repo.all()
   end
 
+  @doc """
+  Lists recent dividend payments from the past 2 weeks.
+  Returns realized profits with dividends whose pay_date is within 2 weeks before today.
+  """
+  @spec list_recent_dividend_payments(String.t()) :: [RealizedProfit.t()]
+  def list_recent_dividend_payments(user_id) do
+    today = Date.utc_today()
+    two_weeks_ago = Date.add(today, -14)
+
+    from(rp in RealizedProfit,
+      join: d in assoc(rp, :dividend),
+      join: a in assoc(rp, :asset),
+      where:
+        rp.user_id == ^user_id and
+          not is_nil(rp.dividend_id) and
+          not is_nil(d.pay_date) and
+          d.pay_date >= ^two_weeks_ago and
+          d.pay_date < ^today,
+      order_by: [desc: d.pay_date],
+      preload: [dividend: d, asset: a]
+    )
+    |> Repo.all()
+  end
+
   @spec delete_realized_profit(RealizedProfit.t()) ::
           {:ok, RealizedProfit.t()} | {:error, Ecto.Changeset.t()}
   def delete_realized_profit(%RealizedProfit{} = realized_profit) do

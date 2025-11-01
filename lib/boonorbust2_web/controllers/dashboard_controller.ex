@@ -108,6 +108,16 @@ defmodule Boonorbust2Web.DashboardController do
         Map.put(dividend, :converted_amount, converted_amount)
       end)
 
+    # Load recent dividend payments (from past 2 weeks)
+    recent_dividends = RealizedProfits.list_recent_dividend_payments(user_id)
+
+    # Convert recent dividends to user's currency
+    recent_dividends_with_converted_amounts =
+      Enum.map(recent_dividends, fn dividend ->
+        converted_amount = convert_to_user_currency(dividend.amount, user_currency)
+        Map.put(dividend, :converted_amount, converted_amount)
+      end)
+
     # Calculate investment allocation percentages for bar chart
     investment_allocation_chart_data =
       calculate_investment_allocation_data(sorted_positions, total_portfolio_value)
@@ -123,6 +133,7 @@ defmodule Boonorbust2Web.DashboardController do
       portfolio_snapshots: portfolio_snapshots,
       dividend_chart_data: dividend_chart_data,
       upcoming_dividends: upcoming_dividends_with_converted_amounts,
+      recent_dividends: recent_dividends_with_converted_amounts,
       investment_allocation_chart_data: investment_allocation_chart_data
     )
   end
