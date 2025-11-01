@@ -305,6 +305,22 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                     />
                   </div>
 
+                  <div>
+                    <label
+                      for="portfolio_transaction_notes"
+                      class="block text-sm font-medium text-gray-700"
+                    >
+                      Notes (optional)
+                    </label>
+                    <textarea
+                      id="portfolio_transaction_notes"
+                      name="portfolio_transaction[notes]"
+                      rows="2"
+                      class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                      placeholder="Add any notes about this transaction..."
+                    ></textarea>
+                  </div>
+
                   <div class="flex gap-3 pt-4">
                     <button
                       type="submit"
@@ -496,6 +512,11 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
             <p class="text-sm text-gray-500 mt-3">
               {Calendar.strftime(@portfolio_transaction.transaction_date, "%B %d, %Y at %I:%M %p")}
             </p>
+            <%= if @portfolio_transaction.notes && @portfolio_transaction.notes != "" do %>
+              <p class="text-xs text-gray-600 mt-2 italic">
+                {@portfolio_transaction.notes}
+              </p>
+            <% end %>
           </div>
 
           <div id={"portfolio-transaction-edit-#{@portfolio_transaction.id}"} class="hidden">
@@ -659,6 +680,22 @@ defmodule Boonorbust2Web.PortfolioTransactionHTML do
                     required
                     class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
                   />
+                </div>
+
+                <div>
+                  <label
+                    for={"edit_notes_#{@portfolio_transaction.id}"}
+                    class="block text-sm font-medium text-gray-700"
+                  >
+                    Notes (optional)
+                  </label>
+                  <textarea
+                    id={"edit_notes_#{@portfolio_transaction.id}"}
+                    name="portfolio_transaction[notes]"
+                    rows="2"
+                    class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                    placeholder="Add any notes about this transaction..."
+                  >{@portfolio_transaction.notes}</textarea>
                 </div>
 
                 <div class="flex gap-2">

@@ -21,6 +21,7 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
           commission: Money.t() | nil,
           amount: Money.t() | nil,
           transaction_date: DateTime.t() | nil,
+          notes: String.t() | nil,
           inserted_at: NaiveDateTime.t() | nil,
           updated_at: NaiveDateTime.t() | nil
         }
@@ -34,6 +35,7 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
     field :commission, Money.Ecto.Composite.Type
     field :amount, Money.Ecto.Composite.Type
     field :transaction_date, :utc_datetime
+    field :notes, :string
 
     timestamps(type: :utc_datetime)
   end
@@ -56,7 +58,8 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
       :quantity,
       :price,
       :commission,
-      :transaction_date
+      :transaction_date,
+      :notes
     ])
     |> validate_required([
       :user_id,
@@ -194,6 +197,7 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
       commission: nil,
       amount: nil,
       transaction_date: nil,
+      notes: nil,
       inserted_at: nil,
       updated_at: nil
     }
