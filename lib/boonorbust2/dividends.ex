@@ -70,7 +70,16 @@ defmodule Boonorbust2.Dividends do
     case http_client.get(dividend_url, params: [api_token: api_key]) do
       {:ok, %{status: 200, body: body}} when is_list(body) ->
         dividends = Enum.map(body, &parse_eodhd_dividend/1)
-        {:ok, dividends}
+
+        # Check if pay_dates are missing and try to enrich from stockanalysis.com
+        enriched_dividends =
+          if should_enrich_pay_dates?(dividends) do
+            enrich_eodhd_with_pay_dates(dividends, dividend_url)
+          else
+            dividends
+          end
+
+        {:ok, enriched_dividends}
 
       {:ok, %{status: 200, body: body}} ->
         {:error, "Unexpected response format: #{inspect(body)}"}
@@ -139,6 +148,37 @@ defmodule Boonorbust2.Dividends do
         case Floki.parse_document(body) do
           {:ok, document} ->
             parse_dividends_digrin(document)
+
+          {:error, _reason} ->
+            {:error, "Failed to parse HTML document"}
+        end
+
+      {:ok, %{status: status}} ->
+        {:error, "HTTP request failed with status #{status}"}
+
+      {:error, error} ->
+        {:error, "Request failed: #{inspect(error)}"}
+    end
+  end
+
+  def fetch_dividends(%Asset{dividend_url: "https://stockanalysis.com/" <> _rest = dividend_url}) do
+    # Scrape dividends from stockanalysis.com website (for pay_date enrichment only)
+    http_client =
+      Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
+
+    # Add headers to emulate browser request
+    opts = [
+      headers: [
+        {"user-agent",
+         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"}
+      ]
+    ]
+
+    case http_client.get(dividend_url, opts) do
+      {:ok, %{status: 200, body: body}} ->
+        case Floki.parse_document(body) do
+          {:ok, document} ->
+            parse_dividends_stockanalysis(document)
 
           {:error, _reason} ->
             {:error, "Failed to parse HTML document"}
@@ -221,6 +261,43 @@ defmodule Boonorbust2.Dividends do
       rows
       |> Enum.map(&parse_dividend_digrin_row/1)
       |> Enum.reject(&is_nil/1)
+
+    if Enum.empty?(dividends) do
+      {:error, "No valid dividend data found"}
+    else
+      {:ok, dividends}
+    end
+  end
+
+  @spec parse_dividends_stockanalysis(Floki.html_tree()) :: {:ok, [map()]} | {:error, String.t()}
+  defp parse_dividends_stockanalysis(document) do
+    # Find all dividend rows in the table
+    # stockanalysis.com uses tbody for data rows
+    # We only extract ex_date and pay_date for enrichment purposes
+    rows = Floki.find(document, "table tbody tr")
+
+    IO.puts("Total rows found: #{length(rows)}")
+
+    # Log first row structure if available
+    if length(rows) > 0 do
+      first_row = Enum.at(rows, 0)
+      cells = Floki.find(first_row, "td")
+      IO.puts("First row has #{length(cells)} cells")
+
+      cells
+      |> Enum.with_index()
+      |> Enum.each(fn {_cell, idx} ->
+        text = extract_cell_text(cells, idx)
+        IO.puts("  Cell #{idx}: #{inspect(text)}")
+      end)
+    end
+
+    dividends =
+      rows
+      |> Enum.map(&parse_dividend_stockanalysis_row/1)
+      |> Enum.reject(&is_nil/1)
+
+    IO.puts("Parsed #{length(dividends)} dividends")
 
     if Enum.empty?(dividends) do
       {:error, "No valid dividend data found"}
@@ -347,6 +424,43 @@ defmodule Boonorbust2.Dividends do
         }
       else
         _ -> nil
+      end
+    end
+  end
+
+  @spec parse_dividend_stockanalysis_row(Floki.html_tree()) :: map() | nil
+  defp parse_dividend_stockanalysis_row(row) do
+    cells = Floki.find(row, "td")
+
+    # stockanalysis.com table structure (actual):
+    # Column 0: Ex-Dividend Date
+    # Column 1: Cash Amount (not needed for enrichment)
+    # Column 2: Record Date (not used)
+    # Column 3: Pay Date
+    # We only extract ex_date and pay_date for matching/enrichment
+
+    if length(cells) < 4 do
+      IO.puts("Skipping row: only #{length(cells)} cells")
+      nil
+    else
+      ex_date_text = extract_cell_text(cells, 0)
+      pay_date_text = extract_cell_text(cells, 3)
+
+      IO.puts("Parsing: ex_date=#{inspect(ex_date_text)}, pay_date=#{inspect(pay_date_text)}")
+
+      # Parse the dates
+      with {:ok, ex_date} <- parse_date(ex_date_text),
+           {:ok, pay_date} <- parse_date(pay_date_text) do
+        IO.puts("Success: ex_date=#{ex_date}, pay_date=#{pay_date}")
+
+        %{
+          ex_date: ex_date,
+          pay_date: pay_date
+        }
+      else
+        error ->
+          IO.puts("Parse failed: #{inspect(error)}")
+          nil
       end
     end
   end
@@ -509,7 +623,6 @@ defmodule Boonorbust2.Dividends do
   @spec parse_date(String.t()) :: {:ok, Date.t()} | {:error, String.t()}
   defp parse_date(date_string) do
     # Try different date formats commonly used
-    # Format: DD/MM/YYYY or DD-MM-YYYY
     cond do
       String.match?(date_string, ~r/^\d{1,2}\/\d{1,2}\/\d{4}$/) ->
         [day, month, year] = String.split(date_string, "/")
@@ -523,7 +636,55 @@ defmodule Boonorbust2.Dividends do
         # ISO format YYYY-MM-DD
         Date.from_iso8601(date_string)
 
+      String.match?(date_string, ~r/^[A-Za-z]{3}\s+\d{1,2},\s+\d{4}$/) ->
+        # Format: "Oct 9, 2025" (with comma)
+        parse_month_day_year(date_string, true)
+
+      String.match?(date_string, ~r/^[A-Za-z]{3}\s+\d{1,2}\s+\d{4}$/) ->
+        # Format: "Nov 7 2025" (without comma)
+        parse_month_day_year(date_string, false)
+
       true ->
+        {:error, "Invalid date format"}
+    end
+  end
+
+  @spec parse_month_day_year(String.t(), boolean()) :: {:ok, Date.t()} | {:error, String.t()}
+  defp parse_month_day_year(date_string, has_comma) do
+    # Parse formats: "Oct 9, 2025" or "Nov 7 2025"
+    month_map = %{
+      "Jan" => 1,
+      "Feb" => 2,
+      "Mar" => 3,
+      "Apr" => 4,
+      "May" => 5,
+      "Jun" => 6,
+      "Jul" => 7,
+      "Aug" => 8,
+      "Sep" => 9,
+      "Oct" => 10,
+      "Nov" => 11,
+      "Dec" => 12
+    }
+
+    regex =
+      if has_comma do
+        ~r/^([A-Za-z]{3})\s+(\d{1,2}),\s+(\d{4})$/
+      else
+        ~r/^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})$/
+      end
+
+    case Regex.run(regex, date_string) do
+      [_, month_str, day, year] ->
+        month_int = Map.get(month_map, month_str)
+
+        if month_int do
+          parse_date_parts(day, Integer.to_string(month_int), year)
+        else
+          {:error, "Invalid month name"}
+        end
+
+      _ ->
         {:error, "Invalid date format"}
     end
   end
@@ -538,6 +699,101 @@ defmodule Boonorbust2.Dividends do
       {:ok, date}
     else
       _ -> {:error, "Invalid date"}
+    end
+  end
+
+  @spec should_enrich_pay_dates?([map()]) :: boolean()
+  defp should_enrich_pay_dates?(dividends) do
+    # Check if most dividends are missing pay_dates (threshold: >50%)
+    total = length(dividends)
+
+    if total == 0 do
+      false
+    else
+      missing_count = Enum.count(dividends, fn div -> div.pay_date == nil end)
+      missing_count / total > 0.5
+    end
+  end
+
+  @spec enrich_eodhd_with_pay_dates([map()], String.t()) :: [map()]
+  defp enrich_eodhd_with_pay_dates(eodhd_dividends, dividend_url) do
+    # Extract ticker from EODHD URL
+    # Format: "https://eodhd.com/api/div/JEPG.LSE?fmt=json"
+    ticker = extract_eodhd_ticker(dividend_url)
+
+    # Try to fetch from stockanalysis.com to get pay dates
+    stockanalysis_url = derive_stockanalysis_url(ticker)
+
+    case stockanalysis_url do
+      {:ok, url} ->
+        require Logger
+        Logger.info("Enriching EODHD dividends with pay dates from #{url}")
+
+        # Create a temporary asset struct to reuse existing fetch logic
+        # No currency needed since we only extract ex_date and pay_date
+        temp_asset = %Asset{dividend_url: url}
+        do_enrich_with_stockanalysis(temp_asset, eodhd_dividends)
+
+      _ ->
+        # Cannot enrich (no URL match or no currency)
+        eodhd_dividends
+    end
+  end
+
+  @spec do_enrich_with_stockanalysis(Asset.t(), [map()]) :: [map()]
+  defp do_enrich_with_stockanalysis(temp_asset, eodhd_dividends) do
+    require Logger
+
+    case fetch_dividends(temp_asset) do
+      {:ok, sa_dividends} ->
+        # Create a map of ex_date -> pay_date from stockanalysis
+        pay_date_map = build_pay_date_map(sa_dividends)
+        # Enrich EODHD dividends with pay dates
+        enrich_dividends_with_pay_date_map(eodhd_dividends, pay_date_map)
+
+      {:error, reason} ->
+        Logger.warning("Failed to fetch pay dates from stockanalysis: #{reason}")
+        eodhd_dividends
+    end
+  end
+
+  @spec build_pay_date_map([map()]) :: %{Date.t() => Date.t()}
+  defp build_pay_date_map(dividends) do
+    dividends
+    |> Enum.filter(fn div -> div.pay_date != nil end)
+    |> Map.new(fn div -> {div.ex_date, div.pay_date} end)
+  end
+
+  @spec enrich_dividends_with_pay_date_map([map()], %{Date.t() => Date.t()}) :: [map()]
+  defp enrich_dividends_with_pay_date_map(dividends, pay_date_map) do
+    Enum.map(dividends, fn div ->
+      new_pay_date = Map.get(pay_date_map, div.ex_date)
+      if new_pay_date, do: %{div | pay_date: new_pay_date}, else: div
+    end)
+  end
+
+  @spec extract_eodhd_ticker(String.t()) :: String.t()
+  defp extract_eodhd_ticker(dividend_url) do
+    # Extract ticker from URL like "https://eodhd.com/api/div/JEPG.LSE?fmt=json"
+    case Regex.run(~r/\/api\/div\/([^?]+)/, dividend_url) do
+      [_, ticker] -> ticker
+      _ -> ""
+    end
+  end
+
+  @spec derive_stockanalysis_url(String.t()) :: {:ok, String.t()} | :error
+  defp derive_stockanalysis_url(ticker) do
+    # Map EODHD tickers to stockanalysis URLs
+    # Format: "TICKER.EXCHANGE" -> "https://stockanalysis.com/quote/exchange/ticker/dividend/"
+    case String.split(ticker, ".") do
+      [symbol, "LSE"] ->
+        {:ok, "https://stockanalysis.com/quote/lon/#{String.downcase(symbol)}/dividend/"}
+
+      [symbol, "US"] ->
+        {:ok, "https://stockanalysis.com/stocks/#{String.downcase(symbol)}/dividend/"}
+
+      _ ->
+        :error
     end
   end
 

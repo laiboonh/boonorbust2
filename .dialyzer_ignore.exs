@@ -11,7 +11,8 @@
   ~r/lib\/boonorbust2\/assets\.ex:150:contract_supertype/,
 
   # Dividend parsing - typespec is intentionally general (map() vs full struct)
-  ~r/lib\/boonorbust2\/dividends\.ex:278:contract_supertype/
+  ~r/lib\/boonorbust2\/dividends\.ex:278:contract_supertype/,
+  ~r/lib\/boonorbust2\/dividends\.ex:355:contract_supertype/
 
   # # Portfolio transactions - Ecto patterns that work correctly but Dialyzer doesn't understand
   # ~r/lib\/boonorbust2\/portfolio_transactions\.ex.+invalid_contract/,
