@@ -83,3 +83,7 @@ config :phoenix_live_view,
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
+
+# Configure admin users by email (for development)
+# Uncomment and add your email to enable admin access in development
+# config :boonorbust2, :admins, ["your.email@example.com"]

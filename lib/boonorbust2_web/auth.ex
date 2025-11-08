@@ -8,7 +8,7 @@ defmodule Boonorbust2Web.Auth do
   alias Boonorbust2.Accounts
   alias Boonorbust2.Accounts.User
 
-  @spec init(keyword()) :: keyword()
+  @spec init(keyword() | atom()) :: keyword() | atom()
   def init(opts), do: opts
 
   @spec call(Plug.Conn.t(), atom()) :: Plug.Conn.t()
@@ -18,6 +18,10 @@ defmodule Boonorbust2Web.Auth do
 
   def call(conn, :require_authenticated_user) do
     require_authenticated_user(conn, [])
+  end
+
+  def call(conn, :require_admin) do
+    require_admin(conn, [])
   end
 
   @doc """
@@ -58,5 +62,36 @@ defmodule Boonorbust2Web.Auth do
   @spec logged_in?(Plug.Conn.t()) :: boolean()
   def logged_in?(conn) do
     !!current_user(conn)
+  end
+
+  @doc """
+  Checks if the current user is an admin.
+  """
+  @spec admin?(Plug.Conn.t()) :: boolean()
+  def admin?(conn) do
+    case current_user(conn) do
+      %User{email: email} when is_binary(email) ->
+        admin_emails = Application.get_env(:boonorbust2, :admins, [])
+        email in admin_emails
+
+      _ ->
+        false
+    end
+  end
+
+  @doc """
+  Requires the current user to be an admin.
+  Redirects to the dashboard if the user is not an admin.
+  """
+  @spec require_admin(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
+  def require_admin(conn, _opts) do
+    if admin?(conn) do
+      conn
+    else
+      conn
+      |> Phoenix.Controller.put_flash(:error, "You must be an admin to access this page.")
+      |> Phoenix.Controller.redirect(to: "/dashboard")
+      |> halt()
+    end
   end
 end

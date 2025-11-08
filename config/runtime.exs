@@ -29,6 +29,14 @@ config :boonorbust2, :exchange_rate_api_key, System.get_env("EXCHANGE_RATE_API_K
 config :boonorbust2, :dividend_api_key, System.get_env("DIVIDEND_API_KEY")
 config :boonorbust2, :alphavantage_api_key, System.get_env("ALPHAVANTAGE_API_KEY")
 
+admin_emails =
+  System.get_env("ADMIN_EMAILS", "")
+  |> String.split(",")
+  |> Enum.map(&String.trim/1)
+  |> Enum.reject(&(&1 == ""))
+
+config :boonorbust2, :admins, admin_emails
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

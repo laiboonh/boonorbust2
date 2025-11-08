@@ -5,12 +5,17 @@ defmodule Boonorbust2Web.AssetController do
   alias Boonorbust2.Assets.Asset
   alias Helper
 
+  # Require admin for create, edit, delete, and update operations
+  plug Boonorbust2Web.Auth,
+       :require_admin when action in [:new, :create, :edit, :update, :delete, :update_all_prices]
+
   @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def index(conn, params) do
     %{id: user_id} = conn.assigns.current_user
     filter = Map.get(params, "filter", "")
     assets = Boonorbust2.Assets.list_assets(filter: filter, user_id: user_id)
-    render(conn, :index, assets: assets, filter: filter)
+    is_admin = Boonorbust2Web.Auth.admin?(conn)
+    render(conn, :index, assets: assets, filter: filter, is_admin: is_admin)
   end
 
   @spec show(Plug.Conn.t(), map()) :: Plug.Conn.t()

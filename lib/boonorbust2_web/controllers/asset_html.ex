@@ -8,70 +8,72 @@ defmodule Boonorbust2Web.AssetHTML do
     <.tab_content class="min-h-screen bg-gray-50">
       <div class="px-4 py-8">
         <div class="max-w-lg mx-auto">
-          <div class="flex gap-3 mb-6">
-            <button
-              onclick="document.getElementById('asset-modal').classList.remove('hidden')"
-              class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-            >
-              <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-                />
-              </svg>
-              Add Asset
-            </button>
+          <%= if @is_admin do %>
+            <div class="flex gap-3 mb-6">
+              <button
+                onclick="document.getElementById('asset-modal').classList.remove('hidden')"
+                class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+              >
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                  />
+                </svg>
+                Add Asset
+              </button>
 
-            <button
-              hx-post={~p"/assets/update_all_prices"}
-              hx-target="#update-all-prices-success"
-              hx-swap="innerHTML"
-              hx-indicator="#update-all-prices-spinner"
-              hx-on::before-request="document.getElementById('update-all-prices-icon').classList.add('hidden'); document.getElementById('update-all-prices-success').classList.add('hidden');"
-              hx-on::after-request="if(event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) { document.getElementById('update-all-prices-success').classList.remove('hidden'); document.getElementById('update-all-prices-icon').classList.remove('hidden'); setTimeout(() => { document.getElementById('update-all-prices-success').classList.add('hidden'); location.reload(); }, 2000); } else { document.getElementById('update-all-prices-icon').classList.remove('hidden'); }"
-              class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <svg
-                id="update-all-prices-icon"
-                class="w-4 h-4 mr-1.5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+              <button
+                hx-post={~p"/assets/update_all_prices"}
+                hx-target="#update-all-prices-success"
+                hx-swap="innerHTML"
+                hx-indicator="#update-all-prices-spinner"
+                hx-on::before-request="document.getElementById('update-all-prices-icon').classList.add('hidden'); document.getElementById('update-all-prices-success').classList.add('hidden');"
+                hx-on::after-request="if(event.detail.xhr.status >= 200 && event.detail.xhr.status < 300) { document.getElementById('update-all-prices-success').classList.remove('hidden'); document.getElementById('update-all-prices-icon').classList.remove('hidden'); setTimeout(() => { document.getElementById('update-all-prices-success').classList.add('hidden'); location.reload(); }, 2000); } else { document.getElementById('update-all-prices-icon').classList.remove('hidden'); }"
+                class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
               >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
-              <svg
-                id="update-all-prices-spinner"
-                class="htmx-indicator w-4 h-4 mr-1.5 animate-spin"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  class="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
+                <svg
+                  id="update-all-prices-icon"
+                  class="w-4 h-4 mr-1.5"
+                  fill="none"
                   stroke="currentColor"
-                  stroke-width="4"
+                  viewBox="0 0 24 24"
                 >
-                </circle>
-                <path
-                  class="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                  />
+                </svg>
+                <svg
+                  id="update-all-prices-spinner"
+                  class="htmx-indicator w-4 h-4 mr-1.5 animate-spin"
+                  fill="none"
+                  viewBox="0 0 24 24"
                 >
-                </path>
-              </svg>
-              Update Prices & Dividends
-            </button>
-          </div>
+                  <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                  >
+                  </circle>
+                  <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  >
+                  </path>
+                </svg>
+                Update Prices & Dividends
+              </button>
+            </div>
+          <% end %>
 
           <div
             id="update-all-prices-success"
@@ -109,7 +111,7 @@ defmodule Boonorbust2Web.AssetHTML do
     <!-- Assets List -->
           <div id="assets-list" class="space-y-4">
             <%= for asset <- @assets do %>
-              <.asset_item asset={asset} />
+              <.asset_item asset={asset} is_admin={@is_admin} />
             <% end %>
           </div>
         </div>
@@ -663,40 +665,42 @@ defmodule Boonorbust2Web.AssetHTML do
               </svg>
             </button>
           <% end %>
-          <button
-            onclick={"document.getElementById('asset-view-#{@asset.id}').classList.add('hidden'); document.getElementById('asset-edit-#{@asset.id}').classList.remove('hidden');"}
-            class="text-emerald-600 hover:text-emerald-800"
-            title="Edit asset"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              >
-              </path>
-            </svg>
-          </button>
-          <button
-            hx-delete={~p"/assets/#{@asset.id}"}
-            hx-target={"#asset-#{@asset.id}"}
-            hx-swap="outerHTML"
-            hx-confirm="Are you sure you want to delete this asset?"
-            hx-headers={Jason.encode!(%{"x-csrf-token" => get_csrf_token()})}
-            class="text-red-600 hover:text-red-800"
-            title="Delete asset"
-          >
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-              >
-              </path>
-            </svg>
-          </button>
+          <%= if @is_admin do %>
+            <button
+              onclick={"document.getElementById('asset-view-#{@asset.id}').classList.add('hidden'); document.getElementById('asset-edit-#{@asset.id}').classList.remove('hidden');"}
+              class="text-emerald-600 hover:text-emerald-800"
+              title="Edit asset"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                >
+                </path>
+              </svg>
+            </button>
+            <button
+              hx-delete={~p"/assets/#{@asset.id}"}
+              hx-target={"#asset-#{@asset.id}"}
+              hx-swap="outerHTML"
+              hx-confirm="Are you sure you want to delete this asset?"
+              hx-headers={Jason.encode!(%{"x-csrf-token" => get_csrf_token()})}
+              class="text-red-600 hover:text-red-800"
+              title="Delete asset"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                >
+                </path>
+              </svg>
+            </button>
+          <% end %>
         </div>
       </div>
     </div>
