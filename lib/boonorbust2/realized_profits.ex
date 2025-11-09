@@ -307,13 +307,14 @@ defmodule Boonorbust2.RealizedProfits do
         where:
           rp.user_id == ^user_id and
             not is_nil(rp.dividend_id) and
-            d.ex_date >= ^cutoff_date,
+            not is_nil(d.pay_date) and
+            d.pay_date >= ^cutoff_date,
         select: %{
-          month: fragment("to_char(?, 'YYYY-MM')", d.ex_date),
+          month: fragment("to_char(?, 'YYYY-MM')", d.pay_date),
           asset_name: a.name,
           amount: rp.amount
         },
-        order_by: [desc: fragment("to_char(?, 'YYYY-MM')", d.ex_date), asc: a.name]
+        order_by: [desc: fragment("to_char(?, 'YYYY-MM')", d.pay_date), asc: a.name]
       )
       |> Repo.all()
 
