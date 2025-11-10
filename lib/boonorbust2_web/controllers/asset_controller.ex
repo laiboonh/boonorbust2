@@ -35,9 +35,11 @@ defmodule Boonorbust2Web.AssetController do
     case Assets.create_asset(asset_params) do
       {:ok, asset} ->
         if get_req_header(conn, "hx-request") != [] do
+          is_admin = Boonorbust2Web.Auth.admin?(conn)
+
           conn
           |> put_layout(false)
-          |> render(:asset_item, asset: asset)
+          |> render(:asset_item, asset: asset, is_admin: is_admin)
         else
           redirect(conn, to: ~p"/assets")
         end
@@ -69,9 +71,11 @@ defmodule Boonorbust2Web.AssetController do
     case Assets.update_asset(asset, asset_params) do
       {:ok, updated_asset} ->
         if get_req_header(conn, "hx-request") != [] do
+          is_admin = Boonorbust2Web.Auth.admin?(conn)
+
           conn
           |> put_layout(false)
-          |> render(:asset_item, asset: updated_asset)
+          |> render(:asset_item, asset: updated_asset, is_admin: is_admin)
         else
           redirect(conn, to: ~p"/assets/#{updated_asset}")
         end
