@@ -12,7 +12,7 @@
 #   - https://pkgs.org/ - resource for finding needed packages
 #   - Ex: hexpm/elixir:1.18.0-erlang-27.0.1-debian-bullseye-20240612-slim
 #
-FROM hexpm/elixir:1.18.4-erlang-28.1-debian-bullseye-20250908-slim AS builder
+FROM hexpm/elixir:1.18.4-erlang-27.2-debian-bullseye-20250908-slim AS builder
 
 # install build dependencies
 RUN apt-get update -y && apt-get install -y build-essential git \
@@ -22,9 +22,8 @@ RUN apt-get update -y && apt-get install -y build-essential git \
 WORKDIR /app
 
 # install hex + rebar
-# Set ERL_FLAGS to prevent TTY-related crashes in Docker
-RUN ERL_FLAGS="-elixir ansi_enabled false" mix local.hex --force && \
-    ERL_FLAGS="-elixir ansi_enabled false" mix local.rebar --force
+RUN mix local.hex --force && \
+    mix local.rebar --force
 
 # set build ENV
 ENV MIX_ENV="prod"
