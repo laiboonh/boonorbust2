@@ -22,8 +22,9 @@ RUN apt-get update -y && apt-get install -y build-essential git \
 WORKDIR /app
 
 # install hex + rebar
-RUN mix local.hex --force && \
-    mix local.rebar --force
+# Set ERL_FLAGS to prevent TTY-related crashes in Docker
+RUN ERL_FLAGS="-elixir ansi_enabled false" mix local.hex --force && \
+    ERL_FLAGS="-elixir ansi_enabled false" mix local.rebar --force
 
 # set build ENV
 ENV MIX_ENV="prod"
