@@ -8,7 +8,7 @@
   ~r/Function require_authenticated_user\/2 has no local return/,
 
   # Asset update - typespec is intentionally general (Asset.t() vs full struct)
-  ~r/lib\/boonorbust2\/assets\.ex:150:contract_supertype/,
+  ~r/lib\/boonorbust2\/assets\.ex:152:contract_supertype/,
 
   # Dividend parsing - typespec is intentionally general (map() vs full struct)
   ~r/lib\/boonorbust2\/dividends\.ex:278:contract_supertype/,

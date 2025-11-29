@@ -4,6 +4,8 @@ defmodule Boonorbust2.Assets do
   """
   import Ecto.Query, warn: false
 
+  require Logger
+
   alias Boonorbust2.Assets.Asset
   alias Boonorbust2.Repo
 
@@ -824,13 +826,116 @@ defmodule Boonorbust2.Assets do
     end
   end
 
+  @spec format_changeset_errors(Ecto.Changeset.t()) :: String.t()
+  defp format_changeset_errors(changeset) do
+    Ecto.Changeset.traverse_errors(changeset, fn {msg, opts} ->
+      Enum.reduce(opts, msg, fn {key, value}, acc ->
+        String.replace(acc, "%{#{key}}", to_string(value))
+      end)
+    end)
+    |> Enum.map_join("; ", fn {field, errors} ->
+      "#{field}: #{Enum.join(errors, ", ")}"
+    end)
+  end
+
+  @spec count_combined_results(list()) ::
+          {non_neg_integer(), non_neg_integer(), non_neg_integer()}
+  defp count_combined_results(combined_results) do
+    timeouts =
+      Enum.count(combined_results, fn
+        {:exit, :timeout} -> true
+        _ -> false
+      end)
+
+    successes =
+      Enum.count(combined_results, fn
+        {:ok, {:fetched, :synced}} -> true
+        _ -> false
+      end)
+
+    errors =
+      Enum.count(combined_results, fn
+        {:ok, {:error, _}} -> true
+        {:exit, :timeout} -> true
+        _ -> false
+      end)
+
+    {successes, errors, timeouts}
+  end
+
+  @spec count_price_results(list()) ::
+          {non_neg_integer(), non_neg_integer(), non_neg_integer(), non_neg_integer()}
+  defp count_price_results(price_results) do
+    timeouts =
+      Enum.count(price_results, fn
+        {:exit, :timeout} -> true
+        _ -> false
+      end)
+
+    successes =
+      Enum.count(price_results, fn {status, result} -> status == :ok and result == :fetched end)
+
+    errors =
+      Enum.count(price_results, fn
+        {:ok, :error} -> true
+        {:exit, :timeout} -> true
+        _ -> false
+      end)
+
+    skipped =
+      Enum.count(price_results, fn {status, result} -> status == :ok and result == :skipped end)
+
+    {successes, errors, skipped, timeouts}
+  end
+
+  @spec count_dividend_results(list()) ::
+          {non_neg_integer(), non_neg_integer(), non_neg_integer(), non_neg_integer()}
+  defp count_dividend_results(dividend_results) do
+    timeouts =
+      Enum.count(dividend_results, fn
+        {:exit, :timeout} -> true
+        _ -> false
+      end)
+
+    successes =
+      Enum.count(dividend_results, fn {status, result} -> status == :ok and result == :synced end)
+
+    errors =
+      Enum.count(dividend_results, fn
+        {:ok, :error} -> true
+        {:exit, :timeout} -> true
+        _ -> false
+      end)
+
+    skipped =
+      Enum.count(dividend_results, fn {status, result} ->
+        status == :ok and result == :skipped
+      end)
+
+    {successes, errors, skipped, timeouts}
+  end
+
   @spec fetch_asset_price(Asset.t()) :: :fetched | :skipped | :error
   defp fetch_asset_price(asset) do
     should_fetch = should_update_price?(asset)
 
     case maybe_fetch_price(asset, should_fetch) do
-      {:ok, _updated_asset} -> if should_fetch, do: :fetched, else: :skipped
-      {:error, _changeset} -> :error
+      {:ok, _updated_asset} ->
+        if should_fetch do
+          Logger.info("Successfully fetched price for asset: #{asset.name} (ID: #{asset.id})")
+          :fetched
+        else
+          :skipped
+        end
+
+      {:error, changeset} ->
+        errors = format_changeset_errors(changeset)
+
+        Logger.error(
+          "Failed to fetch price for asset: #{asset.name} (ID: #{asset.id}). Errors: #{errors}"
+        )
+
+        :error
     end
   end
 
@@ -839,8 +944,20 @@ defmodule Boonorbust2.Assets do
     should_sync = should_update_dividends?(asset)
 
     case maybe_sync_dividends(asset, should_sync) do
-      {:ok, _updated_asset} -> if should_sync, do: :synced, else: :skipped
-      {:error, _reason} -> :error
+      {:ok, _updated_asset} ->
+        if should_sync do
+          Logger.info("Successfully synced dividends for asset: #{asset.name} (ID: #{asset.id})")
+          :synced
+        else
+          :skipped
+        end
+
+      {:error, reason} ->
+        Logger.error(
+          "Failed to sync dividends for asset: #{asset.name} (ID: #{asset.id}). Reason: #{inspect(reason)}"
+        )
+
+        :error
     end
   end
 
@@ -863,6 +980,8 @@ defmodule Boonorbust2.Assets do
              dividends_errors: non_neg_integer()
            }}
   def update_all_asset_data do
+    Logger.info("Starting update_all_asset_data")
+
     # Get asset IDs where ANY user has holdings (quantity > 0)
     asset_ids_with_holdings = Boonorbust2.PortfolioPositions.get_asset_ids_with_holdings()
 
@@ -874,12 +993,20 @@ defmodule Boonorbust2.Assets do
         asset.id in asset_ids_with_holdings
       end)
 
+    Logger.info(
+      "Found #{length(assets_with_holdings)} assets with holdings out of #{length(assets)} total assets"
+    )
+
     # Separate assets into those that can use combined fetch and those that can't
     {assets_for_combined, assets_for_separate} =
       Enum.split_with(assets_with_holdings, fn asset ->
         should_update_price?(asset) and should_update_dividends?(asset) and
           can_use_combined_fetch?(asset)
       end)
+
+    Logger.info(
+      "Processing #{length(assets_for_combined)} assets with combined fetch, #{length(assets_for_separate)} with separate fetch"
+    )
 
     # Process combined fetch assets (single HTTP call per asset)
     combined_results =
@@ -892,17 +1019,12 @@ defmodule Boonorbust2.Assets do
       )
       |> Enum.to_list()
 
-    combined_prices_success =
-      Enum.count(combined_results, fn
-        {:ok, {:fetched, :synced}} -> true
-        _ -> false
-      end)
+    {combined_prices_success, combined_prices_errors, combined_timeouts} =
+      count_combined_results(combined_results)
 
-    combined_prices_errors =
-      Enum.count(combined_results, fn
-        {:ok, {:error, _}} -> true
-        _ -> false
-      end)
+    if combined_timeouts > 0 do
+      Logger.warning("#{combined_timeouts} combined fetch operations timed out")
+    end
 
     combined_dividends_success = combined_prices_success
     combined_dividends_errors = combined_prices_errors
@@ -911,6 +1033,8 @@ defmodule Boonorbust2.Assets do
     # Update prices for assets with price_url (excluding those already processed)
     assets_with_price_url =
       Enum.filter(assets_for_separate, fn asset -> not is_nil(asset.price_url) end)
+
+    Logger.info("Fetching prices for #{length(assets_with_price_url)} assets")
 
     price_results =
       assets_with_price_url
@@ -922,11 +1046,12 @@ defmodule Boonorbust2.Assets do
       )
       |> Enum.to_list()
 
-    prices_success =
-      Enum.count(price_results, fn {status, result} -> status == :ok and result == :fetched end)
+    {prices_success, prices_errors, prices_skipped, price_timeouts} =
+      count_price_results(price_results)
 
-    prices_errors =
-      Enum.count(price_results, fn {status, result} -> status == :ok and result == :error end)
+    if price_timeouts > 0 do
+      Logger.warning("#{price_timeouts} price fetch operations timed out")
+    end
 
     # Update dividends for assets with dividend_url and distributes_dividends = true
     # (excluding those already processed)
@@ -934,6 +1059,8 @@ defmodule Boonorbust2.Assets do
       Enum.filter(assets_for_separate, fn asset ->
         not is_nil(asset.dividend_url) and asset.distributes_dividends
       end)
+
+    Logger.info("Syncing dividends for #{length(assets_with_dividend_url)} assets")
 
     dividend_results =
       assets_with_dividend_url
@@ -945,19 +1072,27 @@ defmodule Boonorbust2.Assets do
       )
       |> Enum.to_list()
 
-    dividends_success =
-      Enum.count(dividend_results, fn {status, result} -> status == :ok and result == :synced end)
+    {dividends_success, dividends_errors, dividends_skipped, dividend_timeouts} =
+      count_dividend_results(dividend_results)
 
-    dividends_errors =
-      Enum.count(dividend_results, fn {status, result} -> status == :ok and result == :error end)
+    if dividend_timeouts > 0 do
+      Logger.warning("#{dividend_timeouts} dividend sync operations timed out")
+    end
 
-    {:ok,
-     %{
-       prices_success: prices_success + combined_prices_success,
-       prices_errors: prices_errors + combined_prices_errors,
-       dividends_success: dividends_success + combined_dividends_success,
-       dividends_errors: dividends_errors + combined_dividends_errors
-     }}
+    result = %{
+      prices_success: prices_success + combined_prices_success,
+      prices_errors: prices_errors + combined_prices_errors,
+      dividends_success: dividends_success + combined_dividends_success,
+      dividends_errors: dividends_errors + combined_dividends_errors
+    }
+
+    Logger.info(
+      "Completed update_all_asset_data - " <>
+        "Prices: #{result.prices_success} succeeded, #{result.prices_errors} failed, #{prices_skipped} skipped (rate limited). " <>
+        "Dividends: #{result.dividends_success} succeeded, #{result.dividends_errors} failed, #{dividends_skipped} skipped (rate limited)."
+    )
+
+    {:ok, result}
   end
 
   @spec fetch_and_update_combined(Asset.t()) ::
@@ -967,13 +1102,35 @@ defmodule Boonorbust2.Assets do
       {:ok, {price, dividends}} ->
         with {:ok, _price_asset} <- update_asset_price(asset, price),
              {:ok, _div_result} <- sync_dividends_from_data(asset, dividends) do
+          Logger.info(
+            "Successfully fetched combined data (price + dividends) for asset: #{asset.name} (ID: #{asset.id})"
+          )
+
           {:fetched, :synced}
         else
-          {:error, _} -> {:error, "Failed to update asset"}
+          {:error, changeset} when is_struct(changeset, Ecto.Changeset) ->
+            errors = format_changeset_errors(changeset)
+
+            Logger.error(
+              "Failed to update combined data for asset: #{asset.name} (ID: #{asset.id}). Errors: #{errors}"
+            )
+
+            {:error, "Failed to update asset: #{errors}"}
+
+          {:error, reason} ->
+            Logger.error(
+              "Failed to update combined data for asset: #{asset.name} (ID: #{asset.id}). Reason: #{inspect(reason)}"
+            )
+
+            {:error, "Failed to update asset: #{inspect(reason)}"}
         end
 
-      {:error, _reason} ->
-        {:error, "Failed to fetch combined data"}
+      {:error, reason} ->
+        Logger.error(
+          "Failed to fetch combined data for asset: #{asset.name} (ID: #{asset.id}). Reason: #{inspect(reason)}"
+        )
+
+        {:error, "Failed to fetch combined data: #{inspect(reason)}"}
     end
   end
 end
