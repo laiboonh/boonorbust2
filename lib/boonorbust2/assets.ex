@@ -838,14 +838,17 @@ defmodule Boonorbust2.Assets do
     end)
   end
 
-  @spec count_combined_results(list()) ::
-          {non_neg_integer(), non_neg_integer(), non_neg_integer()}
-  defp count_combined_results(combined_results) do
-    timeouts =
-      Enum.count(combined_results, fn
-        {:exit, :timeout} -> true
+  @spec count_combined_results(list(), list(Asset.t())) ::
+          {non_neg_integer(), non_neg_integer(), list(Asset.t())}
+  defp count_combined_results(combined_results, assets) do
+    timed_out_assets =
+      combined_results
+      |> Enum.zip(assets)
+      |> Enum.filter(fn
+        {{:exit, :timeout}, _asset} -> true
         _ -> false
       end)
+      |> Enum.map(fn {_result, asset} -> asset end)
 
     successes =
       Enum.count(combined_results, fn
@@ -860,17 +863,20 @@ defmodule Boonorbust2.Assets do
         _ -> false
       end)
 
-    {successes, errors, timeouts}
+    {successes, errors, timed_out_assets}
   end
 
-  @spec count_price_results(list()) ::
-          {non_neg_integer(), non_neg_integer(), non_neg_integer(), non_neg_integer()}
-  defp count_price_results(price_results) do
-    timeouts =
-      Enum.count(price_results, fn
-        {:exit, :timeout} -> true
+  @spec count_price_results(list(), list(Asset.t())) ::
+          {non_neg_integer(), non_neg_integer(), non_neg_integer(), list(Asset.t())}
+  defp count_price_results(price_results, assets) do
+    timed_out_assets =
+      price_results
+      |> Enum.zip(assets)
+      |> Enum.filter(fn
+        {{:exit, :timeout}, _asset} -> true
         _ -> false
       end)
+      |> Enum.map(fn {_result, asset} -> asset end)
 
     successes =
       Enum.count(price_results, fn {status, result} -> status == :ok and result == :fetched end)
@@ -885,17 +891,20 @@ defmodule Boonorbust2.Assets do
     skipped =
       Enum.count(price_results, fn {status, result} -> status == :ok and result == :skipped end)
 
-    {successes, errors, skipped, timeouts}
+    {successes, errors, skipped, timed_out_assets}
   end
 
-  @spec count_dividend_results(list()) ::
-          {non_neg_integer(), non_neg_integer(), non_neg_integer(), non_neg_integer()}
-  defp count_dividend_results(dividend_results) do
-    timeouts =
-      Enum.count(dividend_results, fn
-        {:exit, :timeout} -> true
+  @spec count_dividend_results(list(), list(Asset.t())) ::
+          {non_neg_integer(), non_neg_integer(), non_neg_integer(), list(Asset.t())}
+  defp count_dividend_results(dividend_results, assets) do
+    timed_out_assets =
+      dividend_results
+      |> Enum.zip(assets)
+      |> Enum.filter(fn
+        {{:exit, :timeout}, _asset} -> true
         _ -> false
       end)
+      |> Enum.map(fn {_result, asset} -> asset end)
 
     successes =
       Enum.count(dividend_results, fn {status, result} -> status == :ok and result == :synced end)
@@ -912,7 +921,7 @@ defmodule Boonorbust2.Assets do
         status == :ok and result == :skipped
       end)
 
-    {successes, errors, skipped, timeouts}
+    {successes, errors, skipped, timed_out_assets}
   end
 
   @spec fetch_asset_price(Asset.t()) :: :fetched | :skipped | :error
@@ -1019,11 +1028,15 @@ defmodule Boonorbust2.Assets do
       )
       |> Enum.to_list()
 
-    {combined_prices_success, combined_prices_errors, combined_timeouts} =
-      count_combined_results(combined_results)
+    {combined_prices_success, combined_prices_errors, combined_timed_out_assets} =
+      count_combined_results(combined_results, assets_for_combined)
 
-    if combined_timeouts > 0 do
-      Logger.warning("#{combined_timeouts} combined fetch operations timed out")
+    if length(combined_timed_out_assets) > 0 do
+      asset_names = Enum.map_join(combined_timed_out_assets, ", ", & &1.name)
+
+      Logger.warning(
+        "#{length(combined_timed_out_assets)} combined fetch operations timed out for assets: #{asset_names}"
+      )
     end
 
     combined_dividends_success = combined_prices_success
@@ -1046,11 +1059,15 @@ defmodule Boonorbust2.Assets do
       )
       |> Enum.to_list()
 
-    {prices_success, prices_errors, prices_skipped, price_timeouts} =
-      count_price_results(price_results)
+    {prices_success, prices_errors, prices_skipped, price_timed_out_assets} =
+      count_price_results(price_results, assets_with_price_url)
 
-    if price_timeouts > 0 do
-      Logger.warning("#{price_timeouts} price fetch operations timed out")
+    if length(price_timed_out_assets) > 0 do
+      asset_names = Enum.map_join(price_timed_out_assets, ", ", & &1.name)
+
+      Logger.warning(
+        "#{length(price_timed_out_assets)} price fetch operations timed out for assets: #{asset_names}"
+      )
     end
 
     # Update dividends for assets with dividend_url and distributes_dividends = true
@@ -1072,11 +1089,15 @@ defmodule Boonorbust2.Assets do
       )
       |> Enum.to_list()
 
-    {dividends_success, dividends_errors, dividends_skipped, dividend_timeouts} =
-      count_dividend_results(dividend_results)
+    {dividends_success, dividends_errors, dividends_skipped, dividend_timed_out_assets} =
+      count_dividend_results(dividend_results, assets_with_dividend_url)
 
-    if dividend_timeouts > 0 do
-      Logger.warning("#{dividend_timeouts} dividend sync operations timed out")
+    if length(dividend_timed_out_assets) > 0 do
+      asset_names = Enum.map_join(dividend_timed_out_assets, ", ", & &1.name)
+
+      Logger.warning(
+        "#{length(dividend_timed_out_assets)} dividend sync operations timed out for assets: #{asset_names}"
+      )
     end
 
     result = %{
