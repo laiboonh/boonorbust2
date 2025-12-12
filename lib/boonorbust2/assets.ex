@@ -879,6 +879,17 @@ defmodule Boonorbust2.Assets do
     end)
   end
 
+  @spec log_timeout_warning(list(Asset.t()), String.t()) :: :ok
+  defp log_timeout_warning([], _operation_type), do: :ok
+
+  defp log_timeout_warning(timed_out_assets, operation_type) do
+    asset_names = Enum.map_join(timed_out_assets, ", ", & &1.name)
+
+    Logger.warning(
+      "#{length(timed_out_assets)} #{operation_type} timed out for assets: #{asset_names}"
+    )
+  end
+
   @spec count_combined_results(list(), list(Asset.t())) ::
           {non_neg_integer(), non_neg_integer(), list(Asset.t())}
   defp count_combined_results(combined_results, assets) do
@@ -965,12 +976,12 @@ defmodule Boonorbust2.Assets do
     {successes, errors, skipped, timed_out_assets}
   end
 
-  @spec fetch_asset_price(Asset.t()) :: :fetched | :skipped | :error
-  defp fetch_asset_price(asset) do
+  @spec fetch_asset_price(Asset.t(), boolean()) :: :fetched | :skipped | :error
+  defp fetch_asset_price(asset, set_timestamp \\ true) do
     should_fetch = should_update_price?(asset)
 
     with {:ok, updated_asset} <- maybe_fetch_price(asset, should_fetch),
-         {:ok, _final_asset} <- set_updated_at_if_needed(updated_asset, should_fetch) do
+         {:ok, _final_asset} <- maybe_set_updated_at(updated_asset, should_fetch, set_timestamp) do
       if should_fetch do
         Logger.info("Successfully fetched price for asset: #{asset.name} (ID: #{asset.id})")
         :fetched
@@ -994,15 +1005,22 @@ defmodule Boonorbust2.Assets do
   defp set_updated_at_if_needed(asset, true), do: set_updated_at(asset)
   defp set_updated_at_if_needed(asset, false), do: {:ok, asset}
 
-  @spec sync_asset_dividends_with_status(Asset.t()) :: :synced | :skipped | :error
-  defp sync_asset_dividends_with_status(asset) do
+  @spec maybe_set_updated_at(Asset.t(), boolean(), boolean()) ::
+          {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
+  defp maybe_set_updated_at(asset, _should_update, false), do: {:ok, asset}
+
+  defp maybe_set_updated_at(asset, should_update, true),
+    do: set_updated_at_if_needed(asset, should_update)
+
+  @spec sync_asset_dividends_with_status(Asset.t(), boolean()) :: :synced | :skipped | :error
+  defp sync_asset_dividends_with_status(asset, set_timestamp \\ true) do
     should_sync = should_update_dividends?(asset)
 
     # Need to reload asset to get latest version (in case price was updated in parallel)
     fresh_asset = Repo.get!(Asset, asset.id)
 
     with {:ok, _div_result} <- maybe_sync_dividends(fresh_asset, should_sync),
-         {:ok, _final_asset} <- set_updated_at_if_needed(fresh_asset, should_sync) do
+         {:ok, _final_asset} <- maybe_set_updated_at(fresh_asset, should_sync, set_timestamp) do
       if should_sync do
         Logger.info("Successfully synced dividends for asset: #{asset.name} (ID: #{asset.id})")
         :synced
@@ -1026,6 +1044,50 @@ defmodule Boonorbust2.Assets do
 
         :error
     end
+  end
+
+  @spec fetch_and_update_both(Asset.t()) :: {:fetched, :synced} | {:error, atom()}
+  defp fetch_and_update_both(asset) do
+    # Fetch price and sync dividends separately, only set updated_at if BOTH succeed
+    price_result = fetch_asset_price(asset, false)
+    dividend_result = sync_asset_dividends_with_status(asset, false)
+
+    handle_both_results(asset, price_result, dividend_result)
+  end
+
+  @spec handle_both_results(Asset.t(), atom(), atom()) ::
+          {:fetched, :synced} | {:error, atom()}
+  defp handle_both_results(asset, :fetched, :synced) do
+    # Both succeeded, now set updated_at
+    fresh_asset = Repo.get!(Asset, asset.id)
+
+    case set_updated_at(fresh_asset) do
+      {:ok, _updated_asset} ->
+        Logger.info(
+          "Successfully updated price and dividends for asset: #{asset.name} (ID: #{asset.id})"
+        )
+
+        {:fetched, :synced}
+
+      {:error, changeset} ->
+        errors = format_changeset_errors(changeset)
+
+        Logger.error(
+          "Failed to set updated_at for asset: #{asset.name} (ID: #{asset.id}). Errors: #{errors}"
+        )
+
+        {:error, :timestamp_update_failed}
+    end
+  end
+
+  defp handle_both_results(asset, price_result, dividend_result) do
+    # At least one failed, don't set updated_at
+    Logger.error(
+      "Failed to update asset: #{asset.name} (ID: #{asset.id}). " <>
+        "Price result: #{inspect(price_result)}, Dividend result: #{inspect(dividend_result)}"
+    )
+
+    {:error, :partial_failure}
   end
 
   @doc """
@@ -1089,23 +1151,46 @@ defmodule Boonorbust2.Assets do
     {combined_prices_success, combined_prices_errors, combined_timed_out_assets} =
       count_combined_results(combined_results, assets_for_combined)
 
-    if length(combined_timed_out_assets) > 0 do
-      asset_names = Enum.map_join(combined_timed_out_assets, ", ", & &1.name)
-
-      Logger.warning(
-        "#{length(combined_timed_out_assets)} combined fetch operations timed out for assets: #{asset_names}"
-      )
-    end
+    log_timeout_warning(combined_timed_out_assets, "combined fetch operations")
 
     combined_dividends_success = combined_prices_success
     combined_dividends_errors = combined_prices_errors
 
     # Process remaining assets separately
-    # Update prices for assets with price_url (excluding those already processed)
-    assets_with_price_url =
-      Enum.filter(assets_for_separate, fn asset -> not is_nil(asset.price_url) end)
+    # Separate into three groups to ensure updated_at is only set when BOTH succeed
+    {assets_needing_both, assets_needing_one} =
+      Enum.split_with(assets_for_separate, fn asset ->
+        should_update_price?(asset) and should_update_dividends?(asset)
+      end)
 
-    Logger.info("Fetching prices for #{length(assets_with_price_url)} assets")
+    # Process assets needing both price and dividend updates
+    Logger.info(
+      "Processing #{length(assets_needing_both)} assets needing both price and dividend updates"
+    )
+
+    both_results =
+      assets_needing_both
+      |> Task.async_stream(
+        &fetch_and_update_both/1,
+        max_concurrency: 5,
+        timeout: 60_000,
+        on_timeout: :kill_task
+      )
+      |> Enum.to_list()
+
+    {both_success, both_errors, both_timed_out_assets} =
+      count_combined_results(both_results, assets_needing_both)
+
+    log_timeout_warning(both_timed_out_assets, "price+dividend operations")
+
+    # Now process assets that only need one type of update
+    # Update prices for assets with price_url (only those not needing dividends)
+    assets_with_price_url =
+      Enum.filter(assets_needing_one, fn asset ->
+        not is_nil(asset.price_url) and should_update_price?(asset)
+      end)
+
+    Logger.info("Fetching prices for #{length(assets_with_price_url)} assets (price only)")
 
     price_results =
       assets_with_price_url
@@ -1120,22 +1205,18 @@ defmodule Boonorbust2.Assets do
     {prices_success, prices_errors, prices_skipped, price_timed_out_assets} =
       count_price_results(price_results, assets_with_price_url)
 
-    if length(price_timed_out_assets) > 0 do
-      asset_names = Enum.map_join(price_timed_out_assets, ", ", & &1.name)
+    log_timeout_warning(price_timed_out_assets, "price fetch operations")
 
-      Logger.warning(
-        "#{length(price_timed_out_assets)} price fetch operations timed out for assets: #{asset_names}"
-      )
-    end
-
-    # Update dividends for assets with dividend_url and distributes_dividends = true
-    # (excluding those already processed)
+    # Update dividends for assets with dividend_url (only those not needing prices)
     assets_with_dividend_url =
-      Enum.filter(assets_for_separate, fn asset ->
-        not is_nil(asset.dividend_url) and asset.distributes_dividends
+      Enum.filter(assets_needing_one, fn asset ->
+        not is_nil(asset.dividend_url) and asset.distributes_dividends and
+          should_update_dividends?(asset)
       end)
 
-    Logger.info("Syncing dividends for #{length(assets_with_dividend_url)} assets")
+    Logger.info(
+      "Syncing dividends for #{length(assets_with_dividend_url)} assets (dividend only)"
+    )
 
     dividend_results =
       assets_with_dividend_url
@@ -1150,25 +1231,20 @@ defmodule Boonorbust2.Assets do
     {dividends_success, dividends_errors, dividends_skipped, dividend_timed_out_assets} =
       count_dividend_results(dividend_results, assets_with_dividend_url)
 
-    if length(dividend_timed_out_assets) > 0 do
-      asset_names = Enum.map_join(dividend_timed_out_assets, ", ", & &1.name)
-
-      Logger.warning(
-        "#{length(dividend_timed_out_assets)} dividend sync operations timed out for assets: #{asset_names}"
-      )
-    end
+    log_timeout_warning(dividend_timed_out_assets, "dividend sync operations")
 
     result = %{
-      prices_success: prices_success + combined_prices_success,
-      prices_errors: prices_errors + combined_prices_errors,
-      dividends_success: dividends_success + combined_dividends_success,
-      dividends_errors: dividends_errors + combined_dividends_errors
+      prices_success: prices_success + combined_prices_success + both_success,
+      prices_errors: prices_errors + combined_prices_errors + both_errors,
+      dividends_success: dividends_success + combined_dividends_success + both_success,
+      dividends_errors: dividends_errors + combined_dividends_errors + both_errors
     }
 
     Logger.info(
       "Completed update_all_asset_data - " <>
         "Prices: #{result.prices_success} succeeded, #{result.prices_errors} failed, #{prices_skipped} skipped (rate limited). " <>
-        "Dividends: #{result.dividends_success} succeeded, #{result.dividends_errors} failed, #{dividends_skipped} skipped (rate limited)."
+        "Dividends: #{result.dividends_success} succeeded, #{result.dividends_errors} failed, #{dividends_skipped} skipped (rate limited). " <>
+        "Combined operations (both price+dividend): #{both_success} succeeded, #{both_errors} failed."
     )
 
     {:ok, result}
