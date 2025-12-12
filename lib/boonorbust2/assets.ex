@@ -338,8 +338,15 @@ defmodule Boonorbust2.Assets do
              %{"close" => close_value} <- first_data do
           {:ok, close_value}
         else
-          %{"data" => []} -> {:error, "No data available"}
-          _ -> {:error, "Invalid response format"}
+          %{"data" => []} ->
+            {:error, "No data available"}
+
+          _ ->
+            Logger.error(
+              "Invalid response format from Marketstack API. Response body: #{inspect(body)}"
+            )
+
+            {:error, "Invalid response format"}
         end
 
       {:ok, %{status: status}} ->
@@ -415,10 +422,21 @@ defmodule Boonorbust2.Assets do
              %{"4. close" => close_value} <- time_series[first_date] do
           {:ok, close_value}
         else
-          %{"Time Series (Daily)" => _} -> {:error, "No data available"}
-          %{"Error Message" => error_msg} -> {:error, "API error: #{error_msg}"}
-          %{"Note" => note} -> {:error, "API limit reached: #{note}"}
-          _ -> {:error, "Invalid response format"}
+          %{"Time Series (Daily)" => _} ->
+            {:error, "No data available"}
+
+          %{"Error Message" => error_msg} ->
+            {:error, "API error: #{error_msg}"}
+
+          %{"Note" => note} ->
+            {:error, "API limit reached: #{note}"}
+
+          _ ->
+            Logger.error(
+              "Invalid response format from AlphaVantage API. Response body: #{inspect(body)}"
+            )
+
+            {:error, "Invalid response format"}
         end
 
       {:ok, %{status: status}} ->
@@ -442,6 +460,10 @@ defmodule Boonorbust2.Assets do
             {:ok, rate}
 
           _ ->
+            Logger.error(
+              "Invalid response format from Exchange Rate API. Response body: #{inspect(body)}"
+            )
+
             {:error, "Invalid response format"}
         end
 
@@ -467,6 +489,7 @@ defmodule Boonorbust2.Assets do
         {:error, "HTTP request failed with status #{status}"}
 
       {:error, :price_not_found} ->
+        Logger.error("Price not found on etnet.com.hk page: #{price_url}")
         {:error, "Price not found on page"}
 
       {:error, reason} ->
@@ -488,6 +511,7 @@ defmodule Boonorbust2.Assets do
         {:error, "HTTP request failed with status #{status}"}
 
       {:error, :price_not_found} ->
+        Logger.error("Price not found on dividends.sg page: #{price_url}")
         {:error, "Price not found on page"}
 
       {:error, reason} ->
