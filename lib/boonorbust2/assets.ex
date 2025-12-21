@@ -1290,4 +1290,30 @@ defmodule Boonorbust2.Assets do
         {:error, "Failed to fetch combined data: #{inspect(reason)}"}
     end
   end
+
+  @doc """
+  Formats the result message for update_all_asset_data operation.
+
+  Returns a user-friendly message describing the success/failure of price and dividend updates.
+  """
+  @spec format_update_result_message(%{
+          prices_success: non_neg_integer(),
+          prices_errors: non_neg_integer(),
+          dividends_success: non_neg_integer(),
+          dividends_errors: non_neg_integer()
+        }) :: String.t()
+  def format_update_result_message(%{
+        prices_success: prices_success,
+        prices_errors: prices_errors,
+        dividends_success: dividends_success,
+        dividends_errors: dividends_errors
+      }) do
+    total_errors = prices_errors + dividends_errors
+
+    if total_errors > 0 do
+      "Updated #{prices_success} prices, #{dividends_success} dividends (#{total_errors} errors)"
+    else
+      "Successfully updated #{prices_success} prices and #{dividends_success} dividends"
+    end
+  end
 end

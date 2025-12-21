@@ -419,4 +419,19 @@ defmodule Boonorbust2.PortfolioTransactions do
         {:error, inspect(errors)}
     end
   end
+
+  @doc """
+  Formats the result message for CSV import operation.
+
+  Returns a user-friendly message describing the success/failure of the import.
+  """
+  @spec format_import_result_message(non_neg_integer(), non_neg_integer(), non_neg_integer()) ::
+          String.t()
+  def format_import_result_message(success_count, error_count, total_count) do
+    if error_count > 0 do
+      "Imported #{success_count} of #{total_count} transactions (#{error_count} errors)"
+    else
+      "Successfully imported #{success_count} transactions"
+    end
+  end
 end

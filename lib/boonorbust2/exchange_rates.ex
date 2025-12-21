@@ -81,6 +81,48 @@ defmodule Boonorbust2.ExchangeRates do
     fetch_and_cache_rates(base_currency)
   end
 
+  @doc """
+  Converts a Money amount from one currency to another.
+
+  If the money is already in the target currency, returns it unchanged.
+  If exchange rate fetch fails, logs a warning and returns the original money.
+
+  ## Examples
+
+      iex> money = Money.new!(100, "USD")
+      iex> Boonorbust2.ExchangeRates.convert_money(money, "SGD")
+      #Money<135.00 SGD>
+
+      iex> money = Money.new!(100, "USD")
+      iex> Boonorbust2.ExchangeRates.convert_money(money, "USD")
+      #Money<100.00 USD>
+
+  """
+  @spec convert_money(Money.t(), String.t()) :: Money.t()
+  def convert_money(money, target_currency) when is_binary(target_currency) do
+    source_currency = money |> Money.to_currency_code() |> Atom.to_string()
+
+    # If already in target currency, return as-is
+    if source_currency == target_currency do
+      money
+    else
+      # Get exchange rate and convert
+      case get_rate(source_currency, target_currency) do
+        {:ok, rate} ->
+          converted_amount = Decimal.mult(money.amount, Decimal.from_float(rate))
+          Money.new!(converted_amount, target_currency)
+
+        {:error, reason} ->
+          Logger.warning(
+            "Failed to get exchange rate from #{source_currency} to #{target_currency}: #{inspect(reason)}. Using original currency."
+          )
+
+          # Fallback: return original money if exchange rate fetch fails
+          money
+      end
+    end
+  end
+
   # Private Functions
 
   defp cache_key(base_currency) do

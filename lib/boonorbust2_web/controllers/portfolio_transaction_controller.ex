@@ -257,7 +257,13 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
             PortfolioPositions.calculate_and_upsert_positions_for_asset(asset_id, user_id)
           end)
 
-          message = format_success_message(success_count, error_count, total_count)
+          message =
+            PortfolioTransactions.format_import_result_message(
+              success_count,
+              error_count,
+              total_count
+            )
+
           respond_with_success(conn, message)
         rescue
           e in ArgumentError ->
@@ -271,14 +277,6 @@ defmodule Boonorbust2Web.PortfolioTransactionController do
 
   defp handle_missing_file(conn) do
     respond_with_error(conn, "No file uploaded")
-  end
-
-  defp format_success_message(success_count, error_count, total_count) do
-    if error_count > 0 do
-      "Imported #{success_count} of #{total_count} transactions (#{error_count} errors)"
-    else
-      "Successfully imported #{success_count} transactions"
-    end
   end
 
   defp respond_with_success(conn, message) do

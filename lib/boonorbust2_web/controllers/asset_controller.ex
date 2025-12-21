@@ -107,22 +107,8 @@ defmodule Boonorbust2Web.AssetController do
 
   @spec update_all_prices(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def update_all_prices(conn, _params) do
-    {:ok,
-     %{
-       prices_success: prices_success,
-       prices_errors: prices_errors,
-       dividends_success: dividends_success,
-       dividends_errors: dividends_errors
-     }} = Assets.update_all_asset_data()
-
-    total_errors = prices_errors + dividends_errors
-
-    message =
-      if total_errors > 0 do
-        "Updated #{prices_success} prices, #{dividends_success} dividends (#{total_errors} errors)"
-      else
-        "Successfully updated #{prices_success} prices and #{dividends_success} dividends"
-      end
+    {:ok, result} = Assets.update_all_asset_data()
+    message = Assets.format_update_result_message(result)
 
     conn
     |> put_layout(false)

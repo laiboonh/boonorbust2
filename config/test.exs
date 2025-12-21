@@ -38,3 +38,6 @@ config :phoenix_live_view,
 
 # Use mock HTTP client for testing
 config :boonorbust2, :http_client, Boonorbust2.HTTPClientMock
+
+# Configure admin users for testing
+config :boonorbust2, :admins, ["admin@example.com"]

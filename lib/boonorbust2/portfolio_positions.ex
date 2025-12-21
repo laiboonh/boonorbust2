@@ -7,9 +7,12 @@ defmodule Boonorbust2.PortfolioPositions do
   import Ecto.Query, warn: false
 
   alias Boonorbust2.PortfolioPositions.PortfolioPosition
+  alias Boonorbust2.PortfolioSnapshots
   alias Boonorbust2.PortfolioTransactions.PortfolioTransaction
   alias Boonorbust2.RealizedProfits
   alias Boonorbust2.Repo
+
+  require Logger
 
   @doc """
   Calculates and upserts positions for all transactions of a given asset.
@@ -317,5 +320,55 @@ defmodule Boonorbust2.PortfolioPositions do
     }
 
     RealizedProfits.upsert_realized_profit(attrs)
+  end
+
+  @doc """
+  Calculates the total portfolio value across all positions.
+
+  Sums all converted position values and returns a Money amount in the specified currency.
+
+  ## Parameters
+    - enriched_positions: List of positions with :converted_total_value field
+    - currency: Target currency code (e.g., "USD", "SGD")
+
+  ## Returns
+    - Money.t() representing the total portfolio value
+  """
+  @spec calculate_total_portfolio_value([map()], String.t()) :: Money.t()
+  def calculate_total_portfolio_value(enriched_positions, currency) do
+    total_amount =
+      enriched_positions
+      |> Enum.reduce(Decimal.new(0), fn position, acc ->
+        Decimal.add(acc, position.converted_total_value.amount)
+      end)
+
+    Money.new!(total_amount, currency)
+  end
+
+  @doc """
+  Saves a portfolio snapshot for the given user and total value.
+
+  Creates or updates a snapshot record for today's date.
+  If the save fails, logs a warning but returns :ok to not interrupt the flow.
+
+  ## Parameters
+    - user_id: The user's ID
+    - total_value: Money.t() representing the total portfolio value
+
+  ## Returns
+    - :ok
+  """
+  @spec save_portfolio_snapshot(String.t(), Money.t()) :: :ok
+  def save_portfolio_snapshot(user_id, total_value) do
+    today = Date.utc_today()
+
+    case PortfolioSnapshots.upsert_snapshot(user_id, today, total_value) do
+      {:ok, _snapshot} ->
+        :ok
+
+      {:error, changeset} ->
+        Logger.warning("Failed to save portfolio snapshot: #{inspect(changeset)}")
+        :ok
+    end
   end
 end
