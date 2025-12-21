@@ -68,6 +68,9 @@ mix assets.deploy
   - `portfolio_transaction_controller.ex` - Portfolio transactions
   - `auth_controller.ex` - Google OAuth authentication
   - `user_controller.ex` - User management
+  - `portfolio_controller.ex` - Portfolio CRUD operations
+  - `tag_controller.ex` - Tag management for assets
+  - `positions_controller.ex` - Portfolio positions display
 - **lib/boonorbust2_web/controllers/*_html.ex** - HTML templates
   - `dashboard_html.ex` - Dashboard views
   - `asset_html.ex` - Asset views with modals
@@ -85,6 +88,97 @@ mix assets.deploy
 
 ### Database
 - **priv/repo/migrations/** - Database migrations
+
+## Software Architecture
+
+This project follows the **Thin Controller Pattern** with strict separation of concerns:
+
+### Architectural Principles
+
+1. **Controllers have ZERO business logic**
+   - Controllers only handle HTTP request/response
+   - Controllers delegate ALL business logic to context modules
+   - Controllers should only: receive params, call contexts, render responses
+   - No calculations, no data transformations, no business rules in controllers
+
+2. **Business logic lives in Context modules**
+   - Context modules (`lib/boonorbust2/`) contain ALL business logic
+   - Contexts are responsible for: calculations, data transformations, validations, formatting
+   - Contexts provide clear, well-named public APIs
+   - Private functions in contexts handle implementation details
+
+3. **Public API specifications**
+   - ALL public functions in contexts must have `@spec` type annotations
+   - Private functions should NOT have `@spec` (Dialyzer infers better types)
+   - Public APIs should be well-documented with `@doc`
+
+### Example Pattern
+
+**BAD (business logic in controller):**
+```elixir
+# Controller doing calculations
+def index(conn, _params) do
+  positions = PortfolioPositions.list_latest_positions(user_id)
+
+  # ❌ Business logic in controller
+  total_value = Enum.reduce(positions, 0, fn pos, acc ->
+    acc + Decimal.to_float(pos.amount)
+  end)
+
+  render(conn, :index, total_value: total_value)
+end
+```
+
+**GOOD (thin controller):**
+```elixir
+# Controller delegates to context
+def index(conn, _params) do
+  positions = PortfolioPositions.list_latest_positions(user_id)
+
+  # ✅ Delegate calculation to context
+  total_value = PortfolioPositions.calculate_total_value(positions)
+
+  render(conn, :index, total_value: total_value)
+end
+
+# Context module (lib/boonorbust2/portfolio_positions.ex)
+@doc """
+Calculates total portfolio value from positions.
+"""
+@spec calculate_total_value([PortfolioPosition.t()]) :: Decimal.t()
+def calculate_total_value(positions) do
+  Enum.reduce(positions, Decimal.new(0), fn pos, acc ->
+    Decimal.add(acc, pos.amount)
+  end)
+end
+```
+
+### Context Organization
+
+- **Assets** - Asset management, price fetching, price validation
+- **PortfolioTransactions** - Transaction CRUD, message formatting
+- **PortfolioPositions** - Position calculations, portfolio value calculations
+- **Dashboard** - Dashboard-specific calculations, chart data preparation, data enrichment
+- **ExchangeRates** - Currency conversion, rate fetching
+- **RealizedProfits** - Profit calculations, dividend tracking
+- **Tags** - Tag management, asset-tag associations
+- **Portfolios** - Portfolio management
+- **Accounts** - User account management
+
+### Testing Approach
+
+1. **Test business logic in context tests**
+   - Context tests verify calculations, transformations, business rules
+   - Use unit tests for context functions
+
+2. **Controller tests verify integration**
+   - Controller tests verify data flows correctly through contexts
+   - Test HTTP response codes, assigns, renders
+   - Use `@tag :capture_log` to suppress expected error logs in tests
+
+3. **Create tests BEFORE refactoring**
+   - Capture current behavior in tests before moving logic
+   - Ensures refactoring doesn't break functionality
 
 ## Key Features
 

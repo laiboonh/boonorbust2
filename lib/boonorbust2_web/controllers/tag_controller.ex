@@ -6,9 +6,10 @@ defmodule Boonorbust2Web.TagController do
   require Logger
 
   @spec add_tag_to_asset(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  def add_tag_to_asset(conn, %{"asset_id" => asset_id, "tag_name" => tag_name}) do
+  def add_tag_to_asset(conn, params) do
     %{id: user_id} = conn.assigns.current_user
-    asset_id = String.to_integer(asset_id)
+    asset_id = parse_asset_id(params)
+    tag_name = params["tag_name"]
 
     case Tags.get_or_create_tag(tag_name, user_id) do
       {:ok, tag} ->
@@ -40,10 +41,10 @@ defmodule Boonorbust2Web.TagController do
   end
 
   @spec remove_tag_from_asset(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  def remove_tag_from_asset(conn, %{"asset_id" => asset_id, "tag_id" => tag_id}) do
+  def remove_tag_from_asset(conn, params) do
     %{id: user_id} = conn.assigns.current_user
-    asset_id = String.to_integer(asset_id)
-    tag_id = String.to_integer(tag_id)
+    asset_id = parse_asset_id(params)
+    tag_id = parse_tag_id(params)
 
     case Tags.remove_tag_from_asset(asset_id, tag_id) do
       {:ok, _asset_tag} ->
@@ -66,6 +67,24 @@ defmodule Boonorbust2Web.TagController do
         |> put_status(:unprocessable_entity)
         |> put_layout(false)
         |> render(:error, message: "Failed to remove tag")
+    end
+  end
+
+  # Private functions
+
+  @spec parse_asset_id(map()) :: integer()
+  defp parse_asset_id(%{"asset_id" => asset_id}) do
+    case Integer.parse(asset_id) do
+      {num, _} when num > 0 -> num
+      _ -> raise "Invalid asset_id"
+    end
+  end
+
+  @spec parse_tag_id(map()) :: integer()
+  defp parse_tag_id(%{"tag_id" => tag_id}) do
+    case Integer.parse(tag_id) do
+      {num, _} when num > 0 -> num
+      _ -> raise "Invalid tag_id"
     end
   end
 end

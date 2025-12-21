@@ -71,6 +71,29 @@ defmodule Boonorbust2.Dashboard do
   end
 
   @doc """
+  Converts realized profits map separated by type to user currency.
+
+  ## Parameters
+    - profits_by_type: Map of asset_id => %{capital_gains: Money, dividend_income: Money}
+    - user_currency: Target currency code
+
+  ## Returns
+    - Map of asset_id => %{capital_gains: Money, dividend_income: Money} (in user currency)
+  """
+  @spec convert_realized_profits_by_type(map(), String.t()) :: map()
+  def convert_realized_profits_by_type(profits_by_type, user_currency) do
+    profits_by_type
+    |> Enum.map(fn {asset_id, %{capital_gains: cg, dividend_income: di}} ->
+      {asset_id,
+       %{
+         capital_gains: ExchangeRates.convert_money(cg, user_currency),
+         dividend_income: ExchangeRates.convert_money(di, user_currency)
+       }}
+    end)
+    |> Map.new()
+  end
+
+  @doc """
   Converts dividend records to user currency by adding :converted_amount field.
 
   ## Parameters

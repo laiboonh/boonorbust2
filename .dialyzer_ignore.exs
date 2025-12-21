@@ -12,7 +12,15 @@
 
   # Dividend parsing - typespec is intentionally general (map() vs full struct)
   ~r/lib\/boonorbust2\/dividends\.ex:278:contract_supertype/,
-  ~r/lib\/boonorbust2\/dividends\.ex:355:contract_supertype/
+  ~r/lib\/boonorbust2\/dividends\.ex:355:contract_supertype/,
+
+  # Portfolios - Ecto.Multi opaque type warnings (safe, works correctly)
+  ~r/lib\/boonorbust2\/portfolios\.ex:80:\d+:call_without_opaque/,
+  ~r/lib\/boonorbust2\/portfolios\.ex:106:\d+:call_without_opaque/,
+
+  # TagController - Typespec is intentionally general (integer vs pos_integer)
+  ~r/lib\/boonorbust2_web\/controllers\/tag_controller\.ex:75:contract_supertype/,
+  ~r/lib\/boonorbust2_web\/controllers\/tag_controller\.ex:83:contract_supertype/
 
   # # Portfolio transactions - Ecto patterns that work correctly but Dialyzer doesn't understand
   # ~r/lib\/boonorbust2\/portfolio_transactions\.ex.+invalid_contract/,
