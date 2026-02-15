@@ -50,6 +50,25 @@ defmodule Boonorbust2Web do
     end
   end
 
+  def live_view do
+    quote do
+      use Phoenix.LiveView,
+        layout: {Boonorbust2Web.Layouts, :app}
+
+      alias Phoenix.LiveView.JS
+
+      unquote(html_helpers())
+    end
+  end
+
+  def live_component do
+    quote do
+      use Phoenix.LiveComponent
+
+      unquote(html_helpers())
+    end
+  end
+
   def html do
     quote do
       use Phoenix.Component

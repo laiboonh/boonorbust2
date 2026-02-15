@@ -71,16 +71,55 @@ defmodule Boonorbust2.Portfolios do
   end
 
   @doc """
-  Lists all portfolios for a user with their associated tags preloaded.
+  Lists all portfolios for a user with their associated tags in a single query.
   """
-  @spec list_portfolios_with_tags(Ecto.UUID.t()) :: [Portfolio.t()]
+  @spec list_portfolios_with_tags(Ecto.UUID.t()) :: [map()]
   def list_portfolios_with_tags(user_id) do
-    portfolios = list_portfolios(user_id)
+    query =
+      from p in Portfolio,
+        left_join: pt in PortfolioTag,
+        on: pt.portfolio_id == p.id,
+        left_join: t in Tag,
+        on: t.id == pt.tag_id,
+        where: p.user_id == ^user_id,
+        order_by: [asc: p.name, asc: t.name],
+        select: {p, t}
 
-    Enum.map(portfolios, fn portfolio ->
-      tags = list_tags_for_portfolio(portfolio.id)
-      Map.put(portfolio, :tags, tags)
+    query
+    |> Repo.all()
+    |> Enum.group_by(fn {portfolio, _tag} -> portfolio end, fn {_portfolio, tag} -> tag end)
+    |> Enum.map(fn {portfolio, tags} ->
+      Map.put(portfolio, :tags, Enum.filter(tags, & &1))
     end)
+    |> Enum.sort_by(& &1.name)
+  end
+
+  @doc """
+  Loads a single portfolio with its tags preloaded.
+  """
+  @spec load_portfolio_with_tags(integer()) :: map()
+  def load_portfolio_with_tags(portfolio_id) do
+    query =
+      from p in Portfolio,
+        left_join: pt in PortfolioTag,
+        on: pt.portfolio_id == p.id,
+        left_join: t in Tag,
+        on: t.id == pt.tag_id,
+        where: p.id == ^portfolio_id,
+        order_by: [asc: t.name],
+        select: {p, t}
+
+    query
+    |> Repo.all()
+    |> case do
+      [] ->
+        get_portfolio!(portfolio_id) |> Map.put(:tags, [])
+
+      results ->
+        {portfolio, _} = hd(results)
+        tags = results |> Enum.map(fn {_, tag} -> tag end) |> Enum.filter(& &1)
+        Map.put(portfolio, :tags, tags)
+    end
   end
 
   @doc """
@@ -98,7 +137,7 @@ defmodule Boonorbust2.Portfolios do
   Returns the portfolio with tags preloaded.
   """
   @spec create_portfolio_with_tags(map(), [String.t()] | [integer()]) ::
-          {:ok, Portfolio.t()} | {:error, Ecto.Changeset.t() | :tag_association_failed}
+          {:ok, Portfolio.t()} | {:error, Ecto.Changeset.t()}
   def create_portfolio_with_tags(attrs, tag_ids \\ []) do
     Ecto.Multi.new()
     |> Ecto.Multi.insert(:portfolio, Portfolio.changeset(%Portfolio{}, attrs))
@@ -108,14 +147,10 @@ defmodule Boonorbust2.Portfolios do
     |> Repo.transaction()
     |> case do
       {:ok, %{portfolio: portfolio}} ->
-        # Reload to get tags as a virtual field (not in schema)
         {:ok, portfolio}
 
       {:error, :portfolio, changeset, _} ->
         {:error, changeset}
-
-      {:error, :tags, :tag_association_failed, _} ->
-        {:error, :tag_association_failed}
     end
   end
 
@@ -124,7 +159,7 @@ defmodule Boonorbust2.Portfolios do
   Removes all existing tags and replaces with the provided tag_ids.
   """
   @spec update_portfolio_with_tags(Portfolio.t(), map(), [String.t()] | [integer()]) ::
-          {:ok, Portfolio.t()} | {:error, Ecto.Changeset.t() | :tag_sync_failed}
+          {:ok, Portfolio.t()} | {:error, Ecto.Changeset.t()}
   def update_portfolio_with_tags(%Portfolio{} = portfolio, attrs, tag_ids \\ []) do
     Ecto.Multi.new()
     |> Ecto.Multi.update(:portfolio, Portfolio.changeset(portfolio, attrs))
@@ -143,14 +178,10 @@ defmodule Boonorbust2.Portfolios do
     |> Repo.transaction()
     |> case do
       {:ok, %{portfolio: portfolio}} ->
-        # Return updated portfolio (tags can be queried separately if needed)
         {:ok, portfolio}
 
       {:error, :portfolio, changeset, _} ->
         {:error, changeset}
-
-      {:error, _, :tag_sync_failed, _} ->
-        {:error, :tag_sync_failed}
     end
   end
 
@@ -233,9 +264,7 @@ defmodule Boonorbust2.Portfolios do
         }
       end)
 
-    case repo.insert_all(PortfolioTag, portfolio_tags) do
-      {_count, _} -> {:ok, true}
-      _ -> {:error, :tag_association_failed}
-    end
+    {_count, _} = repo.insert_all(PortfolioTag, portfolio_tags)
+    {:ok, true}
   end
 end

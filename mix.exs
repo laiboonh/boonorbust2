@@ -73,7 +73,8 @@ defmodule Boonorbust2.MixProject do
       {:mox, "~> 1.0", only: :test},
       {:cachex, "~> 4.0"},
       {:floki, "~> 0.38.0"},
-      {:html5ever, "~> 0.16.0"}
+      {:html5ever, "~> 0.16.0"},
+      {:lazy_html, ">= 0.1.0", only: :test}
     ]
   end
 

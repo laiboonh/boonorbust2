@@ -52,7 +52,10 @@ defmodule Boonorbust2Web.Router do
     get "/user/edit", UserController, :edit
     put "/user", UserController, :update
 
-    resources "/portfolios", PortfolioController
+    live_session :portfolios,
+      on_mount: {Boonorbust2Web.LiveAuth, :require_authenticated_user} do
+      live "/portfolios", PortfolioLive
+    end
 
     post "/tags/:asset_id", TagController, :add_tag_to_asset
     delete "/tags/:asset_id/:tag_id", TagController, :remove_tag_from_asset

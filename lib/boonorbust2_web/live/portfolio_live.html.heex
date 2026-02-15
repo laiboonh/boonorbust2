@@ -1,0 +1,219 @@
+<.tab_content class="min-h-screen bg-gray-50">
+  <div class="px-4 py-8">
+    <div class="max-w-lg mx-auto">
+      <button
+        phx-click="new"
+        class="w-full inline-flex justify-center items-center px-6 py-4 bg-emerald-600 text-white text-lg font-medium rounded-xl hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 mb-6"
+      >
+        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+          />
+        </svg>
+        Add Portfolio
+      </button>
+
+      <div id="portfolios-list" phx-update="stream" class="space-y-4">
+        <div
+          :for={{dom_id, portfolio} <- @streams.portfolios}
+          id={dom_id}
+          class="bg-white rounded-lg shadow p-6"
+        >
+          <div class="flex justify-between items-start mb-4">
+            <div class="flex-1">
+              <h3 class="text-lg font-semibold text-gray-900">{portfolio.name}</h3>
+              <%= if portfolio.description do %>
+                <p class="text-sm text-gray-600 mt-1">{portfolio.description}</p>
+              <% end %>
+            </div>
+            <div class="flex items-center gap-2">
+              <button
+                phx-click="edit"
+                phx-value-id={portfolio.id}
+                class="text-blue-600 hover:text-blue-800"
+                title="Edit"
+              >
+                <svg
+                  class="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  >
+                  </path>
+                </svg>
+              </button>
+              <button
+                phx-click="delete"
+                phx-value-id={portfolio.id}
+                data-confirm="Are you sure you want to delete this portfolio?"
+                class="text-red-600 hover:text-red-800"
+                title="Delete"
+              >
+                <svg
+                  class="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  >
+                  </path>
+                </svg>
+              </button>
+            </div>
+          </div>
+          <%= if Map.get(portfolio, :tags, []) != [] do %>
+            <div class="mt-4 flex flex-wrap gap-2">
+              <%= for tag <- Map.get(portfolio, :tags, []) do %>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  {tag.name}
+                </span>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
+      </div>
+    </div>
+
+    <%= if @editing_portfolio do %>
+      <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-medium text-gray-900">
+                {if @editing_portfolio.id, do: "Edit Portfolio", else: "Add New Portfolio"}
+              </h3>
+              <button phx-click="close_modal" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  >
+                  </path>
+                </svg>
+              </button>
+            </div>
+
+            <%= if @form_errors do %>
+              <.form_errors changeset={@form_errors} />
+            <% end %>
+
+            <form
+              phx-submit={if @editing_portfolio.id, do: "update", else: "save"}
+              class="space-y-4"
+            >
+              <%= if @editing_portfolio.id do %>
+                <input type="hidden" name="portfolio_id" value={@editing_portfolio.id} />
+              <% end %>
+
+              <div>
+                <label for="portfolio_name" class="block text-sm font-medium text-gray-700">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  id="portfolio_name"
+                  name="portfolio[name]"
+                  value={@editing_portfolio.name}
+                  required
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  placeholder="My Portfolio"
+                />
+              </div>
+
+              <div>
+                <label
+                  for="portfolio_description"
+                  class="block text-sm font-medium text-gray-700"
+                >
+                  Description (optional)
+                </label>
+                <textarea
+                  id="portfolio_description"
+                  name="portfolio[description]"
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  placeholder="Portfolio description..."
+                >{@editing_portfolio.description}</textarea>
+              </div>
+
+              <div>
+                <label for="portfolio_tags" class="block text-sm font-medium text-gray-700">
+                  Tags (optional)
+                </label>
+                <select
+                  id="portfolio_tags"
+                  name="tag_ids[]"
+                  multiple
+                  class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
+                  size="5"
+                >
+                  <%= for tag <- @all_tags do %>
+                    <option
+                      value={tag.id}
+                      selected={
+                        tag.id in Enum.map(Map.get(@editing_portfolio, :tags, []), & &1.id)
+                      }
+                    >
+                      {tag.name}
+                    </option>
+                  <% end %>
+                </select>
+                <p class="mt-1 text-sm text-gray-500">Hold Ctrl/Cmd to select multiple tags</p>
+              </div>
+
+              <div class="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  phx-disable-with={if @editing_portfolio.id, do: "Saving...", else: "Adding..."}
+                  class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                >
+                  {if @editing_portfolio.id, do: "Save", else: "Add Portfolio"}
+                </button>
+                <button
+                  type="button"
+                  phx-click="close_modal"
+                  class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <.tab_bar current_tab="portfolios">
+      <:tab navigate={~p"/dashboard"} name="dashboard" icon="hero-home">
+        Dashboard
+      </:tab>
+      <:tab navigate={~p"/positions"} name="positions" icon="hero-chart-bar">
+        Positions
+      </:tab>
+      <:tab navigate={~p"/assets"} name="assets" icon="hero-squares-2x2">
+        Assets
+      </:tab>
+      <:tab navigate={~p"/portfolio_transactions"} name="transactions" icon="hero-document-text">
+        Transactions
+      </:tab>
+      <:tab navigate={~p"/portfolios"} name="portfolios" icon="hero-folder">
+        Portfolios
+      </:tab>
+    </.tab_bar>
+  </div>
+</.tab_content>

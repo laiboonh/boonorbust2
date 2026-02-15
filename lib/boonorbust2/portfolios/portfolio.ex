@@ -35,6 +35,6 @@ defmodule Boonorbust2.Portfolios.Portfolio do
     |> cast(attrs, [:name, :description, :user_id])
     |> validate_required([:name, :user_id])
     |> validate_length(:name, min: 1, max: 255)
-    |> unique_constraint([:user_id, :name])
+    |> unique_constraint([:user_id, :name], error_key: :name)
   end
 end
