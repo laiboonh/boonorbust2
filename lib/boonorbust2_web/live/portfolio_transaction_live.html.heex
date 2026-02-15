@@ -1,0 +1,509 @@
+<.tab_content class="min-h-screen bg-gray-50">
+  <div class="px-4 py-8">
+    <div class="max-w-lg mx-auto">
+      <div class="flex gap-3 mb-6">
+        <button
+          phx-click="new"
+          class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+        >
+          <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+            />
+          </svg>
+          Add Transaction
+        </button>
+
+        <button
+          phx-click="open_csv_modal"
+          class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+            />
+          </svg>
+          Import CSV
+        </button>
+      </div>
+      
+<!-- Filter Form -->
+      <form phx-submit="filter" class="mb-4">
+        <div class="flex gap-2">
+          <input
+            type="text"
+            name="filter"
+            value={@filter}
+            placeholder="Search by asset name..."
+            class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+          />
+          <button
+            type="submit"
+            class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+          >
+            Filter
+          </button>
+          <%= if @filter != "" do %>
+            <button
+              type="button"
+              phx-click="clear_filter"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Clear
+            </button>
+          <% end %>
+        </div>
+      </form>
+      
+<!-- Transactions List -->
+      <div id="transactions-list" phx-update="stream" class="space-y-4">
+        <div
+          :for={{dom_id, transaction} <- @streams.transactions}
+          id={dom_id}
+          class="bg-white rounded-lg shadow p-4"
+        >
+          <div class="flex justify-between items-start">
+            <div class="flex-1">
+              <div class="flex justify-between items-start mb-2">
+                <div class="flex-1">
+                  <h3 class="font-semibold text-gray-900">{transaction.asset.name}</h3>
+                </div>
+                <div class="text-right">
+                  <span class={[
+                    "inline-flex px-2 py-1 text-xs font-medium rounded-full",
+                    if(transaction.action == "buy",
+                      do: "bg-green-100 text-green-800",
+                      else: "bg-red-100 text-red-800"
+                    )
+                  ]}>
+                    {String.upcase(transaction.action)}
+                  </span>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p class="text-gray-500">Quantity</p>
+                  <p class="font-medium">{Decimal.to_string(transaction.quantity)}</p>
+                </div>
+                <div>
+                  <p class="text-gray-500">Price</p>
+                  <p class="font-medium">{Money.to_string!(transaction.price)}</p>
+                </div>
+                <div>
+                  <p class="text-gray-500">Commission</p>
+                  <p class="font-medium">{Money.to_string!(transaction.commission)}</p>
+                </div>
+                <div>
+                  <p class="text-gray-500">Total Amount</p>
+                  <p class="font-medium text-lg text-emerald-600">
+                    {Money.to_string!(transaction.amount)}
+                  </p>
+                </div>
+              </div>
+
+              <p class="text-sm text-gray-500 mt-3">
+                {Calendar.strftime(transaction.transaction_date, "%B %d, %Y at %I:%M %p")}
+              </p>
+              <%= if transaction.notes && transaction.notes != "" do %>
+                <p class="text-xs text-gray-600 mt-2 italic">{transaction.notes}</p>
+              <% end %>
+            </div>
+
+            <div class="flex gap-2 ml-4">
+              <button
+                phx-click="edit"
+                phx-value-id={transaction.id}
+                class="text-blue-600 hover:text-blue-800"
+                title="Edit"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                  >
+                  </path>
+                </svg>
+              </button>
+              <button
+                phx-click="delete"
+                phx-value-id={transaction.id}
+                data-confirm="Are you sure you want to delete this transaction?"
+                class="text-red-600 hover:text-red-800"
+                title="Delete"
+              >
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                  >
+                  </path>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+<!-- Pagination -->
+      <%= if @total_pages > 1 do %>
+        <div class="mt-6 flex justify-center items-center gap-2">
+          <%= if @page_number > 1 do %>
+            <button
+              phx-click="page"
+              phx-value-page={@page_number - 1}
+              class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Previous
+            </button>
+          <% else %>
+            <span class="px-3 py-2 text-sm font-medium text-gray-400 bg-gray-100 border border-gray-300 rounded-md cursor-not-allowed">
+              Previous
+            </span>
+          <% end %>
+
+          <span class="px-4 py-2 text-sm text-gray-700">
+            Page {@page_number} of {@total_pages}
+          </span>
+
+          <%= if @page_number < @total_pages do %>
+            <button
+              phx-click="page"
+              phx-value-page={@page_number + 1}
+              class="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Next
+            </button>
+          <% else %>
+            <span class="px-3 py-2 text-sm font-medium text-gray-400 bg-gray-100 border border-gray-300 rounded-md cursor-not-allowed">
+              Next
+            </span>
+          <% end %>
+        </div>
+      <% end %>
+    </div>
+    
+<!-- Transaction Modal -->
+    <%= if @transaction_in_progress do %>
+      <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-medium text-gray-900">
+                {if @transaction_in_progress.id,
+                  do: "Edit Transaction",
+                  else: "Add New Transaction"}
+              </h3>
+              <button phx-click="close_modal" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  >
+                  </path>
+                </svg>
+              </button>
+            </div>
+
+            <%= if @form_errors do %>
+              <.form_errors changeset={@form_errors} />
+            <% end %>
+
+            <form
+              phx-submit={if @transaction_in_progress.id, do: "update", else: "save"}
+              class="space-y-4"
+            >
+              <%= if @transaction_in_progress.id do %>
+                <input
+                  type="hidden"
+                  name="transaction_id"
+                  value={@transaction_in_progress.id}
+                />
+              <% end %>
+
+              <div>
+                <label
+                  for="transaction_asset_id"
+                  class="block text-sm font-medium text-gray-700"
+                >
+                  Asset
+                </label>
+                <select
+                  id="transaction_asset_id"
+                  name="transaction[asset_id]"
+                  required
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                >
+                  <option value="">Select an asset</option>
+                  <%= for asset <- @assets do %>
+                    <option
+                      value={asset.id}
+                      selected={
+                        to_string(asset.id) == to_string(@transaction_in_progress.asset_id)
+                      }
+                    >
+                      {asset.name}
+                    </option>
+                  <% end %>
+                </select>
+              </div>
+
+              <div>
+                <label
+                  for="transaction_action"
+                  class="block text-sm font-medium text-gray-700"
+                >
+                  Action
+                </label>
+                <select
+                  id="transaction_action"
+                  name="transaction[action]"
+                  required
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                >
+                  <option value="">Select action</option>
+                  <option value="buy" selected={@transaction_in_progress.action == "buy"}>
+                    Buy
+                  </option>
+                  <option value="sell" selected={@transaction_in_progress.action == "sell"}>
+                    Sell
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label
+                  for="transaction_quantity"
+                  class="block text-sm font-medium text-gray-700"
+                >
+                  Quantity
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  id="transaction_quantity"
+                  name="transaction[quantity]"
+                  value={@transaction_in_progress.quantity}
+                  required
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  placeholder="e.g. 1000"
+                />
+              </div>
+
+              <div>
+                <label
+                  for="transaction_price"
+                  class="block text-sm font-medium text-gray-700"
+                >
+                  Price per Share
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  id="transaction_price"
+                  name="transaction[price]"
+                  value={@transaction_in_progress.price}
+                  required
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  placeholder="e.g. 1.50"
+                />
+              </div>
+
+              <div>
+                <label
+                  for="transaction_commission"
+                  class="block text-sm font-medium text-gray-700"
+                >
+                  Commission
+                </label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  id="transaction_commission"
+                  name="transaction[commission]"
+                  value={@transaction_in_progress.commission || "0"}
+                  required
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  placeholder="e.g. 5.00"
+                />
+              </div>
+
+              <div>
+                <label
+                  for="transaction_transaction_date"
+                  class="block text-sm font-medium text-gray-700"
+                >
+                  Transaction Date
+                </label>
+                <input
+                  type="datetime-local"
+                  id="transaction_transaction_date"
+                  name="transaction[transaction_date]"
+                  value={@transaction_in_progress.transaction_date}
+                  required
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                />
+              </div>
+
+              <div>
+                <label
+                  for="transaction_notes"
+                  class="block text-sm font-medium text-gray-700"
+                >
+                  Notes (optional)
+                </label>
+                <textarea
+                  id="transaction_notes"
+                  name="transaction[notes]"
+                  rows="2"
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  placeholder="Add any notes about this transaction..."
+                >{@transaction_in_progress.notes}</textarea>
+              </div>
+
+              <div class="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  phx-disable-with={
+                    if @transaction_in_progress.id, do: "Saving...", else: "Adding..."
+                  }
+                  class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                >
+                  {if @transaction_in_progress.id, do: "Save", else: "Add Transaction"}
+                </button>
+                <button
+                  type="button"
+                  phx-click="close_modal"
+                  class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    <% end %>
+    
+<!-- CSV Upload Modal -->
+    <%= if @csv_modal_open do %>
+      <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-medium text-gray-900">Import CSV File</h3>
+              <button phx-click="close_csv_modal" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  >
+                  </path>
+                </svg>
+              </button>
+            </div>
+
+            <%= if @csv_result do %>
+              <%= case @csv_result do %>
+                <% {:ok, message} -> %>
+                  <div class="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+                    {message}
+                  </div>
+                <% {:error, message} -> %>
+                  <div class="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
+                    {message}
+                  </div>
+              <% end %>
+            <% end %>
+
+            <form phx-submit="import_csv" phx-change="validate_csv" class="space-y-4">
+              <div>
+                <label for="csv_file" class="block text-sm font-medium text-gray-700 mb-2">
+                  Select CSV File
+                </label>
+                <.live_file_input
+                  upload={@uploads.csv_file}
+                  class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100"
+                />
+                <%= for entry <- @uploads.csv_file.entries do %>
+                  <%= for err <- upload_errors(@uploads.csv_file, entry) do %>
+                    <p class="text-red-600 text-sm mt-1">{error_to_string(err)}</p>
+                  <% end %>
+                <% end %>
+              </div>
+
+              <div class="text-sm text-gray-600">
+                <p class="font-medium mb-1">CSV Format Requirements:</p>
+                <ul class="text-xs space-y-1">
+                  <li>
+                    &bull; Stock, Action, Quantity, Price, Commission, Date, Currency
+                  </li>
+                  <li>&bull; Date format: DD MMM YYYY (e.g. 26 Jul 2023)</li>
+                  <li>&bull; Action: buy or sell</li>
+                  <li>
+                    &bull; Currency: {Enum.join(Boonorbust2.Currency.supported_currencies(), ", ")}
+                  </li>
+                  <li class="text-gray-500 italic">
+                    &bull; Amount is calculated automatically (quantity &times; price + commission)
+                  </li>
+                </ul>
+              </div>
+
+              <div class="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  phx-disable-with="Importing..."
+                  class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                >
+                  Import CSV
+                </button>
+                <button
+                  type="button"
+                  phx-click="close_csv_modal"
+                  class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <.tab_bar current_tab="transactions">
+      <:tab navigate={~p"/dashboard"} name="dashboard" icon="hero-home">
+        Dashboard
+      </:tab>
+      <:tab navigate={~p"/positions"} name="positions" icon="hero-chart-bar">
+        Positions
+      </:tab>
+      <:tab navigate={~p"/assets"} name="assets" icon="hero-squares-2x2">
+        Assets
+      </:tab>
+      <:tab navigate={~p"/portfolio_transactions"} name="transactions" icon="hero-document-text">
+        Transactions
+      </:tab>
+      <:tab navigate={~p"/portfolios"} name="portfolios" icon="hero-folder">
+        Portfolios
+      </:tab>
+    </.tab_bar>
+  </div>
+</.tab_content>

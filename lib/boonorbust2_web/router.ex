@@ -46,15 +46,13 @@ defmodule Boonorbust2Web.Router do
     post "/assets/update_all_prices", AssetController, :update_all_prices
     get "/assets/:id/dividends", AssetController, :dividends
 
-    resources "/portfolio_transactions", PortfolioTransactionController
-    post "/portfolio_transactions/import_csv", PortfolioTransactionController, :import_csv
-
     get "/user/edit", UserController, :edit
     put "/user", UserController, :update
 
-    live_session :portfolios,
+    live_session :live_views,
       on_mount: {Boonorbust2Web.LiveAuth, :require_authenticated_user} do
       live "/portfolios", PortfolioLive
+      live "/portfolio_transactions", PortfolioTransactionLive
     end
 
     post "/tags/:asset_id", TagController, :add_tag_to_asset
