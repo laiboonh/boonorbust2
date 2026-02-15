@@ -2,6 +2,7 @@ defmodule Boonorbust2Web.PortfolioLive do
   use Boonorbust2Web, :live_view
 
   alias Boonorbust2.Portfolios
+  alias Boonorbust2.Portfolios.Portfolio
   alias Boonorbust2.Tags
 
   @impl true
@@ -72,7 +73,7 @@ defmodule Boonorbust2Web.PortfolioLive do
         %{"portfolio_id" => id, "portfolio" => portfolio_params} = params,
         socket
       ) do
-    portfolio = Portfolios.get_portfolio!(id)
+    portfolio = Portfolios.get_portfolio(id)
     tag_ids = Map.get(params, "tag_ids", [])
 
     case Portfolios.update_portfolio_with_tags(portfolio, portfolio_params, tag_ids) do
@@ -102,17 +103,13 @@ defmodule Boonorbust2Web.PortfolioLive do
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
-    case Portfolios.delete_portfolio_by_id(id) do
-      {:ok, portfolio} ->
-        socket =
-          socket
-          |> assign(:editing_portfolio, nil)
-          |> stream_delete(:portfolios, portfolio)
+    Portfolios.delete_portfolio_by_id(id)
 
-        {:noreply, socket}
+    socket =
+      socket
+      |> assign(:editing_portfolio, nil)
+      |> stream_delete(:portfolios, %Portfolio{id: id})
 
-      {:error, :not_found} ->
-        {:noreply, socket}
-    end
+    {:noreply, socket}
   end
 end

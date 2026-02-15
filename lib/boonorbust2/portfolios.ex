@@ -16,58 +16,23 @@ defmodule Boonorbust2.Portfolios do
     Repo.all(from p in Portfolio, where: p.user_id == ^user_id, order_by: p.name)
   end
 
-  @spec get_portfolio!(integer()) :: Portfolio.t()
-  def get_portfolio!(id), do: Repo.get!(Portfolio, id)
-
   @spec get_portfolio(integer()) :: Portfolio.t() | nil
   def get_portfolio(id), do: Repo.get(Portfolio, id)
 
-  @spec create_portfolio(map()) :: {:ok, Portfolio.t()} | {:error, Ecto.Changeset.t()}
-  def create_portfolio(attrs \\ %{}) do
-    %Portfolio{}
-    |> Portfolio.changeset(attrs)
-    |> Repo.insert()
-  end
-
-  @spec update_portfolio(Portfolio.t(), map()) ::
-          {:ok, Portfolio.t()} | {:error, Ecto.Changeset.t()}
-  def update_portfolio(%Portfolio{} = portfolio, attrs) do
-    portfolio
-    |> Portfolio.changeset(attrs)
-    |> Repo.update()
-  end
-
   @doc """
   Deletes a portfolio by ID, including its associated portfolio tags.
-  Returns {:ok, portfolio} on success, {:error, :not_found} if portfolio doesn't exist.
   """
-  @spec delete_portfolio_by_id(integer()) ::
-          {:ok, Portfolio.t()} | {:error, :not_found | Ecto.Changeset.t()}
+  @spec delete_portfolio_by_id(integer()) :: :ok
   def delete_portfolio_by_id(id) do
-    case get_portfolio(id) do
-      nil ->
-        {:error, :not_found}
+    tags_query = from(pt in PortfolioTag, where: pt.portfolio_id == ^id)
+    portfolio_query = from(p in Portfolio, where: p.id == ^id)
 
-      portfolio ->
-        tags_query = from(pt in PortfolioTag, where: pt.portfolio_id == ^portfolio.id)
+    Ecto.Multi.new()
+    |> Ecto.Multi.delete_all(:tags, tags_query)
+    |> Ecto.Multi.delete_all(:portfolio, portfolio_query)
+    |> Repo.transaction()
 
-        Ecto.Multi.new()
-        |> Ecto.Multi.delete_all(:tags, tags_query)
-        |> Ecto.Multi.delete(:portfolio, portfolio)
-        |> Repo.transaction()
-        |> case do
-          {:ok, %{portfolio: deleted_portfolio}} ->
-            {:ok, deleted_portfolio}
-
-          {:error, :portfolio, changeset, _} ->
-            {:error, changeset}
-        end
-    end
-  end
-
-  @spec change_portfolio(Portfolio.t(), map()) :: Ecto.Changeset.t()
-  def change_portfolio(%Portfolio{} = portfolio, attrs \\ %{}) do
-    Portfolio.changeset(portfolio, attrs)
+    :ok
   end
 
   @doc """
@@ -113,23 +78,13 @@ defmodule Boonorbust2.Portfolios do
     |> Repo.all()
     |> case do
       [] ->
-        get_portfolio!(portfolio_id) |> Map.put(:tags, [])
+        get_portfolio(portfolio_id) |> Map.put(:tags, [])
 
       results ->
         {portfolio, _} = hd(results)
         tags = results |> Enum.map(fn {_, tag} -> tag end) |> Enum.filter(& &1)
         Map.put(portfolio, :tags, tags)
     end
-  end
-
-  @doc """
-  Lists tag IDs for a portfolio (useful for form selections).
-  """
-  @spec list_tag_ids_for_portfolio(integer()) :: [integer()]
-  def list_tag_ids_for_portfolio(portfolio_id) do
-    portfolio_id
-    |> list_tags_for_portfolio()
-    |> Enum.map(& &1.id)
   end
 
   @doc """
@@ -187,29 +142,6 @@ defmodule Boonorbust2.Portfolios do
 
   # PortfolioTag functions
 
-  @spec add_tag_to_portfolio(integer(), integer()) ::
-          {:ok, PortfolioTag.t()} | {:error, Ecto.Changeset.t()}
-  def add_tag_to_portfolio(portfolio_id, tag_id) do
-    %PortfolioTag{}
-    |> PortfolioTag.changeset(%{
-      portfolio_id: portfolio_id,
-      tag_id: tag_id
-    })
-    |> Repo.insert()
-  end
-
-  @spec remove_tag_from_portfolio(integer(), integer()) ::
-          {:ok, PortfolioTag.t()} | {:error, Ecto.Changeset.t() | :not_found}
-  def remove_tag_from_portfolio(portfolio_id, tag_id) do
-    portfolio_tag = Repo.get_by(PortfolioTag, portfolio_id: portfolio_id, tag_id: tag_id)
-
-    if portfolio_tag do
-      Repo.delete(portfolio_tag)
-    else
-      {:error, :not_found}
-    end
-  end
-
   @spec list_tags_for_portfolio(integer()) :: [Tag.t()]
   def list_tags_for_portfolio(portfolio_id) do
     Repo.all(
@@ -218,15 +150,6 @@ defmodule Boonorbust2.Portfolios do
         on: pt.tag_id == t.id,
         where: pt.portfolio_id == ^portfolio_id,
         order_by: t.name
-    )
-  end
-
-  @spec list_portfolios_for_tag(integer()) :: [integer()]
-  def list_portfolios_for_tag(tag_id) do
-    Repo.all(
-      from pt in PortfolioTag,
-        where: pt.tag_id == ^tag_id,
-        select: pt.portfolio_id
     )
   end
 

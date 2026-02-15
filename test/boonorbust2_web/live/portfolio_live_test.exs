@@ -23,12 +23,6 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
 
   describe "index" do
     test "lists all portfolios with tags", %{conn: conn, user: user} do
-      {:ok, portfolio} =
-        Boonorbust2.Portfolios.create_portfolio(%{
-          name: "Growth Portfolio",
-          user_id: user.id
-        })
-
       {:ok, tag1} =
         Boonorbust2.Tags.create_tag(%{
           name: "Stocks",
@@ -41,8 +35,11 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
           user_id: user.id
         })
 
-      Boonorbust2.Portfolios.add_tag_to_portfolio(portfolio.id, tag1.id)
-      Boonorbust2.Portfolios.add_tag_to_portfolio(portfolio.id, tag2.id)
+      {:ok, _portfolio} =
+        Boonorbust2.Portfolios.create_portfolio_with_tags(
+          %{name: "Growth Portfolio", user_id: user.id},
+          [tag1.id, tag2.id]
+        )
 
       {:ok, _view, html} = live(conn, ~p"/portfolios")
 
@@ -136,7 +133,7 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
     end
 
     test "shows error for duplicate name", %{conn: conn, user: user} do
-      Boonorbust2.Portfolios.create_portfolio(%{
+      Boonorbust2.Portfolios.create_portfolio_with_tags(%{
         name: "Existing Portfolio",
         user_id: user.id
       })
@@ -178,12 +175,6 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
 
   describe "update" do
     test "updates portfolio and syncs tags", %{conn: conn, user: user} do
-      {:ok, portfolio} =
-        Boonorbust2.Portfolios.create_portfolio(%{
-          name: "Original Name",
-          user_id: user.id
-        })
-
       {:ok, tag1} =
         Boonorbust2.Tags.create_tag(%{
           name: "Old Tag",
@@ -196,7 +187,11 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
           user_id: user.id
         })
 
-      Boonorbust2.Portfolios.add_tag_to_portfolio(portfolio.id, tag1.id)
+      {:ok, portfolio} =
+        Boonorbust2.Portfolios.create_portfolio_with_tags(
+          %{name: "Original Name", user_id: user.id},
+          [tag1.id]
+        )
 
       {:ok, view, _html} = live(conn, ~p"/portfolios")
 
@@ -219,7 +214,7 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
       assert html =~ "Updated Name"
       refute html =~ "Edit Portfolio"
 
-      updated_portfolio = Boonorbust2.Portfolios.get_portfolio!(portfolio.id)
+      updated_portfolio = Boonorbust2.Portfolios.get_portfolio(portfolio.id)
       assert updated_portfolio.name == "Updated Name"
 
       tags = Boonorbust2.Portfolios.list_tags_for_portfolio(portfolio.id)
@@ -228,19 +223,17 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
     end
 
     test "updates portfolio and removes all tags", %{conn: conn, user: user} do
-      {:ok, portfolio} =
-        Boonorbust2.Portfolios.create_portfolio(%{
-          name: "Portfolio",
-          user_id: user.id
-        })
-
       {:ok, tag} =
         Boonorbust2.Tags.create_tag(%{
           name: "Tag",
           user_id: user.id
         })
 
-      Boonorbust2.Portfolios.add_tag_to_portfolio(portfolio.id, tag.id)
+      {:ok, portfolio} =
+        Boonorbust2.Portfolios.create_portfolio_with_tags(
+          %{name: "Portfolio", user_id: user.id},
+          [tag.id]
+        )
 
       {:ok, view, _html} = live(conn, ~p"/portfolios")
 
@@ -262,7 +255,7 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
 
     test "updates portfolio description without changing name", %{conn: conn, user: user} do
       {:ok, portfolio} =
-        Boonorbust2.Portfolios.create_portfolio(%{
+        Boonorbust2.Portfolios.create_portfolio_with_tags(%{
           name: "My Portfolio",
           user_id: user.id
         })
@@ -280,19 +273,19 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
       })
       |> render_submit()
 
-      updated = Boonorbust2.Portfolios.get_portfolio!(portfolio.id)
+      updated = Boonorbust2.Portfolios.get_portfolio(portfolio.id)
       assert updated.name == "My Portfolio"
       assert updated.description == "New description"
     end
 
     test "shows error when renaming to an existing portfolio name", %{conn: conn, user: user} do
-      Boonorbust2.Portfolios.create_portfolio(%{
+      Boonorbust2.Portfolios.create_portfolio_with_tags(%{
         name: "Portfolio A",
         user_id: user.id
       })
 
       {:ok, portfolio_b} =
-        Boonorbust2.Portfolios.create_portfolio(%{
+        Boonorbust2.Portfolios.create_portfolio_with_tags(%{
           name: "Portfolio B",
           user_id: user.id
         })
@@ -316,7 +309,7 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
 
     test "shows errors when update data is invalid", %{conn: conn, user: user} do
       {:ok, portfolio} =
-        Boonorbust2.Portfolios.create_portfolio(%{
+        Boonorbust2.Portfolios.create_portfolio_with_tags(%{
           name: "Portfolio",
           user_id: user.id
         })
@@ -339,13 +332,13 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
     end
 
     test "preserves submitted name on update error", %{conn: conn, user: user} do
-      Boonorbust2.Portfolios.create_portfolio(%{
+      Boonorbust2.Portfolios.create_portfolio_with_tags(%{
         name: "Existing",
         user_id: user.id
       })
 
       {:ok, portfolio} =
-        Boonorbust2.Portfolios.create_portfolio(%{
+        Boonorbust2.Portfolios.create_portfolio_with_tags(%{
           name: "My Portfolio",
           user_id: user.id
         })
@@ -369,13 +362,13 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
     end
 
     test "preserves selected tags on update error", %{conn: conn, user: user} do
-      Boonorbust2.Portfolios.create_portfolio(%{
+      Boonorbust2.Portfolios.create_portfolio_with_tags(%{
         name: "Existing",
         user_id: user.id
       })
 
       {:ok, portfolio} =
-        Boonorbust2.Portfolios.create_portfolio(%{
+        Boonorbust2.Portfolios.create_portfolio_with_tags(%{
           name: "My Portfolio",
           user_id: user.id
         })
@@ -410,7 +403,7 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
   describe "delete" do
     test "deletes chosen portfolio", %{conn: conn, user: user} do
       {:ok, portfolio} =
-        Boonorbust2.Portfolios.create_portfolio(%{
+        Boonorbust2.Portfolios.create_portfolio_with_tags(%{
           name: "Delete Me",
           user_id: user.id
         })
@@ -428,19 +421,17 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
     end
 
     test "deletes portfolio and cleans up associated tags", %{conn: conn, user: user} do
-      {:ok, portfolio} =
-        Boonorbust2.Portfolios.create_portfolio(%{
-          name: "Portfolio with Tags",
-          user_id: user.id
-        })
-
       {:ok, tag} =
         Boonorbust2.Tags.create_tag(%{
           name: "Test Tag",
           user_id: user.id
         })
 
-      Boonorbust2.Portfolios.add_tag_to_portfolio(portfolio.id, tag.id)
+      {:ok, portfolio} =
+        Boonorbust2.Portfolios.create_portfolio_with_tags(
+          %{name: "Portfolio with Tags", user_id: user.id},
+          [tag.id]
+        )
 
       assert length(Boonorbust2.Portfolios.list_tags_for_portfolio(portfolio.id)) == 1
 

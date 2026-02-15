@@ -20,27 +20,16 @@ defmodule Boonorbust2.PortfoliosTest do
   describe "delete_portfolio_by_id/1" do
     test "deletes existing portfolio", %{user: user} do
       {:ok, portfolio} =
-        Portfolios.create_portfolio(%{
+        Portfolios.create_portfolio_with_tags(%{
           name: "Test Portfolio",
           user_id: user.id
         })
 
-      assert {:ok, deleted_portfolio} = Portfolios.delete_portfolio_by_id(portfolio.id)
-      assert deleted_portfolio.id == portfolio.id
+      assert :ok = Portfolios.delete_portfolio_by_id(portfolio.id)
       assert Portfolios.get_portfolio(portfolio.id) == nil
     end
 
-    test "returns :not_found for non-existent portfolio" do
-      assert {:error, :not_found} = Portfolios.delete_portfolio_by_id(999_999)
-    end
-
     test "deletes portfolio and its associated tags", %{user: user} do
-      {:ok, portfolio} =
-        Portfolios.create_portfolio(%{
-          name: "Portfolio with Tags",
-          user_id: user.id
-        })
-
       {:ok, tag1} =
         Tags.create_tag(%{
           name: "Tag1",
@@ -53,14 +42,17 @@ defmodule Boonorbust2.PortfoliosTest do
           user_id: user.id
         })
 
-      Portfolios.add_tag_to_portfolio(portfolio.id, tag1.id)
-      Portfolios.add_tag_to_portfolio(portfolio.id, tag2.id)
+      {:ok, portfolio} =
+        Portfolios.create_portfolio_with_tags(
+          %{name: "Portfolio with Tags", user_id: user.id},
+          [tag1.id, tag2.id]
+        )
 
       # Verify tags are associated
       assert length(Portfolios.list_tags_for_portfolio(portfolio.id)) == 2
 
       # Delete portfolio
-      assert {:ok, _deleted} = Portfolios.delete_portfolio_by_id(portfolio.id)
+      assert :ok = Portfolios.delete_portfolio_by_id(portfolio.id)
 
       # Verify portfolio is deleted
       assert Portfolios.get_portfolio(portfolio.id) == nil
