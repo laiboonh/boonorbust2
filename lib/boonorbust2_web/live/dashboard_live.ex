@@ -1,5 +1,5 @@
-defmodule Boonorbust2Web.DashboardController do
-  use Boonorbust2Web, :controller
+defmodule Boonorbust2Web.DashboardLive do
+  use Boonorbust2Web, :live_view
 
   alias Boonorbust2.Dashboard
   alias Boonorbust2.PortfolioPositions
@@ -8,9 +8,9 @@ defmodule Boonorbust2Web.DashboardController do
   alias Boonorbust2.RealizedProfits
   alias Boonorbust2.Tags
 
-  @spec index(Plug.Conn.t(), map()) :: Plug.Conn.t()
-  def index(conn, _params) do
-    %{id: user_id, currency: user_currency} = conn.assigns.current_user
+  @impl true
+  def mount(_params, _session, socket) do
+    %{id: user_id, currency: user_currency} = socket.assigns.current_user
 
     # Fetch raw data from contexts
     positions = PortfolioPositions.list_latest_positions(user_id, nil)
@@ -53,20 +53,21 @@ defmodule Boonorbust2Web.DashboardController do
     recent_dividends_converted =
       Dashboard.convert_dividends_to_user_currency(recent_dividends, user_currency)
 
-    # Render with all prepared data
-    render(conn, :index,
-      positions: enriched_positions,
-      realized_profits_by_asset: realized_profits_by_asset,
-      converted_realized_profits_by_asset: converted_realized_profits,
-      all_tags: all_tags,
-      tag_chart_data: tag_chart_data,
-      portfolios: portfolios_with_data,
-      user_currency: user_currency,
-      portfolio_snapshots: portfolio_snapshots,
-      dividend_chart_data: dividend_chart_data,
-      upcoming_dividends: upcoming_dividends_converted,
-      recent_dividends: recent_dividends_converted,
-      investment_allocation_chart_data: investment_allocation_data
-    )
+    socket =
+      socket
+      |> assign(:positions, enriched_positions)
+      |> assign(:realized_profits_by_asset, realized_profits_by_asset)
+      |> assign(:converted_realized_profits_by_asset, converted_realized_profits)
+      |> assign(:all_tags, all_tags)
+      |> assign(:tag_chart_data, tag_chart_data)
+      |> assign(:portfolios, portfolios_with_data)
+      |> assign(:user_currency, user_currency)
+      |> assign(:portfolio_snapshots, portfolio_snapshots)
+      |> assign(:dividend_chart_data, dividend_chart_data)
+      |> assign(:upcoming_dividends, upcoming_dividends_converted)
+      |> assign(:recent_dividends, recent_dividends_converted)
+      |> assign(:investment_allocation_chart_data, investment_allocation_data)
+
+    {:ok, socket}
   end
 end
