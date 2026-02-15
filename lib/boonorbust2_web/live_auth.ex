@@ -15,7 +15,10 @@ defmodule Boonorbust2Web.LiveAuth do
     user = user_id && Accounts.get_user_by_id(user_id)
 
     if user do
-      {:cont, assign(socket, :current_user, user)}
+      admin_emails = Application.get_env(:boonorbust2, :admins, [])
+      is_admin = user.email in admin_emails
+
+      {:cont, socket |> assign(:current_user, user) |> assign(:is_admin, is_admin)}
     else
       {:halt, redirect(socket, to: "/")}
     end

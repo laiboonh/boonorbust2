@@ -1,0 +1,485 @@
+<.tab_content class="min-h-screen bg-gray-50">
+  <div class="px-4 py-8">
+    <div class="max-w-lg mx-auto">
+      <%= if @is_admin do %>
+        <div class="flex gap-3 mb-6">
+          <button
+            phx-click="new"
+            class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-emerald-600 text-white text-sm font-medium rounded-lg hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+          >
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+              />
+            </svg>
+            Add Asset
+          </button>
+
+          <button
+            phx-click="update_all_prices"
+            phx-disable-with="Updating..."
+            class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
+            </svg>
+            Update Prices & Dividends
+          </button>
+        </div>
+      <% end %>
+
+      <%= if @update_result do %>
+        <div class="mb-4 p-3 bg-green-100 border border-green-400 text-green-700 rounded">
+          {@update_result}
+        </div>
+      <% end %>
+      
+<!-- Filter Form -->
+      <form phx-submit="filter" class="mb-4">
+        <div class="flex gap-2">
+          <input
+            type="text"
+            name="filter"
+            value={@filter}
+            placeholder="Search by asset name or tag..."
+            class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+          />
+          <button
+            type="submit"
+            class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
+          >
+            Filter
+          </button>
+          <%= if @filter != "" do %>
+            <button
+              type="button"
+              phx-click="clear_filter"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+            >
+              Clear
+            </button>
+          <% end %>
+        </div>
+      </form>
+      
+<!-- Assets List -->
+      <div id="assets-list" phx-update="stream" class="space-y-4">
+        <div
+          :for={{dom_id, asset} <- @streams.assets}
+          id={dom_id}
+          class="bg-white rounded-lg shadow p-4"
+        >
+          <div class="flex justify-between items-start">
+            <div class="flex-1">
+              <div class="mb-2">
+                <h3 class="font-semibold text-gray-900">{asset.name}</h3>
+              </div>
+              <%= if asset.price do %>
+                <p class="text-xl font-bold text-emerald-600">
+                  {asset.currency} {Decimal.to_string(asset.price)}
+                </p>
+              <% else %>
+                <p class="text-gray-500 italic">Price not set</p>
+              <% end %>
+              <p class="text-sm text-gray-500 mt-2">
+                Updated
+                <span class="local-time" data-utc-time={DateTime.to_iso8601(asset.updated_at)}>
+                  {Calendar.strftime(asset.updated_at, "%B %d, %Y at %I:%M %p")}
+                </span>
+              </p>
+            </div>
+
+            <div class="flex gap-2 ml-4">
+              <%= if asset.distributes_dividends do %>
+                <button
+                  phx-click="show_dividends"
+                  phx-value-id={asset.id}
+                  class="text-blue-600 hover:text-blue-800"
+                  title="View dividends"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    >
+                    </path>
+                  </svg>
+                </button>
+              <% end %>
+              <%= if @is_admin do %>
+                <button
+                  phx-click="edit"
+                  phx-value-id={asset.id}
+                  class="text-emerald-600 hover:text-emerald-800"
+                  title="Edit asset"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    >
+                    </path>
+                  </svg>
+                </button>
+                <button
+                  phx-click="delete"
+                  phx-value-id={asset.id}
+                  data-confirm="Are you sure you want to delete this asset?"
+                  class="text-red-600 hover:text-red-800"
+                  title="Delete asset"
+                >
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    >
+                    </path>
+                  </svg>
+                </button>
+              <% end %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+<!-- Asset Modal -->
+    <%= if @asset_in_progress do %>
+      <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+          <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-medium text-gray-900">
+                {if @asset_in_progress.id, do: "Edit Asset", else: "Add New Asset"}
+              </h3>
+              <button phx-click="close_modal" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  >
+                  </path>
+                </svg>
+              </button>
+            </div>
+
+            <%= if @form_errors do %>
+              <.form_errors changeset={@form_errors} />
+            <% end %>
+
+            <form
+              phx-submit={if @asset_in_progress.id, do: "update", else: "save"}
+              class="space-y-4"
+            >
+              <%= if @asset_in_progress.id do %>
+                <input type="hidden" name="asset_id" value={@asset_in_progress.id} />
+              <% end %>
+
+              <div>
+                <label for="asset_name" class="block text-sm font-medium text-gray-700">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  id="asset_name"
+                  name="asset[name]"
+                  value={@asset_in_progress.name}
+                  required
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  placeholder="e.g. Apple Inc."
+                />
+              </div>
+
+              <div>
+                <label for="asset_price_url" class="block text-sm font-medium text-gray-700">
+                  Price URL
+                </label>
+                <input
+                  type="text"
+                  id="asset_price_url"
+                  name="asset[price_url]"
+                  value={@asset_in_progress.price_url}
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  placeholder="e.g. https://example.com/price"
+                />
+              </div>
+
+              <div>
+                <label for="asset_currency" class="block text-sm font-medium text-gray-700">
+                  Currency
+                </label>
+                <select
+                  id="asset_currency"
+                  name="asset[currency]"
+                  required
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                >
+                  <%= if @asset_in_progress.id do %>
+                    <%= for {label, value} <- Boonorbust2.Currency.currency_options() do %>
+                      <option value={value} selected={@asset_in_progress.currency == value}>
+                        {label}
+                      </option>
+                    <% end %>
+                  <% else %>
+                    <%= for {label, value} <- Boonorbust2.Currency.currency_options_with_default() do %>
+                      <option value={value} selected={@asset_in_progress.currency == value}>
+                        {label}
+                      </option>
+                    <% end %>
+                  <% end %>
+                </select>
+              </div>
+
+              <div class="flex items-center">
+                <input type="hidden" name="asset[distributes_dividends]" value="false" />
+                <input
+                  type="checkbox"
+                  id="asset_distributes_dividends"
+                  name="asset[distributes_dividends]"
+                  value="true"
+                  checked={
+                    @asset_in_progress.distributes_dividends == true or
+                      @asset_in_progress.distributes_dividends == "true"
+                  }
+                  class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                />
+                <label for="asset_distributes_dividends" class="ml-2 block text-sm text-gray-700">
+                  Distributes dividends
+                </label>
+              </div>
+
+              <div>
+                <label for="asset_dividend_url" class="block text-sm font-medium text-gray-700">
+                  Dividend URL
+                </label>
+                <input
+                  type="text"
+                  id="asset_dividend_url"
+                  name="asset[dividend_url]"
+                  value={@asset_in_progress.dividend_url}
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                  placeholder="e.g. https://example.com/dividends"
+                />
+              </div>
+
+              <div>
+                <label
+                  for="asset_dividend_withholding_tax"
+                  class="block text-sm font-medium text-gray-700"
+                >
+                  Dividend Withholding Tax
+                </label>
+                <select
+                  id="asset_dividend_withholding_tax"
+                  name="asset[dividend_withholding_tax]"
+                  class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+                >
+                  <option value="">Select rate</option>
+                  <option
+                    value="0"
+                    selected={@asset_in_progress.dividend_withholding_tax == "0"}
+                  >
+                    0%
+                  </option>
+                  <option
+                    value="0.05"
+                    selected={@asset_in_progress.dividend_withholding_tax == "0.05"}
+                  >
+                    5%
+                  </option>
+                  <option
+                    value="0.1"
+                    selected={@asset_in_progress.dividend_withholding_tax == "0.1"}
+                  >
+                    10%
+                  </option>
+                  <option
+                    value="0.15"
+                    selected={@asset_in_progress.dividend_withholding_tax == "0.15"}
+                  >
+                    15%
+                  </option>
+                  <option
+                    value="0.2"
+                    selected={@asset_in_progress.dividend_withholding_tax == "0.2"}
+                  >
+                    20%
+                  </option>
+                  <option
+                    value="0.25"
+                    selected={@asset_in_progress.dividend_withholding_tax == "0.25"}
+                  >
+                    25%
+                  </option>
+                  <option
+                    value="0.3"
+                    selected={@asset_in_progress.dividend_withholding_tax == "0.3"}
+                  >
+                    30%
+                  </option>
+                  <option
+                    value="0.35"
+                    selected={@asset_in_progress.dividend_withholding_tax == "0.35"}
+                  >
+                    35%
+                  </option>
+                  <option
+                    value="0.4"
+                    selected={@asset_in_progress.dividend_withholding_tax == "0.4"}
+                  >
+                    40%
+                  </option>
+                  <option
+                    value="0.45"
+                    selected={@asset_in_progress.dividend_withholding_tax == "0.45"}
+                  >
+                    45%
+                  </option>
+                  <option
+                    value="0.5"
+                    selected={@asset_in_progress.dividend_withholding_tax == "0.5"}
+                  >
+                    50%
+                  </option>
+                </select>
+              </div>
+
+              <div class="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  phx-disable-with={if @asset_in_progress.id, do: "Saving...", else: "Adding..."}
+                  class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2"
+                >
+                  {if @asset_in_progress.id, do: "Save", else: "Add Asset"}
+                </button>
+                <button
+                  type="button"
+                  phx-click="close_modal"
+                  class="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    <% end %>
+    
+<!-- Dividends Modal -->
+    <%= if @dividends_modal do %>
+      <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border max-w-2xl shadow-lg rounded-md bg-white">
+          <div class="mt-3">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-medium text-gray-900">
+                Dividends for {@dividends_modal.asset.name}
+              </h3>
+              <button phx-click="close_dividends_modal" class="text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M6 18L18 6M6 6l12 12"
+                  >
+                  </path>
+                </svg>
+              </button>
+            </div>
+
+            <%= if Enum.empty?(@dividends_modal.dividends) do %>
+              <div class="text-center py-8 text-gray-500">
+                <p>No dividends recorded for this asset.</p>
+              </div>
+            <% else %>
+              <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Ex-Date
+                      </th>
+                      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Pay Date
+                      </th>
+                      <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Value
+                      </th>
+                      <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Currency
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody class="bg-white divide-y divide-gray-200">
+                    <%= for dividend <- @dividends_modal.dividends do %>
+                      <tr>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {Calendar.strftime(dividend.ex_date, "%B %d, %Y")}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                          <%= if dividend.pay_date do %>
+                            {Calendar.strftime(dividend.pay_date, "%B %d, %Y")}
+                          <% else %>
+                            <span class="text-gray-400 italic">N/A</span>
+                          <% end %>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right font-medium">
+                          {Decimal.to_string(dividend.value)}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                          {dividend.currency}
+                        </td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+            <% end %>
+
+            <div class="mt-4 text-sm text-gray-500 text-right">
+              Total: {length(@dividends_modal.dividends)} {if length(@dividends_modal.dividends) ==
+                                                                1,
+                                                              do: "dividend",
+                                                              else: "dividends"}
+            </div>
+          </div>
+        </div>
+      </div>
+    <% end %>
+
+    <.tab_bar current_tab="assets">
+      <:tab navigate={~p"/dashboard"} name="dashboard" icon="hero-home">
+        Dashboard
+      </:tab>
+      <:tab navigate={~p"/positions"} name="positions" icon="hero-chart-bar">
+        Positions
+      </:tab>
+      <:tab navigate={~p"/assets"} name="assets" icon="hero-squares-2x2">
+        Assets
+      </:tab>
+      <:tab navigate={~p"/portfolio_transactions"} name="transactions" icon="hero-document-text">
+        Transactions
+      </:tab>
+      <:tab navigate={~p"/portfolios"} name="portfolios" icon="hero-folder">
+        Portfolios
+      </:tab>
+    </.tab_bar>
+  </div>
+</.tab_content>

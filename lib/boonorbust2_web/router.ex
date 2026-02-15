@@ -42,10 +42,6 @@ defmodule Boonorbust2Web.Router do
     get "/positions/history/:asset_id", PositionsController, :positions
     get "/positions/realized_profits/:asset_id", PositionsController, :realized_profits
 
-    resources "/assets", AssetController
-    post "/assets/update_all_prices", AssetController, :update_all_prices
-    get "/assets/:id/dividends", AssetController, :dividends
-
     get "/user/edit", UserController, :edit
     put "/user", UserController, :update
 
@@ -53,6 +49,7 @@ defmodule Boonorbust2Web.Router do
       on_mount: {Boonorbust2Web.LiveAuth, :require_authenticated_user} do
       live "/portfolios", PortfolioLive
       live "/portfolio_transactions", PortfolioTransactionLive
+      live "/assets", AssetLive
     end
 
     post "/tags/:asset_id", TagController, :add_tag_to_asset
