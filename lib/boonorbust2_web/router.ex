@@ -38,10 +38,6 @@ defmodule Boonorbust2Web.Router do
 
     get "/dashboard", DashboardController, :index
 
-    get "/positions", PositionsController, :index
-    get "/positions/history/:asset_id", PositionsController, :positions
-    get "/positions/realized_profits/:asset_id", PositionsController, :realized_profits
-
     get "/user/edit", UserController, :edit
     put "/user", UserController, :update
 
@@ -50,10 +46,8 @@ defmodule Boonorbust2Web.Router do
       live "/portfolios", PortfolioLive
       live "/portfolio_transactions", PortfolioTransactionLive
       live "/assets", AssetLive
+      live "/positions", PositionsLive
     end
-
-    post "/tags/:asset_id", TagController, :add_tag_to_asset
-    delete "/tags/:asset_id/:tag_id", TagController, :remove_tag_from_asset
   end
 
   # Other scopes may use custom stacks.
