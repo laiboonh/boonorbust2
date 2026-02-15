@@ -99,14 +99,20 @@ defmodule Boonorbust2Web.PortfolioTransactionLiveTest do
   end
 
   describe "create" do
-    test "prefills transaction date with current datetime", %{conn: conn} do
+    test "prefills transaction date with current datetime in user timezone", %{conn: conn} do
+      # Asia/Singapore is UTC+8, JS getTimezoneOffset() returns -480
+      conn = put_connect_params(conn, %{"timezone_offset" => -480})
       {:ok, view, _html} = live(conn, ~p"/portfolio_transactions")
 
       view |> element("button", "Add Transaction") |> render_click()
 
       html = render(view)
       # datetime-local requires YYYY-MM-DDTHH:MM format (no seconds)
-      expected = DateTime.utc_now() |> Calendar.strftime("%Y-%m-%dT%H:")
+      expected =
+        DateTime.utc_now()
+        |> DateTime.add(480 * 60, :second)
+        |> Calendar.strftime("%Y-%m-%dT%H:")
+
       assert html =~ ~s|value="#{expected}|
     end
 

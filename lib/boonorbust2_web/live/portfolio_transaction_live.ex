@@ -9,10 +9,13 @@ defmodule Boonorbust2Web.PortfolioTransactionLive do
   @impl true
   def mount(_params, _session, socket) do
     %{id: user_id} = socket.assigns.current_user
+    # Browser sends getTimezoneOffset() in minutes (negative = ahead of UTC)
+    timezone_offset = get_connect_params(socket)["timezone_offset"] || 0
 
     socket =
       socket
       |> assign(:user_id, user_id)
+      |> assign(:timezone_offset, timezone_offset)
       |> assign(:form_errors, nil)
       |> assign(:transaction_in_progress, nil)
       |> assign(:csv_modal_open, false)
@@ -57,7 +60,7 @@ defmodule Boonorbust2Web.PortfolioTransactionLive do
          quantity: nil,
          price: nil,
          commission: nil,
-         transaction_date: DateTime.utc_now() |> Calendar.strftime("%Y-%m-%dT%H:%M"),
+         transaction_date: local_now(socket.assigns.timezone_offset),
          notes: nil
        },
        form_errors: nil
@@ -322,6 +325,13 @@ defmodule Boonorbust2Web.PortfolioTransactionLive do
       {key, ""} -> {key, nil}
       {key, value} -> {key, value}
     end)
+  end
+
+  defp local_now(offset_minutes) do
+    # JS getTimezoneOffset() returns minutes *behind* UTC, so negate to shift forward
+    DateTime.utc_now()
+    |> DateTime.add(-offset_minutes * 60, :second)
+    |> Calendar.strftime("%Y-%m-%dT%H:%M")
   end
 
   defp error_to_string(:too_large), do: "File is too large"
