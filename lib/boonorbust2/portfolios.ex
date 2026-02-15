@@ -37,9 +37,32 @@ defmodule Boonorbust2.Portfolios do
     |> Repo.update()
   end
 
-  @spec delete_portfolio(Portfolio.t()) :: {:ok, Portfolio.t()} | {:error, Ecto.Changeset.t()}
-  def delete_portfolio(%Portfolio{} = portfolio) do
-    Repo.delete(portfolio)
+  @doc """
+  Deletes a portfolio by ID, including its associated portfolio tags.
+  Returns {:ok, portfolio} on success, {:error, :not_found} if portfolio doesn't exist.
+  """
+  @spec delete_portfolio_by_id(integer()) ::
+          {:ok, Portfolio.t()} | {:error, :not_found | Ecto.Changeset.t()}
+  def delete_portfolio_by_id(id) do
+    case get_portfolio(id) do
+      nil ->
+        {:error, :not_found}
+
+      portfolio ->
+        tags_query = from(pt in PortfolioTag, where: pt.portfolio_id == ^portfolio.id)
+
+        Ecto.Multi.new()
+        |> Ecto.Multi.delete_all(:tags, tags_query)
+        |> Ecto.Multi.delete(:portfolio, portfolio)
+        |> Repo.transaction()
+        |> case do
+          {:ok, %{portfolio: deleted_portfolio}} ->
+            {:ok, deleted_portfolio}
+
+          {:error, :portfolio, changeset, _} ->
+            {:error, changeset}
+        end
+    end
   end
 
   @spec change_portfolio(Portfolio.t(), map()) :: Ecto.Changeset.t()

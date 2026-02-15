@@ -72,7 +72,7 @@ defmodule Boonorbust2Web.TagController do
 
   # Private functions
 
-  @spec parse_asset_id(map()) :: integer()
+  @spec parse_asset_id(map()) :: pos_integer()
   defp parse_asset_id(%{"asset_id" => asset_id}) do
     case Integer.parse(asset_id) do
       {num, _} when num > 0 -> num
@@ -80,7 +80,7 @@ defmodule Boonorbust2Web.TagController do
     end
   end
 
-  @spec parse_tag_id(map()) :: integer()
+  @spec parse_tag_id(map()) :: pos_integer()
   defp parse_tag_id(%{"tag_id" => tag_id}) do
     case Integer.parse(tag_id) do
       {num, _} when num > 0 -> num

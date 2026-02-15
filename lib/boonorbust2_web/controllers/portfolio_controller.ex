@@ -9,7 +9,7 @@ defmodule Boonorbust2Web.PortfolioController do
   def index(conn, _params) do
     %{id: user_id} = conn.assigns.current_user
 
-    # Delegate data enrichment to context
+    # need to prepare everything needed for list, edit and add portfolio
     portfolios_with_tags = Portfolios.list_portfolios_with_tags(user_id)
     all_tags = Tags.list_tags(user_id)
 
@@ -111,9 +111,14 @@ defmodule Boonorbust2Web.PortfolioController do
 
   @spec delete(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def delete(conn, %{"id" => id}) do
-    portfolio = Portfolios.get_portfolio!(id)
-    {:ok, _portfolio} = Portfolios.delete_portfolio(portfolio)
+    case Portfolios.delete_portfolio_by_id(id) do
+      {:ok, _portfolio} ->
+        redirect(conn, to: ~p"/portfolios")
 
-    redirect(conn, to: ~p"/portfolios")
+      {:error, :not_found} ->
+        conn
+        |> put_status(:not_found)
+        |> text("Portfolio not found")
+    end
   end
 end

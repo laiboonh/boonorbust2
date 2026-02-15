@@ -4,23 +4,19 @@
   # ~r/.*this function has no local return.*/,
   # {":0:unknown_function Function 'Elixir.SuperModule':'some_func'/0 does not exist", :unknown_function}
 
-  # Authentication plug halts connection when auth fails - this is expected behavior
-  ~r/Function require_authenticated_user\/2 has no local return/,
+  # # Authentication plug halts connection when auth fails - this is expected behavior
+  # ~r/Function require_authenticated_user\/2 has no local return/,
 
-  # Asset update - typespec is intentionally general (Asset.t() vs full struct)
-  ~r/lib\/boonorbust2\/assets\.ex:(152|168|1049):contract_supertype/,
+  # # Asset update - typespec is intentionally general (Asset.t() vs full struct)
+  # ~r/lib\/boonorbust2\/assets\.ex:(152|168|1049):contract_supertype/,
 
-  # Dividend parsing - typespec is intentionally general (map() vs full struct)
-  ~r/lib\/boonorbust2\/dividends\.ex:278:contract_supertype/,
-  ~r/lib\/boonorbust2\/dividends\.ex:355:contract_supertype/,
+  # # Dividend parsing - typespec is intentionally general (map() vs full struct)
+  # ~r/lib\/boonorbust2\/dividends\.ex:278:contract_supertype/,
+  # ~r/lib\/boonorbust2\/dividends\.ex:355:contract_supertype/,
 
-  # Portfolios - Ecto.Multi opaque type warnings (safe, works correctly)
-  ~r/lib\/boonorbust2\/portfolios\.ex:80:\d+:call_without_opaque/,
-  ~r/lib\/boonorbust2\/portfolios\.ex:106:\d+:call_without_opaque/,
-
-  # TagController - Typespec is intentionally general (integer vs pos_integer)
-  ~r/lib\/boonorbust2_web\/controllers\/tag_controller\.ex:75:contract_supertype/,
-  ~r/lib\/boonorbust2_web\/controllers\/tag_controller\.ex:83:contract_supertype/
+  # # TagController - Typespec is intentionally general (integer vs pos_integer)
+  # ~r/lib\/boonorbust2_web\/controllers\/tag_controller\.ex:75:contract_supertype/,
+  # ~r/lib\/boonorbust2_web\/controllers\/tag_controller\.ex:83:contract_supertype/
 
   # # Portfolio transactions - Ecto patterns that work correctly but Dialyzer doesn't understand
   # ~r/lib\/boonorbust2\/portfolio_transactions\.ex.+invalid_contract/,

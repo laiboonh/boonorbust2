@@ -116,26 +116,32 @@ defmodule Boonorbust2.Assets do
     # Only set updated_at after BOTH operations succeed
     with {:ok, price_updated_asset} <- maybe_update_price_from_url(asset),
          {:ok, _div_result} <- maybe_sync_dividends_from_url(price_updated_asset) do
-      # Set updated_at only if at least one operation was performed
-      should_set_timestamp =
-        not is_nil(price_updated_asset.price_url) or
-          (not is_nil(price_updated_asset.dividend_url) and
-             price_updated_asset.distributes_dividends)
-
-      if should_set_timestamp do
-        case set_updated_at(price_updated_asset) do
-          {:ok, final_asset} -> final_asset
-          {:error, changeset} -> Repo.rollback(changeset)
-        end
-      else
-        price_updated_asset
-      end
+      maybe_set_timestamp_on_create(price_updated_asset)
     else
       {:error, %Ecto.Changeset{} = changeset} ->
         Repo.rollback(changeset)
 
       {:error, reason} when is_binary(reason) ->
         rollback_with_dividend_error(asset, reason)
+    end
+  end
+
+  defp maybe_set_timestamp_on_create(asset) do
+    should_set_timestamp =
+      not is_nil(asset.price_url) or
+        (not is_nil(asset.dividend_url) and asset.distributes_dividends)
+
+    if should_set_timestamp do
+      finalize_with_timestamp(asset)
+    else
+      asset
+    end
+  end
+
+  defp finalize_with_timestamp(asset) do
+    case set_updated_at(asset) do
+      {:ok, final_asset} -> final_asset
+      {:error, changeset} -> Repo.rollback(changeset)
     end
   end
 
@@ -165,7 +171,6 @@ defmodule Boonorbust2.Assets do
     end
   end
 
-  @spec do_update_asset(Asset.t(), map(), boolean(), boolean()) :: Asset.t()
   defp do_update_asset(asset, attrs, should_fetch_price, should_sync_dividends) do
     case asset |> Asset.changeset(attrs) |> Repo.update() do
       {:ok, updated_asset} ->
@@ -229,21 +234,25 @@ defmodule Boonorbust2.Assets do
     # Only set updated_at after BOTH operations succeed
     with {:ok, price_updated_asset} <- maybe_fetch_price(asset, should_fetch_price),
          {:ok, _div_result} <- maybe_sync_dividends(price_updated_asset, should_sync_dividends) do
-      # Set updated_at only if at least one operation was performed
-      if should_fetch_price or should_sync_dividends do
-        case set_updated_at(price_updated_asset) do
-          {:ok, final_asset} -> final_asset
-          {:error, changeset} -> Repo.rollback(changeset)
-        end
-      else
-        price_updated_asset
-      end
+      maybe_set_timestamp_on_update(
+        price_updated_asset,
+        should_fetch_price,
+        should_sync_dividends
+      )
     else
       {:error, %Ecto.Changeset{} = changeset} ->
         Repo.rollback(changeset)
 
       {:error, reason} when is_binary(reason) ->
         rollback_with_dividend_error(asset, reason)
+    end
+  end
+
+  defp maybe_set_timestamp_on_update(asset, should_fetch_price, should_sync_dividends) do
+    if should_fetch_price or should_sync_dividends do
+      finalize_with_timestamp(asset)
+    else
+      asset
     end
   end
 
@@ -1046,7 +1055,8 @@ defmodule Boonorbust2.Assets do
     end
   end
 
-  @spec fetch_and_update_both(Asset.t()) :: {:fetched, :synced} | {:error, atom()}
+  @spec fetch_and_update_both(Asset.t()) ::
+          {:error, :partial_failure | :timestamp_update_failed} | {:fetched, :synced}
   defp fetch_and_update_both(asset) do
     # Fetch price and sync dividends separately, only set updated_at if BOTH succeed
     price_result = fetch_asset_price(asset, false)
@@ -1055,8 +1065,8 @@ defmodule Boonorbust2.Assets do
     handle_both_results(asset, price_result, dividend_result)
   end
 
-  @spec handle_both_results(Asset.t(), atom(), atom()) ::
-          {:fetched, :synced} | {:error, atom()}
+  @spec handle_both_results(Asset.t(), :error | :fetched | :skipped, :error | :skipped | :synced) ::
+          {:fetched, :synced} | {:error, :partial_failure | :timestamp_update_failed}
   defp handle_both_results(asset, :fetched, :synced) do
     # Both succeeded, now set updated_at
     fresh_asset = Repo.get!(Asset, asset.id)

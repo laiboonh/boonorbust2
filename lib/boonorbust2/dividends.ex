@@ -279,7 +279,7 @@ defmodule Boonorbust2.Dividends do
     IO.puts("Total rows found: #{length(rows)}")
 
     # Log first row structure if available
-    if length(rows) > 0 do
+    if rows != [] do
       first_row = Enum.at(rows, 0)
       cells = Floki.find(first_row, "td")
       IO.puts("First row has #{length(cells)} cells")
@@ -306,7 +306,6 @@ defmodule Boonorbust2.Dividends do
     end
   end
 
-  @spec parse_dividend_hk_row(Floki.html_tree()) :: map() | nil
   defp parse_dividend_hk_row(row) do
     cells = Floki.find(row, "td")
 
@@ -352,7 +351,6 @@ defmodule Boonorbust2.Dividends do
     String.contains?(particular_text, "No") or ex_date_text == "--"
   end
 
-  @spec build_hk_dividend(String.t(), String.t(), String.t()) :: map() | nil
   defp build_hk_dividend(particular_text, ex_date_text, pay_date_text) do
     with {:ok, {currency, amount}} <- parse_hk_particular(particular_text),
          {:ok, ex_date} <- parse_date(ex_date_text) do
@@ -406,25 +404,28 @@ defmodule Boonorbust2.Dividends do
     if String.contains?(amount_text, "Upcoming") or amount_text == "N/A" do
       nil
     else
-      # Parse the data
-      with {:ok, {currency, amount}} <- parse_digrin_amount(amount_text),
-           {:ok, ex_date} <- parse_date(ex_date_text) do
-        # Parse pay_date, but allow it to be nil if parsing fails
-        pay_date =
-          case parse_date(pay_date_text) do
-            {:ok, date} -> date
-            _ -> nil
-          end
+      parse_digrin_dividend_data(amount_text, ex_date_text, pay_date_text)
+    end
+  end
 
-        %{
-          ex_date: ex_date,
-          pay_date: pay_date,
-          value: amount,
-          currency: currency
-        }
-      else
-        _ -> nil
-      end
+  defp parse_digrin_dividend_data(amount_text, ex_date_text, pay_date_text) do
+    with {:ok, {currency, amount}} <- parse_digrin_amount(amount_text),
+         {:ok, ex_date} <- parse_date(ex_date_text) do
+      %{
+        ex_date: ex_date,
+        pay_date: parse_date_or_nil(pay_date_text),
+        value: amount,
+        currency: currency
+      }
+    else
+      _ -> nil
+    end
+  end
+
+  defp parse_date_or_nil(date_text) do
+    case parse_date(date_text) do
+      {:ok, date} -> date
+      _ -> nil
     end
   end
 

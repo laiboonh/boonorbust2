@@ -335,5 +335,44 @@ defmodule Boonorbust2Web.PortfolioControllerTest do
       # Verify portfolio was deleted
       assert Boonorbust2.Portfolios.get_portfolio(portfolio.id) == nil
     end
+
+    test "deletes portfolio and cleans up associated tags", %{conn: conn, user: user} do
+      {:ok, portfolio} =
+        Boonorbust2.Portfolios.create_portfolio(%{
+          name: "Portfolio with Tags",
+          user_id: user.id
+        })
+
+      {:ok, tag} =
+        Boonorbust2.Tags.create_tag(%{
+          name: "Test Tag",
+          user_id: user.id
+        })
+
+      Boonorbust2.Portfolios.add_tag_to_portfolio(portfolio.id, tag.id)
+
+      # Verify tag is associated
+      assert length(Boonorbust2.Portfolios.list_tags_for_portfolio(portfolio.id)) == 1
+
+      conn = delete(conn, ~p"/portfolios/#{portfolio.id}")
+
+      assert redirected_to(conn) == ~p"/portfolios"
+
+      # Verify portfolio was deleted
+      assert Boonorbust2.Portfolios.get_portfolio(portfolio.id) == nil
+
+      # Verify portfolio_tag associations were cleaned up
+      assert Boonorbust2.Portfolios.list_tags_for_portfolio(portfolio.id) == []
+
+      # Verify tag itself still exists
+      assert Boonorbust2.Tags.get_tag!(tag.id) != nil
+    end
+
+    test "returns not found for non-existent portfolio", %{conn: conn} do
+      conn = delete(conn, ~p"/portfolios/999999")
+
+      assert conn.status == 404
+      assert response(conn, 404) =~ "Portfolio not found"
+    end
   end
 end

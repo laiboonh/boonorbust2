@@ -11,16 +11,18 @@ defmodule Boonorbust2.Assets.Asset do
   alias Boonorbust2.Tags.AssetTag
 
   @type t :: %__MODULE__{
-          id: integer() | nil,
-          name: String.t() | nil,
-          price_url: String.t() | nil,
-          price: Decimal.t() | nil,
-          currency: String.t() | nil,
-          distributes_dividends: boolean() | nil,
-          dividend_url: String.t() | nil,
-          dividend_withholding_tax: Decimal.t() | nil,
-          inserted_at: NaiveDateTime.t() | nil,
-          updated_at: NaiveDateTime.t() | nil
+          :asset_tags => nil | list() | %Ecto.Association.NotLoaded{},
+          :currency => nil | binary(),
+          :distributes_dividends => false | nil | true,
+          :dividend_url => nil | binary(),
+          :dividend_withholding_tax => nil | %Decimal{},
+          :dividends => nil | list() | %Ecto.Association.NotLoaded{},
+          :id => nil | integer(),
+          :inserted_at => nil | %NaiveDateTime{},
+          :name => nil | binary(),
+          :price => nil | %Decimal{},
+          :price_url => nil | binary(),
+          :updated_at => nil | %NaiveDateTime{}
         }
 
   schema "assets" do

@@ -129,7 +129,7 @@ defmodule Boonorbust2Web.DashboardControllerTest do
       assert Map.has_key?(conn.assigns, :tag_chart_data)
       tag_chart_data = conn.assigns.tag_chart_data
       assert is_list(tag_chart_data)
-      assert length(tag_chart_data) > 0
+      assert tag_chart_data != []
 
       # Should contain Technology tag with aggregated value
       tech_data = Enum.find(tag_chart_data, &(&1.label == "Technology"))
