@@ -171,6 +171,56 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
       view |> element(~s|button.text-gray-400[phx-click="close_modal"]|) |> render_click()
       refute render(view) =~ "Add New Portfolio"
     end
+
+    test "preserves submitted name on create error", %{conn: conn, user: user} do
+      Boonorbust2.Portfolios.create_portfolio_with_tags(%{
+        name: "Existing",
+        user_id: user.id
+      })
+
+      {:ok, view, _html} = live(conn, ~p"/portfolios")
+
+      view |> element("button", "Add Portfolio") |> render_click()
+
+      view
+      |> form(~s|form[phx-submit="save"]|, %{
+        "portfolio" => %{"name" => "Existing"}
+      })
+      |> render_submit()
+
+      html = render(view)
+      assert html =~ "Name has already been taken"
+      assert html =~ ~s|value="Existing"|
+    end
+
+    test "preserves selected tags on create error", %{conn: conn, user: user} do
+      Boonorbust2.Portfolios.create_portfolio_with_tags(%{
+        name: "Existing",
+        user_id: user.id
+      })
+
+      {:ok, tag} =
+        Boonorbust2.Tags.create_tag(%{
+          name: "Keep This Tag",
+          user_id: user.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/portfolios")
+
+      view |> element("button", "Add Portfolio") |> render_click()
+
+      view
+      |> form(~s|form[phx-submit="save"]|, %{
+        "portfolio" => %{"name" => "Existing"},
+        "tag_ids" => [to_string(tag.id)]
+      })
+      |> render_submit()
+
+      html = render(view)
+      assert html =~ "Name has already been taken"
+      assert html =~ ~s|selected|
+      assert html =~ "Keep This Tag"
+    end
   end
 
   describe "update" do

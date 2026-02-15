@@ -13,7 +13,7 @@ defmodule Boonorbust2Web.PortfolioLive do
       socket
       |> assign(:user_id, user_id)
       |> assign(:form_errors, nil)
-      |> assign(:editing_portfolio, nil)
+      |> assign(:portfolio_in_progress, nil)
 
     {:ok, socket}
   end
@@ -34,18 +34,18 @@ defmodule Boonorbust2Web.PortfolioLive do
   def handle_event("new", _params, socket) do
     {:noreply,
      assign(socket,
-       editing_portfolio: %{id: nil, name: nil, description: nil, tags: []},
+       portfolio_in_progress: %{id: nil, name: nil, description: nil, tags: []},
        form_errors: nil
      )}
   end
 
   def handle_event("edit", %{"id" => id}, socket) do
     portfolio = Portfolios.load_portfolio_with_tags(id)
-    {:noreply, assign(socket, editing_portfolio: portfolio, form_errors: nil)}
+    {:noreply, assign(socket, portfolio_in_progress: portfolio, form_errors: nil)}
   end
 
   def handle_event("close_modal", _params, socket) do
-    {:noreply, assign(socket, editing_portfolio: nil, form_errors: nil)}
+    {:noreply, assign(socket, portfolio_in_progress: nil, form_errors: nil)}
   end
 
   def handle_event("save", %{"portfolio" => portfolio_params} = params, socket) do
@@ -57,14 +57,16 @@ defmodule Boonorbust2Web.PortfolioLive do
       {:ok, portfolio} ->
         socket =
           socket
-          |> assign(:editing_portfolio, nil)
+          |> assign(:portfolio_in_progress, nil)
           |> assign(:form_errors, nil)
           |> stream_insert(:portfolios, Portfolios.load_portfolio_with_tags(portfolio.id))
 
         {:noreply, socket}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, form_errors: changeset)}
+        updated_editing = preserve_user_input(tag_ids, socket.assigns, changeset)
+
+        {:noreply, assign(socket, portfolio_in_progress: updated_editing, form_errors: changeset)}
     end
   end
 
@@ -80,25 +82,16 @@ defmodule Boonorbust2Web.PortfolioLive do
       {:ok, _updated_portfolio} ->
         socket =
           socket
-          |> assign(:editing_portfolio, nil)
+          |> assign(:portfolio_in_progress, nil)
           |> assign(:form_errors, nil)
           |> stream_insert(:portfolios, Portfolios.load_portfolio_with_tags(portfolio.id))
 
         {:noreply, socket}
 
       {:error, changeset} ->
-        # Preserve user's submitted values so the form doesn't reset on error.
-        # changeset.changes has the submitted field values; tags are managed
-        # separately via tag_ids so we rebuild them from all_tags.
-        selected_tags =
-          Enum.filter(socket.assigns.all_tags, &(to_string(&1.id) in tag_ids))
+        updated_editing = preserve_user_input(tag_ids, socket.assigns, changeset)
 
-        updated_editing =
-          socket.assigns.editing_portfolio
-          |> Map.merge(changeset.changes)
-          |> Map.put(:tags, selected_tags)
-
-        {:noreply, assign(socket, editing_portfolio: updated_editing, form_errors: changeset)}
+        {:noreply, assign(socket, portfolio_in_progress: updated_editing, form_errors: changeset)}
     end
   end
 
@@ -107,9 +100,21 @@ defmodule Boonorbust2Web.PortfolioLive do
 
     socket =
       socket
-      |> assign(:editing_portfolio, nil)
+      |> assign(:portfolio_in_progress, nil)
       |> stream_delete(:portfolios, %Portfolio{id: id})
 
     {:noreply, socket}
+  end
+
+  # Preserve user's submitted values so the form doesn't reset on error.
+  # changeset.changes has the submitted field values; tags are managed
+  # separately via tag_ids so we rebuild them from all_tags.
+  defp preserve_user_input(tag_ids, assigns, changeset) do
+    selected_tags =
+      Enum.filter(assigns.all_tags, &(to_string(&1.id) in tag_ids))
+
+    assigns.portfolio_in_progress
+    |> Map.merge(changeset.changes)
+    |> Map.put(:tags, selected_tags)
   end
 end
