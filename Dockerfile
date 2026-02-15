@@ -1,18 +1,4 @@
-# Find eligible builder and runner images on Docker Hub. We use Ubuntu/Debian instead of
-# Alpine to avoid DNS resolution issues in production.
-#
-# https://hub.docker.com/r/hexpm/elixir/tags?page=1&name=ubuntu
-# https://hub.docker.com/_/ubuntu?tab=tags
-#
-#
-# This file is based on these images:
-#
-#   - https://hub.docker.com/r/hexpm/elixir/tags - for the build image
-#   - https://hub.docker.com/_/debian?tab=tags&page=1&name=bullseye-20210902-slim - for the release image
-#   - https://pkgs.org/ - resource for finding needed packages
-#   - Ex: hexpm/elixir:1.18.0-erlang-27.0.1-debian-bullseye-20240612-slim
-#
-FROM hexpm/elixir:1.19.5-erlang-28.3.1-debian-trixie-20260202-slim AS builder
+FROM hexpm/elixir:1.19.5-erlang-27.3.4.7-debian-bullseye-20260202-slim AS builder
 
 # install build dependencies
 RUN apt-get update -y && apt-get install -y build-essential git \
@@ -59,7 +45,7 @@ RUN mix release
 
 # start a new build stage so that the final image will only contain
 # the compiled release and other runtime necessities
-FROM debian:trixie-20260202-slim
+FROM debian:bullseye-20260202-slim
 
 RUN apt-get update -y && apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates \
   && apt-get clean && rm -f /var/lib/apt/lists/*_* \
