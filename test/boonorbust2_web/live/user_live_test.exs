@@ -1,4 +1,4 @@
-defmodule Boonorbust2Web.UserLiveTest do
+defmodule Boonorbust2Web.UserEditTest do
   use Boonorbust2Web.ConnCase, async: false
 
   import Phoenix.LiveViewTest
@@ -21,83 +21,106 @@ defmodule Boonorbust2Web.UserLiveTest do
     {:ok, conn: conn, user: user}
   end
 
-  describe "edit" do
-    test "renders edit form with user data", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/user/edit")
+  describe "user edit modal" do
+    test "opens modal when clicking user name", %{conn: conn} do
+      {:ok, view, html} = live(conn, ~p"/dashboard")
 
+      refute html =~ "Edit Profile"
+
+      view |> element(~s|a[phx-click="open_user_edit"]|) |> render_click()
+
+      html = render(view)
       assert html =~ "Edit Profile"
-      assert html =~ "Test User"
       assert html =~ "Save Changes"
       assert html =~ "Cancel"
     end
 
-    test "renders currency options", %{conn: conn} do
-      {:ok, _view, html} = live(conn, ~p"/user/edit")
+    test "closes modal when clicking cancel", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/dashboard")
 
-      assert html =~ "Preferred Currency"
-      assert html =~ "USD"
+      view |> element(~s|a[phx-click="open_user_edit"]|) |> render_click()
+      assert render(view) =~ "Edit Profile"
+
+      view |> element(~s|button[phx-click="close_user_edit"]|, "Cancel") |> render_click()
+      refute render(view) =~ "Edit Profile"
     end
-  end
 
-  describe "update" do
-    test "updates user name and redirects to dashboard", %{conn: conn, user: user} do
-      {:ok, view, _html} = live(conn, ~p"/user/edit")
+    test "closes modal when clicking X button", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/dashboard")
+
+      view |> element(~s|a[phx-click="open_user_edit"]|) |> render_click()
+      assert render(view) =~ "Edit Profile"
+
+      view |> element(~s|button.text-gray-400[phx-click="close_user_edit"]|) |> render_click()
+      refute render(view) =~ "Edit Profile"
+    end
+
+    test "updates user name and closes modal", %{conn: conn, user: user} do
+      {:ok, view, _html} = live(conn, ~p"/dashboard")
+
+      view |> element(~s|a[phx-click="open_user_edit"]|) |> render_click()
 
       view
-      |> form("form", %{"user" => %{"name" => "New Name", "currency" => "USD"}})
+      |> form(~s|form[phx-submit="save_user"]|, %{
+        "user" => %{"name" => "New Name", "currency" => "USD"}
+      })
       |> render_submit()
 
-      assert_redirect(view, ~p"/dashboard")
+      html = render(view)
+      refute html =~ "Edit Profile"
+      assert html =~ "New Name"
 
       updated_user = Boonorbust2.Accounts.get_user_by_id(user.id)
       assert updated_user.name == "New Name"
     end
 
-    test "updates user currency and redirects to dashboard", %{conn: conn, user: user} do
-      {:ok, view, _html} = live(conn, ~p"/user/edit")
+    test "updates user currency and closes modal", %{conn: conn, user: user} do
+      {:ok, view, _html} = live(conn, ~p"/dashboard")
+
+      view |> element(~s|a[phx-click="open_user_edit"]|) |> render_click()
 
       view
-      |> form("form", %{"user" => %{"name" => "Test User", "currency" => "SGD"}})
+      |> form(~s|form[phx-submit="save_user"]|, %{
+        "user" => %{"name" => "Test User", "currency" => "SGD"}
+      })
       |> render_submit()
 
-      assert_redirect(view, ~p"/dashboard")
+      refute render(view) =~ "Edit Profile"
 
       updated_user = Boonorbust2.Accounts.get_user_by_id(user.id)
       assert updated_user.currency == "SGD"
     end
 
     test "shows errors when name is blank", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/user/edit")
+      {:ok, view, _html} = live(conn, ~p"/dashboard")
+
+      view |> element(~s|a[phx-click="open_user_edit"]|) |> render_click()
 
       view
-      |> form("form", %{"user" => %{"name" => "", "currency" => "USD"}})
+      |> form(~s|form[phx-submit="save_user"]|, %{
+        "user" => %{"name" => "", "currency" => "USD"}
+      })
       |> render_submit()
 
       html = render(view)
+      assert html =~ "Edit Profile"
       assert html =~ "can&#39;t be blank" or html =~ "can't be blank"
     end
 
-    test "redirects back to return_to path after save", %{conn: conn, user: user} do
-      {:ok, view, _html} = live(conn, ~p"/user/edit?return_to=/positions")
+    test "stays on current page after save", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/positions")
+
+      view |> element(~s|a[phx-click="open_user_edit"]|) |> render_click()
 
       view
-      |> form("form", %{"user" => %{"name" => "New Name", "currency" => "USD"}})
+      |> form(~s|form[phx-submit="save_user"]|, %{
+        "user" => %{"name" => "New Name", "currency" => "USD"}
+      })
       |> render_submit()
 
-      assert_redirect(view, "/positions")
-
-      updated_user = Boonorbust2.Accounts.get_user_by_id(user.id)
-      assert updated_user.name == "New Name"
-    end
-
-    test "defaults to dashboard when no return_to is provided", %{conn: conn} do
-      {:ok, view, _html} = live(conn, ~p"/user/edit")
-
-      view
-      |> form("form", %{"user" => %{"name" => "New Name", "currency" => "USD"}})
-      |> render_submit()
-
-      assert_redirect(view, ~p"/dashboard")
+      html = render(view)
+      refute html =~ "Edit Profile"
+      assert html =~ "New Name"
     end
   end
 end
