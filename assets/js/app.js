@@ -55,6 +55,13 @@ Hooks.ChartInit = {
   mounted() {
     this._createChart();
   },
+  updated() {
+    if (this._chart) {
+      this._chart.destroy();
+      this._chart = null;
+    }
+    this._createChart();
+  },
   destroyed() {
     if (this._chart) {
       this._chart.destroy();
