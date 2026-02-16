@@ -11,16 +11,13 @@
     </div>
     <div class="flex items-center gap-4 font-semibold leading-6 text-zinc-900">
       <%= if @current_user do %>
-        <a
-          id="user-name-display"
-          hx-get={~p"/user/edit"}
-          hx-target="body"
-          hx-swap="beforeend"
+        <.link
+          navigate={~p"/user/edit?return_to=#{assigns[:current_path] || ~p"/dashboard"}"}
           class="text-sm text-emerald-600 hover:text-emerald-700 underline hover:no-underline transition-all duration-200"
           title="Click to edit your profile"
         >
           Hello, {@current_user.name}!
-        </a>
+        </.link>
         <.link
           href={~p"/auth/logout"}
           method="delete"

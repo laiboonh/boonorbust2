@@ -36,11 +36,9 @@ defmodule Boonorbust2Web.Router do
   scope "/", Boonorbust2Web do
     pipe_through [:browser, :require_authenticated_user]
 
-    get "/user/edit", UserController, :edit
-    put "/user", UserController, :update
-
     live_session :live_views,
       on_mount: {Boonorbust2Web.LiveAuth, :require_authenticated_user} do
+      live "/user/edit", UserLive
       live "/dashboard", DashboardLive
       live "/portfolios", PortfolioLive
       live "/portfolio_transactions", PortfolioTransactionLive

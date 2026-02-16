@@ -18,7 +18,16 @@ defmodule Boonorbust2Web.LiveAuth do
       admin_emails = Application.get_env(:boonorbust2, :admins, [])
       is_admin = user.email in admin_emails
 
-      {:cont, socket |> assign(:current_user, user) |> assign(:is_admin, is_admin)}
+      socket =
+        socket
+        |> assign(:current_user, user)
+        |> assign(:is_admin, is_admin)
+        |> attach_hook(:save_current_path, :handle_params, fn _params, uri, socket ->
+          path = URI.parse(uri).path
+          {:cont, assign(socket, :current_path, path)}
+        end)
+
+      {:cont, socket}
     else
       {:halt, redirect(socket, to: "/")}
     end
