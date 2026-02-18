@@ -74,6 +74,32 @@ defmodule Boonorbust2.Assets do
   @spec get_asset_by_name(String.t()) :: Asset.t() | nil
   def get_asset_by_name(name), do: Repo.get_by(Asset, name: name)
 
+  @doc """
+  Finds an existing asset by name, or creates a new one with the given currency.
+  """
+  @spec find_or_create_asset(String.t(), String.t()) ::
+          {:ok, Asset.t()} | {:error, String.t()}
+  def find_or_create_asset(asset_name, currency) do
+    case get_asset_by_name(asset_name) do
+      nil -> do_create_asset(asset_name, currency)
+      asset -> {:ok, asset}
+    end
+  end
+
+  @spec do_create_asset(String.t(), String.t()) :: {:ok, Asset.t()} | {:error, String.t()}
+  defp do_create_asset(asset_name, currency) do
+    attrs = %{name: asset_name, currency: String.upcase(String.trim(currency))}
+
+    case create_asset(attrs) do
+      {:ok, asset} ->
+        {:ok, asset}
+
+      {:error, changeset} ->
+        errors = Ecto.Changeset.traverse_errors(changeset, fn {msg, _opts} -> msg end)
+        {:error, inspect(errors)}
+    end
+  end
+
   @spec create_asset(map()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
   def create_asset(attrs \\ %{}) do
     Repo.transaction(fn ->
