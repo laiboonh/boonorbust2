@@ -109,7 +109,9 @@
               </div>
 
               <p class="text-sm text-gray-500 mt-3">
-                {Calendar.strftime(transaction.transaction_date, "%B %d, %Y at %I:%M %p")}
+                <span class="local-time" data-utc-time={DateTime.to_iso8601(transaction.transaction_date)}>
+                  {Calendar.strftime(transaction.transaction_date, "%B %d, %Y at %I:%M %p")}
+                </span>
               </p>
               <%= if transaction.notes && transaction.notes != "" do %>
                 <p class="text-xs text-gray-600 mt-2 italic">{transaction.notes}</p>

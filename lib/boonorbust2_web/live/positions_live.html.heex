@@ -161,13 +161,13 @@
                   <%= for position <- @positions_modal.positions do %>
                     <tr>
                       <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                        <span class="hidden sm:inline">
+                        <span class="hidden sm:inline local-time" data-utc-time={DateTime.to_iso8601(position.portfolio_transaction.transaction_date)}>
                           {Calendar.strftime(
                             position.portfolio_transaction.transaction_date,
                             "%B %d, %Y"
                           )}
                         </span>
-                        <span class="sm:hidden">
+                        <span class="sm:hidden local-time" data-utc-time={DateTime.to_iso8601(position.portfolio_transaction.transaction_date)}>
                           {Calendar.strftime(
                             position.portfolio_transaction.transaction_date,
                             "%b %d, %Y"
@@ -280,13 +280,13 @@
                       <%= for rp <- transaction_profits do %>
                         <tr>
                           <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                            <span class="hidden sm:inline">
+                            <span class="hidden sm:inline local-time" data-utc-time={DateTime.to_iso8601(rp.portfolio_transaction.transaction_date)}>
                               {Calendar.strftime(
                                 rp.portfolio_transaction.transaction_date,
                                 "%B %d, %Y"
                               )}
                             </span>
-                            <span class="sm:hidden">
+                            <span class="sm:hidden local-time" data-utc-time={DateTime.to_iso8601(rp.portfolio_transaction.transaction_date)}>
                               {Calendar.strftime(
                                 rp.portfolio_transaction.transaction_date,
                                 "%b %d, %Y"
