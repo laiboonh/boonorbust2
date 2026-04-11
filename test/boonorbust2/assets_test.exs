@@ -438,6 +438,34 @@ defmodule Boonorbust2.AssetsTest do
     end
   end
 
+  describe "list_assets ordering" do
+    test "returns assets ordered by most recently updated first" do
+      {:ok, asset1} = Assets.create_asset(%{name: "Asset A", currency: "USD"})
+      {:ok, asset2} = Assets.create_asset(%{name: "Asset B", currency: "USD"})
+      {:ok, asset3} = Assets.create_asset(%{name: "Asset C", currency: "USD"})
+
+      # Set distinct updated_at values
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      asset1
+      |> Ecto.Changeset.change(%{updated_at: DateTime.add(now, -3600, :second)})
+      |> Repo.update!()
+
+      asset2
+      |> Ecto.Changeset.change(%{updated_at: DateTime.add(now, -7200, :second)})
+      |> Repo.update!()
+
+      asset3
+      |> Ecto.Changeset.change(%{updated_at: now})
+      |> Repo.update!()
+
+      assets = Assets.list_assets()
+      names = Enum.map(assets, & &1.name)
+
+      assert names == ["Asset C", "Asset A", "Asset B"]
+    end
+  end
+
   describe "dividend sync rate limiting" do
     test "does not sync dividends when asset was updated within 12 hours" do
       # Mock for initial creation - create asset with dividends already enabled

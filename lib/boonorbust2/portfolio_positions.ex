@@ -222,7 +222,6 @@ defmodule Boonorbust2.PortfolioPositions do
         join: lp in subquery(latest_positions_subquery),
         on: pp.asset_id == lp.asset_id and pt.transaction_date == lp.max_transaction_date,
         where: pp.user_id == ^user_id,
-        order_by: [desc: pt.transaction_date, desc: pp.id],
         distinct: pp.asset_id,
         preload: [:asset, :portfolio_transaction]
       )

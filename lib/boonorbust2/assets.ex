@@ -16,7 +16,7 @@ defmodule Boonorbust2.Assets do
 
     Helper.do_retry(
       fn ->
-        query = from a in Asset, order_by: a.name
+        query = from a in Asset, order_by: [desc: a.updated_at]
         query = apply_filter(query, filter, user_id)
         Repo.all(query)
       end,
