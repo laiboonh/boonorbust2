@@ -353,6 +353,203 @@ defmodule Boonorbust2Web.PortfolioTransactionLiveTest do
     end
   end
 
+  describe "timezone conversion" do
+    test "saves transaction_date as UTC when timezone is UTC+8", %{
+      conn: conn,
+      user: user,
+      asset: asset
+    } do
+      # Singapore is UTC+8; JS getTimezoneOffset() returns -480
+      conn = put_connect_params(conn, %{"timezone_offset" => -480})
+      {:ok, view, _html} = live(conn, ~p"/portfolio_transactions")
+
+      view |> element("button", "Add Transaction") |> render_click()
+
+      view
+      |> form(~s|form[phx-submit="save"]|, %{
+        "transaction" => %{
+          "asset_id" => to_string(asset.id),
+          "action" => "buy",
+          "quantity" => "100",
+          "price" => "10.00",
+          "commission" => "5.00",
+          # 18:00 local (UTC+8) → 10:00 UTC
+          "transaction_date" => "2024-01-15T18:00"
+        }
+      })
+      |> render_submit()
+
+      [transaction] =
+        Boonorbust2.PortfolioTransactions.list_portfolio_transactions(user_id: user.id).entries
+
+      assert transaction.transaction_date == ~U[2024-01-15 10:00:00Z]
+    end
+
+    test "saves transaction_date unchanged when timezone is UTC", %{
+      conn: conn,
+      user: user,
+      asset: asset
+    } do
+      conn = put_connect_params(conn, %{"timezone_offset" => 0})
+      {:ok, view, _html} = live(conn, ~p"/portfolio_transactions")
+
+      view |> element("button", "Add Transaction") |> render_click()
+
+      view
+      |> form(~s|form[phx-submit="save"]|, %{
+        "transaction" => %{
+          "asset_id" => to_string(asset.id),
+          "action" => "buy",
+          "quantity" => "100",
+          "price" => "10.00",
+          "commission" => "5.00",
+          "transaction_date" => "2024-01-15T10:00"
+        }
+      })
+      |> render_submit()
+
+      [transaction] =
+        Boonorbust2.PortfolioTransactions.list_portfolio_transactions(user_id: user.id).entries
+
+      assert transaction.transaction_date == ~U[2024-01-15 10:00:00Z]
+    end
+
+    test "updates transaction_date as UTC when timezone is UTC+8", %{
+      conn: conn,
+      user: user,
+      asset: asset
+    } do
+      transaction = create_transaction(user, asset)
+
+      conn = put_connect_params(conn, %{"timezone_offset" => -480})
+      {:ok, view, _html} = live(conn, ~p"/portfolio_transactions")
+
+      view
+      |> element(~s|button[phx-click="edit"][phx-value-id="#{transaction.id}"]|)
+      |> render_click()
+
+      view
+      |> form(~s|form[phx-submit="update"]|, %{
+        "transaction_id" => to_string(transaction.id),
+        "transaction" => %{
+          "asset_id" => to_string(asset.id),
+          "action" => "buy",
+          "quantity" => "100",
+          "price" => "10.00",
+          "commission" => "5.00",
+          # 20:00 local (UTC+8) → 12:00 UTC
+          "transaction_date" => "2024-03-20T20:00"
+        }
+      })
+      |> render_submit()
+
+      updated =
+        Boonorbust2.PortfolioTransactions.get_portfolio_transaction!(transaction.id, user.id)
+
+      assert updated.transaction_date == ~U[2024-03-20 12:00:00Z]
+    end
+
+    test "edit modal shows transaction_date in local time for UTC+8", %{
+      conn: conn,
+      user: user,
+      asset: asset
+    } do
+      # Transaction stored as UTC 10:00
+      transaction =
+        create_transaction(user, asset, %{"transaction_date" => "2024-01-15T10:00:00Z"})
+
+      conn = put_connect_params(conn, %{"timezone_offset" => -480})
+      {:ok, view, _html} = live(conn, ~p"/portfolio_transactions")
+
+      view
+      |> element(~s|button[phx-click="edit"][phx-value-id="#{transaction.id}"]|)
+      |> render_click()
+
+      # UTC 10:00 + 8h = local 18:00
+      assert render(view) =~ ~s|value="2024-01-15T18:00"|
+    end
+
+    test "edit modal shows transaction_date unchanged when timezone is UTC", %{
+      conn: conn,
+      user: user,
+      asset: asset
+    } do
+      transaction =
+        create_transaction(user, asset, %{"transaction_date" => "2024-01-15T10:00:00Z"})
+
+      conn = put_connect_params(conn, %{"timezone_offset" => 0})
+      {:ok, view, _html} = live(conn, ~p"/portfolio_transactions")
+
+      view
+      |> element(~s|button[phx-click="edit"][phx-value-id="#{transaction.id}"]|)
+      |> render_click()
+
+      assert render(view) =~ ~s|value="2024-01-15T10:00"|
+    end
+
+    test "transaction list exposes correct UTC time in data-utc-time after adding with UTC+8 offset",
+         %{conn: conn, asset: asset} do
+      # User is in UTC+8; they enter 18:00 local → must be stored as 10:00 UTC.
+      # The list renders data-utc-time with the stored UTC so client-side JS can
+      # convert it back to the user's local time for display.
+      conn = put_connect_params(conn, %{"timezone_offset" => -480})
+      {:ok, view, _html} = live(conn, ~p"/portfolio_transactions")
+
+      view |> element("button", "Add Transaction") |> render_click()
+
+      view
+      |> form(~s|form[phx-submit="save"]|, %{
+        "transaction" => %{
+          "asset_id" => to_string(asset.id),
+          "action" => "buy",
+          "quantity" => "100",
+          "price" => "10.00",
+          "commission" => "5.00",
+          "transaction_date" => "2024-01-15T18:00"
+        }
+      })
+      |> render_submit()
+
+      html = render(view)
+      # data-utc-time must carry the UTC equivalent so the browser JS displays 18:00 local
+      assert html =~ ~s|data-utc-time="2024-01-15T10:00:00Z"|
+    end
+
+    test "transaction list exposes correct UTC time in data-utc-time after editing with UTC+8 offset",
+         %{conn: conn, user: user, asset: asset} do
+      transaction =
+        create_transaction(user, asset, %{"transaction_date" => "2024-01-15T10:00:00Z"})
+
+      conn = put_connect_params(conn, %{"timezone_offset" => -480})
+      {:ok, view, _html} = live(conn, ~p"/portfolio_transactions")
+
+      view
+      |> element(~s|button[phx-click="edit"][phx-value-id="#{transaction.id}"]|)
+      |> render_click()
+
+      # Form shows local time: UTC 10:00 + 8h = 18:00
+      assert render(view) =~ ~s|value="2024-01-15T18:00"|
+
+      # User changes to 20:00 local → 12:00 UTC
+      view
+      |> form(~s|form[phx-submit="update"]|, %{
+        "transaction_id" => to_string(transaction.id),
+        "transaction" => %{
+          "asset_id" => to_string(asset.id),
+          "action" => "buy",
+          "quantity" => "100",
+          "price" => "10.00",
+          "commission" => "5.00",
+          "transaction_date" => "2024-01-15T20:00"
+        }
+      })
+      |> render_submit()
+
+      html = render(view)
+      assert html =~ ~s|data-utc-time="2024-01-15T12:00:00Z"|
+    end
+  end
+
   describe "format_import_result_message" do
     test "formats success message correctly when all imports succeed" do
       message = Boonorbust2.PortfolioTransactions.format_import_result_message(5, 0, 5)

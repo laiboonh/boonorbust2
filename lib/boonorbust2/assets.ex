@@ -855,11 +855,11 @@ defmodule Boonorbust2.Assets do
   defp should_update_price?(%Asset{updated_at: nil}), do: true
 
   defp should_update_price?(%Asset{updated_at: updated_at}) do
-    # Fetch price if the record is more than 24 hours old
+    # Fetch price if the record is more than 12 hours old
     now = DateTime.utc_now()
     diff_seconds = DateTime.diff(now, updated_at, :second)
-    # 24 hours = 86400 seconds
-    diff_seconds >= 86_400
+    # 12 hours = 43200 seconds
+    diff_seconds >= 43_200
   end
 
   @spec should_update_dividends?(Asset.t()) :: boolean()
@@ -868,11 +868,11 @@ defmodule Boonorbust2.Assets do
   defp should_update_dividends?(%Asset{updated_at: nil}), do: true
 
   defp should_update_dividends?(%Asset{updated_at: updated_at}) do
-    # Sync dividends if the record is more than 24 hours old
+    # Sync dividends if the record is more than 12 hours old
     now = DateTime.utc_now()
     diff_seconds = DateTime.diff(now, updated_at, :second)
-    # 24 hours = 86400 seconds
-    diff_seconds >= 86_400
+    # 12 hours = 43200 seconds
+    diff_seconds >= 43_200
   end
 
   @spec maybe_sync_dividends_from_url(Asset.t()) :: {:ok, any()} | {:error, String.t()}

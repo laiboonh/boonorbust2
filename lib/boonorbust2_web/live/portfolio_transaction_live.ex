@@ -68,7 +68,7 @@ defmodule Boonorbust2Web.PortfolioTransactionLive do
   end
 
   def handle_event("edit", %{"id" => id}, socket) do
-    %{user_id: user_id} = socket.assigns
+    %{user_id: user_id, timezone_offset: timezone_offset} = socket.assigns
     transaction = PortfolioTransactions.get_portfolio_transaction!(id, user_id)
 
     {:noreply,
@@ -80,8 +80,7 @@ defmodule Boonorbust2Web.PortfolioTransactionLive do
          quantity: Decimal.to_string(transaction.quantity),
          price: Decimal.to_string(transaction.price.amount),
          commission: Decimal.to_string(transaction.commission.amount),
-         transaction_date:
-           DateTime.to_naive(transaction.transaction_date) |> NaiveDateTime.to_iso8601(),
+         transaction_date: utc_to_local_string(transaction.transaction_date, timezone_offset),
          notes: transaction.notes
        },
        form_errors: nil
@@ -93,8 +92,13 @@ defmodule Boonorbust2Web.PortfolioTransactionLive do
   end
 
   def handle_event("save", %{"transaction" => transaction_params}, socket) do
-    %{user_id: user_id} = socket.assigns
-    params = transaction_params |> normalize_params() |> Map.put("user_id", user_id)
+    %{user_id: user_id, timezone_offset: timezone_offset} = socket.assigns
+
+    params =
+      transaction_params
+      |> normalize_params()
+      |> convert_transaction_date_to_utc(timezone_offset)
+      |> Map.put("user_id", user_id)
 
     case PortfolioTransactions.create_portfolio_transaction(params) do
       {:ok, transaction} ->
@@ -110,12 +114,14 @@ defmodule Boonorbust2Web.PortfolioTransactionLive do
         %{"transaction_id" => id, "transaction" => transaction_params},
         socket
       ) do
-    %{user_id: user_id} = socket.assigns
+    %{user_id: user_id, timezone_offset: timezone_offset} = socket.assigns
     transaction = PortfolioTransactions.get_portfolio_transaction!(id, user_id)
 
     case PortfolioTransactions.update_portfolio_transaction(
            transaction,
-           normalize_params(transaction_params)
+           transaction_params
+           |> normalize_params()
+           |> convert_transaction_date_to_utc(timezone_offset)
          ) do
       {:ok, updated_transaction} ->
         handle_update_success(socket, transaction, updated_transaction, transaction_params)
@@ -327,12 +333,37 @@ defmodule Boonorbust2Web.PortfolioTransactionLive do
     end)
   end
 
+  defp utc_to_local_string(%DateTime{} = utc_datetime, offset_minutes) do
+    utc_datetime
+    |> DateTime.add(-offset_minutes * 60, :second)
+    |> Calendar.strftime("%Y-%m-%dT%H:%M")
+  end
+
   defp local_now(offset_minutes) do
     # JS getTimezoneOffset() returns minutes *behind* UTC, so negate to shift forward
     DateTime.utc_now()
     |> DateTime.add(-offset_minutes * 60, :second)
     |> Calendar.strftime("%Y-%m-%dT%H:%M")
   end
+
+  # JS getTimezoneOffset() = UTC - local (in minutes), so UTC = local + offset
+  defp convert_transaction_date_to_utc(%{"transaction_date" => date_str} = params, offset_minutes)
+       when is_binary(date_str) and date_str != "" do
+    case NaiveDateTime.from_iso8601(date_str <> ":00") do
+      {:ok, local_naive} ->
+        utc_datetime =
+          local_naive
+          |> NaiveDateTime.add(offset_minutes * 60, :second)
+          |> DateTime.from_naive!("Etc/UTC")
+
+        Map.put(params, "transaction_date", utc_datetime)
+
+      {:error, _} ->
+        params
+    end
+  end
+
+  defp convert_transaction_date_to_utc(params, _offset_minutes), do: params
 
   defp error_to_string(:too_large), do: "File is too large"
   defp error_to_string(:not_accepted), do: "File type not accepted"

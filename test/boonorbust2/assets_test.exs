@@ -9,7 +9,7 @@ defmodule Boonorbust2.AssetsTest do
   setup :verify_on_exit!
 
   describe "price update rate limiting" do
-    test "does not fetch price when asset was updated within 24 hours" do
+    test "does not fetch price when asset was updated within 12 hours" do
       # Mock for initial creation
       HTTPClientMock
       |> expect(:get, 1, fn _url, _opts ->
@@ -49,7 +49,7 @@ defmodule Boonorbust2.AssetsTest do
       assert Decimal.eq?(updated_asset.price, Decimal.new("50.0"))
     end
 
-    test "fetches price when asset was updated more than 24 hours ago" do
+    test "fetches price when asset was updated more than 12 hours ago" do
       # Mock for initial creation
       HTTPClientMock
       |> expect(:get, 1, fn _url, _opts ->
@@ -64,7 +64,7 @@ defmodule Boonorbust2.AssetsTest do
           currency: "USD"
         })
 
-      # Manually set both times to old (e.g., 25+ hours ago)
+      # Manually set both times to old (e.g., 13+ hours ago)
       very_old_time =
         DateTime.add(DateTime.utc_now(), -100_000, :second) |> DateTime.truncate(:second)
 
@@ -188,7 +188,7 @@ defmodule Boonorbust2.AssetsTest do
           currency: "USD"
         })
 
-      # Update only the name, keeping same price_url (within 24 hours)
+      # Update only the name, keeping same price_url (within 12 hours)
       # Simulate what the form does - send all fields including unchanged price_url
       # No mock expectation means HTTP client should not be called
       {:ok, updated_asset} =
@@ -246,7 +246,7 @@ defmodule Boonorbust2.AssetsTest do
           currency: "USD"
         })
 
-      # Set updated_at to 25+ hours ago to trigger price fetch
+      # Set updated_at to 13+ hours ago to trigger price fetch
       old_time = DateTime.add(DateTime.utc_now(), -90_000, :second) |> DateTime.truncate(:second)
 
       asset =
@@ -264,7 +264,7 @@ defmodule Boonorbust2.AssetsTest do
         {:ok, %{status: 200, body: %{"data" => [%{"close" => 50.0}]}}}
       end)
 
-      # Update asset (triggers price fetch because > 24 hours old)
+      # Update asset (triggers price fetch because > 12 hours old)
       {:ok, updated_asset} = Assets.update_asset(asset, %{name: "Updated Name"})
 
       # Assert: Price is still 50.0
@@ -274,7 +274,7 @@ defmodule Boonorbust2.AssetsTest do
       # This ensures rate limiting works correctly
       assert DateTime.compare(updated_asset.updated_at, old_updated_at) == :gt
 
-      # Now update again immediately (within 24 hours)
+      # Now update again immediately (within 12 hours)
       # Mock should NOT be called because updated_at was properly set above
       # No expect() call means test fails if HTTP client is invoked
       {:ok, final_asset} = Assets.update_asset(updated_asset, %{name: "Final Name"})
@@ -393,7 +393,7 @@ defmodule Boonorbust2.AssetsTest do
         |> Ecto.Changeset.change(%{updated_at: old_time})
         |> Repo.update!()
 
-      # asset3 is recent (within 24 hours) - should NOT be updated
+      # asset3 is recent (within 12 hours) - should NOT be updated
       # Store asset3's current updated_at for later comparison
       asset3_old_updated_at = Assets.get_asset!(asset3.id).updated_at
 
@@ -439,7 +439,7 @@ defmodule Boonorbust2.AssetsTest do
   end
 
   describe "dividend sync rate limiting" do
-    test "does not sync dividends when asset was updated within 24 hours" do
+    test "does not sync dividends when asset was updated within 12 hours" do
       # Mock for initial creation - create asset with dividends already enabled
       HTTPClientMock
       |> expect(:get, 1, fn _url, _opts ->
@@ -502,7 +502,7 @@ defmodule Boonorbust2.AssetsTest do
       assert updated_asset.dividend_url == "https://www.dividends.sg/view/test"
     end
 
-    test "syncs dividends when asset was updated more than 24 hours ago" do
+    test "syncs dividends when asset was updated more than 12 hours ago" do
       # Create asset without dividends first
       {:ok, asset} =
         Assets.create_asset(%{
@@ -511,7 +511,7 @@ defmodule Boonorbust2.AssetsTest do
           distributes_dividends: false
         })
 
-      # Set updated_at to 25+ hours ago
+      # Set updated_at to 13+ hours ago
       old_time = DateTime.add(DateTime.utc_now(), -90_000, :second) |> DateTime.truncate(:second)
 
       asset =
@@ -651,7 +651,7 @@ defmodule Boonorbust2.AssetsTest do
           dividend_withholding_tax: Decimal.new("0.30")
         })
 
-      # Set updated_at to 25+ hours ago to trigger dividend sync
+      # Set updated_at to 13+ hours ago to trigger dividend sync
       old_time = DateTime.add(DateTime.utc_now(), -90_000, :second) |> DateTime.truncate(:second)
 
       asset =
@@ -689,7 +689,7 @@ defmodule Boonorbust2.AssetsTest do
          }}
       end)
 
-      # Update asset (triggers dividend sync because > 24 hours old)
+      # Update asset (triggers dividend sync because > 12 hours old)
       {:ok, updated_asset} = Assets.update_asset(asset, %{name: "Updated Name"})
 
       # Assert: No new dividends (still just 1)
@@ -700,7 +700,7 @@ defmodule Boonorbust2.AssetsTest do
       # This ensures rate limiting works correctly
       assert DateTime.compare(updated_asset.updated_at, old_updated_at) == :gt
 
-      # Now update again immediately (within 24 hours)
+      # Now update again immediately (within 12 hours)
       # Mock should NOT be called because updated_at was properly set above
       # No expect() call means test fails if HTTP client is invoked
       {:ok, final_asset} = Assets.update_asset(updated_asset, %{name: "Final Name"})

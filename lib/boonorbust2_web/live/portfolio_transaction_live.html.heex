@@ -109,7 +109,10 @@
               </div>
 
               <p class="text-sm text-gray-500 mt-3">
-                <span class="local-time" data-utc-time={DateTime.to_iso8601(transaction.transaction_date)}>
+                <span
+                  class="local-time"
+                  data-utc-time={DateTime.to_iso8601(transaction.transaction_date)}
+                >
                   {Calendar.strftime(transaction.transaction_date, "%B %d, %Y at %I:%M %p")}
                 </span>
               </p>
