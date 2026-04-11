@@ -10,20 +10,11 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="alternate icon" href="/favicon.ico" />
     <link phx-track-static rel="stylesheet" href={~p"/assets/app.css"} />
-    <script src="https://unpkg.com/htmx.org@1.9.10">
-    </script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js">
     </script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js">
     </script>
-    <script>
-      document.addEventListener('DOMContentLoaded', function() {
-        document.body.addEventListener('htmx:configRequest', function(evt) {
-          evt.detail.headers['x-csrf-token'] = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
-        });
-      });
-    </script>
-    <script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
+<script defer phx-track-static type="text/javascript" src={~p"/assets/app.js"}>
     </script>
   </head>
   <body class="bg-white">
