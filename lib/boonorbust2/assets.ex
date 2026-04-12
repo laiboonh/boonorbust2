@@ -295,7 +295,7 @@ defmodule Boonorbust2.Assets do
     http_client =
       Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
 
-    case http_client.get(price_url) do
+    case http_client.get(price_url, []) do
       {:ok, %{status: 200, body: body}} ->
         {:ok, document} = Floki.parse_document(body)
 
@@ -319,7 +319,7 @@ defmodule Boonorbust2.Assets do
     http_client =
       Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
 
-    case http_client.get(price_url) do
+    case http_client.get(price_url, []) do
       {:ok, %{status: 200, body: body}} ->
         {:ok, document} = Floki.parse_document(body)
 
@@ -414,7 +414,7 @@ defmodule Boonorbust2.Assets do
     http_client =
       Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
 
-    with {:ok, %{status: 200, body: body}} <- http_client.get(price_url),
+    with {:ok, %{status: 200, body: body}} <- http_client.get(price_url, []),
          {:ok, document} <- Floki.parse_document(body),
          {:ok, price} <- parse_etnet_price(document) do
       {:ok, price}
@@ -436,7 +436,7 @@ defmodule Boonorbust2.Assets do
     http_client =
       Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
 
-    with {:ok, %{status: 200, body: body}} <- http_client.get(price_url),
+    with {:ok, %{status: 200, body: body}} <- http_client.get(price_url, []),
          {:ok, document} <- Floki.parse_document(body),
          {:ok, price} <- parse_dividends_sg_price(document) do
       {:ok, price}
@@ -551,7 +551,7 @@ defmodule Boonorbust2.Assets do
     http_client =
       Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
 
-    case http_client.get(url) do
+    case http_client.get(url, []) do
       {:ok, %{status: 200, body: body}} ->
         with {:ok, document} <- Floki.parse_document(body),
              {:ok, price} <- parse_dividends_sg_price(document),
@@ -576,7 +576,7 @@ defmodule Boonorbust2.Assets do
     http_client =
       Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
 
-    case http_client.get(url) do
+    case http_client.get(url, []) do
       {:ok, %{status: 200, body: body}} ->
         with {:ok, document} <- Floki.parse_document(body),
              {:ok, price} <- parse_etnet_price(document),
@@ -608,7 +608,7 @@ defmodule Boonorbust2.Assets do
     http_client =
       Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
 
-    with {:ok, %{status: 200, body: body}} <- http_client.get(url),
+    with {:ok, %{status: 200, body: body}} <- http_client.get(url, []),
          {:ok, document} <- Floki.parse_document(body) do
       {:ok,
        %{
@@ -630,7 +630,7 @@ defmodule Boonorbust2.Assets do
     http_client =
       Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
 
-    with {:ok, %{status: 200, body: body}} <- http_client.get(url),
+    with {:ok, %{status: 200, body: body}} <- http_client.get(url, []),
          {:ok, document} <- Floki.parse_document(body) do
       {:ok,
        %{

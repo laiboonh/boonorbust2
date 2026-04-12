@@ -807,4 +807,279 @@ defmodule Boonorbust2.AssetsTest do
       assert reloaded_asset.dividend_url == nil
     end
   end
+
+  describe "combined fetch (price_url == dividend_url)" do
+    # HTML that dividends.sg would serve — contains both a price and a dividend table.
+    @dividends_sg_html """
+    <html>
+    <div class="col-md-8"><h4>SGD <span>1.23</span></h4></div>
+    <table class="table-striped">
+    <tbody>
+    <tr>
+      <td>2024</td>
+      <td>5%</td>
+      <td>SGD 0.05</td>
+      <td>SGD0.05</td>
+      <td>2024-01-15</td>
+      <td>2024-02-01</td>
+      <td>Rate: SGD 0.05</td>
+    </tr>
+    </tbody>
+    </table>
+    </html>
+    """
+
+    # HTML that etnet.com.hk would serve — price in a HeaderTxt span, dividends in a table.
+    @etnet_html """
+    <html>
+    <span class="HeaderTxt up">2.45</span>
+    <table>
+    <tr><th>Ann Date</th><th>FY</th><th>Particular</th><th>Ex-Date</th><th>BC1</th><th>BC2</th><th>Pay Date</th></tr>
+    <tr>
+      <td>01/01/2024</td>
+      <td>FY2024</td>
+      <td>Fin Div HKD 0.1250</td>
+      <td>15/01/2024</td>
+      <td>20/01/2024</td>
+      <td>21/01/2024</td>
+      <td>15/02/2024</td>
+    </tr>
+    </table>
+    </html>
+    """
+
+    defp old_time,
+      do: DateTime.add(DateTime.utc_now(), -90_000, :second) |> DateTime.truncate(:second)
+
+    defp make_stale(asset) do
+      t = old_time()
+
+      asset
+      |> Ecto.Changeset.change(%{prices_synced_at: t, dividends_synced_at: t})
+      |> Repo.update!()
+    end
+
+    test "create_asset makes a single HTTP call for dividends.sg" do
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: @dividends_sg_html}}
+      end)
+
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "SG Stock",
+          currency: "SGD",
+          price_url: "https://www.dividends.sg/view/test",
+          dividend_url: "https://www.dividends.sg/view/test",
+          distributes_dividends: true,
+          dividend_withholding_tax: Decimal.new("0.0")
+        })
+
+      assert Decimal.eq?(asset.price, Decimal.new("1.23"))
+      assert asset.prices_synced_at != nil
+
+      dividends = Boonorbust2.Dividends.list_dividends(asset_id: asset.id)
+      assert length(dividends) == 1
+      assert Decimal.eq?(hd(dividends).value, Decimal.new("0.05"))
+
+      reloaded = Repo.get!(Assets.Asset, asset.id)
+      assert reloaded.dividends_synced_at != nil
+    end
+
+    test "create_asset makes a single HTTP call for etnet.com.hk" do
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: @etnet_html}}
+      end)
+
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "HK Stock",
+          currency: "HKD",
+          price_url: "https://www.etnet.com.hk/www/eng/stocks/realtime/quote.php?code=0001",
+          dividend_url: "https://www.etnet.com.hk/www/eng/stocks/realtime/quote.php?code=0001",
+          distributes_dividends: true,
+          dividend_withholding_tax: Decimal.new("0.0")
+        })
+
+      assert Decimal.eq?(asset.price, Decimal.new("2.45"))
+      assert asset.prices_synced_at != nil
+
+      dividends = Boonorbust2.Dividends.list_dividends(asset_id: asset.id)
+      assert length(dividends) == 1
+      assert Decimal.eq?(hd(dividends).value, Decimal.new("0.1250"))
+
+      reloaded = Repo.get!(Assets.Asset, asset.id)
+      assert reloaded.dividends_synced_at != nil
+    end
+
+    test "create_asset rolls back when combined fetch fails" do
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts -> {:ok, %{status: 500}} end)
+
+      {:error, changeset} =
+        Assets.create_asset(%{
+          name: "Failed SG Stock",
+          currency: "SGD",
+          price_url: "https://www.dividends.sg/view/test",
+          dividend_url: "https://www.dividends.sg/view/test",
+          distributes_dividends: true,
+          dividend_withholding_tax: Decimal.new("0.0")
+        })
+
+      assert %{price_url: [_error]} = errors_on(changeset)
+      assert Assets.get_asset_by_name("Failed SG Stock") == nil
+    end
+
+    test "update_asset makes a single HTTP call when both timestamps are stale" do
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: @dividends_sg_html}}
+      end)
+
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "SG Stock",
+          currency: "SGD",
+          price_url: "https://www.dividends.sg/view/test",
+          dividend_url: "https://www.dividends.sg/view/test",
+          distributes_dividends: true,
+          dividend_withholding_tax: Decimal.new("0.0")
+        })
+
+      asset = make_stale(asset)
+
+      updated_html = String.replace(@dividends_sg_html, "1.23", "2.50")
+
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: updated_html}}
+      end)
+
+      {:ok, updated_asset} = Assets.update_asset(asset, %{name: "Updated SG Stock"})
+
+      assert Decimal.eq?(updated_asset.price, Decimal.new("2.50"))
+
+      reloaded = Repo.get!(Assets.Asset, updated_asset.id)
+      assert DateTime.compare(reloaded.prices_synced_at, old_time()) == :gt
+      assert DateTime.compare(reloaded.dividends_synced_at, old_time()) == :gt
+    end
+
+    test "update_asset falls back to price-only fetch when only price is stale" do
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: @dividends_sg_html}}
+      end)
+
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "SG Stock",
+          currency: "SGD",
+          price_url: "https://www.dividends.sg/view/test",
+          dividend_url: "https://www.dividends.sg/view/test",
+          distributes_dividends: true,
+          dividend_withholding_tax: Decimal.new("0.0")
+        })
+
+      # Only price is stale; dividends_synced_at stays recent
+      asset
+      |> Ecto.Changeset.change(%{prices_synced_at: old_time()})
+      |> Repo.update!()
+
+      # Exactly ONE HTTP call (price only, not combined)
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: String.replace(@dividends_sg_html, "1.23", "3.00")}}
+      end)
+
+      {:ok, updated_asset} = Assets.update_asset(asset, %{name: "Updated"})
+
+      assert Decimal.eq?(updated_asset.price, Decimal.new("3.00"))
+    end
+
+    test "create_asset uses separate fetches when price_url and dividend_url differ" do
+      # price_url → Marketstack, dividend_url → dividends.sg: must be two HTTP calls
+      HTTPClientMock
+      |> expect(:get, 1, fn url, _opts ->
+        if String.contains?(url, "marketstack") do
+          {:ok, %{status: 200, body: %{"data" => [%{"close" => 10.0}]}}}
+        else
+          {:ok, %{status: 200, body: @dividends_sg_html}}
+        end
+      end)
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: @dividends_sg_html}}
+      end)
+
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "Mixed URL Stock",
+          currency: "SGD",
+          price_url: "https://api.marketstack.com/stock",
+          dividend_url: "https://www.dividends.sg/view/test",
+          distributes_dividends: true,
+          dividend_withholding_tax: Decimal.new("0.0")
+        })
+
+      assert Decimal.eq?(asset.price, Decimal.new("10.0"))
+      assert length(Boonorbust2.Dividends.list_dividends(asset_id: asset.id)) == 1
+    end
+
+    test "update_all_asset_data uses combined fetch and counts both price and dividend success" do
+      {:ok, user} =
+        Boonorbust2.Accounts.create_user(%{
+          email: "combined@example.com",
+          name: "Combined User",
+          provider: "google",
+          uid: "combined123",
+          currency: "SGD"
+        })
+
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: @dividends_sg_html}}
+      end)
+
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "SG Combined",
+          currency: "SGD",
+          price_url: "https://www.dividends.sg/view/combined",
+          dividend_url: "https://www.dividends.sg/view/combined",
+          distributes_dividends: true,
+          dividend_withholding_tax: Decimal.new("0.0")
+        })
+
+      {:ok, _} =
+        Boonorbust2.PortfolioTransactions.create_portfolio_transaction(%{
+          "asset_id" => asset.id,
+          "user_id" => user.id,
+          "action" => "buy",
+          "quantity" => "5",
+          "price" => "1.00",
+          "currency" => "SGD",
+          "commission" => "0",
+          "transaction_date" => DateTime.utc_now()
+        })
+
+      Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
+
+      make_stale(asset)
+
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: String.replace(@dividends_sg_html, "1.23", "1.50")}}
+      end)
+
+      {:ok, result} = Assets.update_all_asset_data()
+
+      assert result.prices_success == 1
+      assert result.prices_errors == 0
+      assert result.dividends_success == 1
+      assert result.dividends_errors == 0
+
+      reloaded = Repo.get!(Assets.Asset, asset.id)
+      assert Decimal.eq?(reloaded.price, Decimal.new("1.50"))
+    end
+  end
 end
