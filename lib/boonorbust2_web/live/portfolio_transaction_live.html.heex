@@ -94,16 +94,20 @@
                 </div>
                 <div>
                   <p class="text-gray-500">Price</p>
-                  <p class="font-medium">{Money.to_string!(transaction.price)}</p>
+                  <p class="font-medium">
+                    {Money.to_string!(transaction.price, fractional_digits: 4)}
+                  </p>
                 </div>
                 <div>
                   <p class="text-gray-500">Commission</p>
-                  <p class="font-medium">{Money.to_string!(transaction.commission)}</p>
+                  <p class="font-medium">
+                    {Money.to_string!(transaction.commission, fractional_digits: 4)}
+                  </p>
                 </div>
                 <div>
                   <p class="text-gray-500">Total Amount</p>
                   <p class="font-medium text-lg text-emerald-600">
-                    {Money.to_string!(transaction.amount)}
+                    {Money.to_string!(transaction.amount, fractional_digits: 4)}
                   </p>
                 </div>
               </div>

@@ -134,7 +134,7 @@ defmodule Boonorbust2Web.PositionsLive do
         <div>
           <p class="text-xs text-gray-500">Avg Price</p>
           <p class="text-lg font-bold text-emerald-600">
-            {Money.to_string!(@position.average_price)}
+            {Money.to_string!(@position.average_price, fractional_digits: 4)}
           </p>
         </div>
       </div>
