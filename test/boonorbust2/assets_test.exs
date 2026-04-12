@@ -1082,4 +1082,341 @@ defmodule Boonorbust2.AssetsTest do
       assert Decimal.eq?(reloaded.price, Decimal.new("1.50"))
     end
   end
+
+  describe "update_all_asset_data result counting" do
+    # Shared helper: create a user, buy an asset, calculate a position so
+    # the asset has holdings and is eligible for the scheduled job.
+    defp setup_asset_with_holdings(asset, user) do
+      {:ok, _} =
+        Boonorbust2.PortfolioTransactions.create_portfolio_transaction(%{
+          "asset_id" => asset.id,
+          "user_id" => user.id,
+          "action" => "buy",
+          "quantity" => "5",
+          "price" => "10.0",
+          "currency" => asset.currency,
+          "commission" => "0",
+          "transaction_date" => DateTime.utc_now()
+        })
+
+      Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
+    end
+
+    @tag :capture_log
+    test "prices_errors incremented when price fetch fails" do
+      {:ok, user} =
+        Boonorbust2.Accounts.create_user(%{
+          email: "user_price_err@example.com",
+          name: "User",
+          provider: "google",
+          uid: "uid_price_err",
+          currency: "USD"
+        })
+
+      # Create asset without triggering an HTTP call on creation (no price_url yet)
+      {:ok, asset} = Assets.create_asset(%{name: "Price Fail Asset", currency: "USD"})
+
+      # Add price_url directly so creation didn't fetch
+      asset =
+        asset
+        |> Ecto.Changeset.change(%{
+          price_url: "https://api.marketstack.com/fail",
+          prices_synced_at: nil
+        })
+        |> Repo.update!()
+
+      setup_asset_with_holdings(asset, user)
+
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts -> {:ok, %{status: 500}} end)
+
+      {:ok, result} = Assets.update_all_asset_data()
+
+      assert result.prices_errors == 1
+      assert result.prices_success == 0
+    end
+
+    @tag :capture_log
+    test "dividends_success incremented for non-combined dividend sync" do
+      {:ok, user} =
+        Boonorbust2.Accounts.create_user(%{
+          email: "user_div_ok@example.com",
+          name: "User",
+          provider: "google",
+          uid: "uid_div_ok",
+          currency: "USD"
+        })
+
+      # Create without price_url so price fetch doesn't trigger
+      {:ok, asset} = Assets.create_asset(%{name: "Div Only Asset", currency: "USD"})
+
+      # Add a separate dividend_url (Marketstack price, dividends.sg dividends — different URLs)
+      asset =
+        asset
+        |> Ecto.Changeset.change(%{
+          price_url: "https://api.marketstack.com/divonly",
+          prices_synced_at: DateTime.utc_now() |> DateTime.truncate(:second),
+          dividend_url: "https://www.dividends.sg/view/divonly",
+          distributes_dividends: true,
+          dividend_withholding_tax: Decimal.new("0.0"),
+          dividends_synced_at: nil
+        })
+        |> Repo.update!()
+
+      setup_asset_with_holdings(asset, user)
+
+      # price is fresh (prices_synced_at recent) → no price call
+      # dividends are stale (nil) → one dividend call
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok,
+         %{
+           status: 200,
+           body: """
+           <html>
+           <table class="table-striped"><tbody>
+           <tr>
+             <td>2024</td><td>5%</td><td>SGD 0.05</td>
+             <td>SGD0.05</td><td>2024-01-15</td><td>2024-02-01</td>
+             <td>Rate: SGD 0.05</td>
+           </tr>
+           </tbody></table>
+           </html>
+           """
+         }}
+      end)
+
+      {:ok, result} = Assets.update_all_asset_data()
+
+      assert result.dividends_success == 1
+      assert result.dividends_errors == 0
+      assert result.prices_success == 0
+    end
+
+    @tag :capture_log
+    test "dividends_errors incremented when dividend sync fails" do
+      {:ok, user} =
+        Boonorbust2.Accounts.create_user(%{
+          email: "user_div_err@example.com",
+          name: "User",
+          provider: "google",
+          uid: "uid_div_err",
+          currency: "USD"
+        })
+
+      {:ok, asset} = Assets.create_asset(%{name: "Div Error Asset", currency: "USD"})
+
+      asset =
+        asset
+        |> Ecto.Changeset.change(%{
+          price_url: "https://api.marketstack.com/diverr",
+          prices_synced_at: DateTime.utc_now() |> DateTime.truncate(:second),
+          dividend_url: "https://www.dividends.sg/view/diverr",
+          distributes_dividends: true,
+          dividend_withholding_tax: Decimal.new("0.0"),
+          dividends_synced_at: nil
+        })
+        |> Repo.update!()
+
+      setup_asset_with_holdings(asset, user)
+
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts -> {:error, :timeout} end)
+
+      {:ok, result} = Assets.update_all_asset_data()
+
+      assert result.dividends_errors == 1
+      assert result.dividends_success == 0
+      assert result.prices_success == 0
+    end
+
+    @tag :capture_log
+    test "combined fetch failure increments both prices_errors and dividends_errors" do
+      {:ok, user} =
+        Boonorbust2.Accounts.create_user(%{
+          email: "user_combined_err@example.com",
+          name: "User",
+          provider: "google",
+          uid: "uid_combined_err",
+          currency: "SGD"
+        })
+
+      # Create via direct insert to avoid HTTP call on creation
+      asset =
+        %Boonorbust2.Assets.Asset{}
+        |> Ecto.Changeset.change(%{
+          name: "Combined Error Asset",
+          currency: "SGD",
+          price_url: "https://www.dividends.sg/view/comberr",
+          dividend_url: "https://www.dividends.sg/view/comberr",
+          distributes_dividends: true,
+          dividend_withholding_tax: Decimal.new("0.0"),
+          prices_synced_at: nil,
+          dividends_synced_at: nil
+        })
+        |> Repo.insert!()
+
+      setup_asset_with_holdings(asset, user)
+
+      # Both stale + same dividends.sg URL → combined path → fails
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts -> {:ok, %{status: 503}} end)
+
+      {:ok, result} = Assets.update_all_asset_data()
+
+      assert result.prices_errors == 1
+      assert result.dividends_errors == 1
+      assert result.prices_success == 0
+      assert result.dividends_success == 0
+    end
+
+    @tag :capture_log
+    test "only price stale returns {:fetched, :skipped} — prices_success but no dividends_success" do
+      {:ok, user} =
+        Boonorbust2.Accounts.create_user(%{
+          email: "user_price_only@example.com",
+          name: "User",
+          provider: "google",
+          uid: "uid_price_only",
+          currency: "USD"
+        })
+
+      {:ok, asset} = Assets.create_asset(%{name: "Price Only Stale", currency: "USD"})
+
+      # price stale, no dividend_url → dividend skipped
+      asset =
+        asset
+        |> Ecto.Changeset.change(%{
+          price_url: "https://api.marketstack.com/priceonly",
+          prices_synced_at: nil
+        })
+        |> Repo.update!()
+
+      setup_asset_with_holdings(asset, user)
+
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: %{"data" => [%{"close" => 42.0}]}}}
+      end)
+
+      {:ok, result} = Assets.update_all_asset_data()
+
+      assert result.prices_success == 1
+      assert result.prices_errors == 0
+      assert result.dividends_success == 0
+      assert result.dividends_errors == 0
+    end
+
+    @tag :capture_log
+    test "only dividends stale returns {:skipped, :synced} — dividends_success but no prices_success" do
+      {:ok, user} =
+        Boonorbust2.Accounts.create_user(%{
+          email: "user_div_only@example.com",
+          name: "User",
+          provider: "google",
+          uid: "uid_div_only",
+          currency: "USD"
+        })
+
+      {:ok, asset} = Assets.create_asset(%{name: "Div Only Stale", currency: "USD"})
+
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      asset =
+        asset
+        |> Ecto.Changeset.change(%{
+          price_url: "https://api.marketstack.com/divonlystale",
+          prices_synced_at: now,
+          dividend_url: "https://www.dividends.sg/view/divonlystale",
+          distributes_dividends: true,
+          dividend_withholding_tax: Decimal.new("0.0"),
+          dividends_synced_at: nil
+        })
+        |> Repo.update!()
+
+      setup_asset_with_holdings(asset, user)
+
+      # price is fresh → no price call; dividends stale → one call
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok,
+         %{
+           status: 200,
+           body: """
+           <html>
+           <table class="table-striped"><tbody>
+           <tr>
+             <td>2024</td><td>5%</td><td>SGD 0.05</td>
+             <td>SGD0.05</td><td>2024-01-15</td><td>2024-02-01</td>
+             <td>Rate: SGD 0.05</td>
+           </tr>
+           </tbody></table>
+           </html>
+           """
+         }}
+      end)
+
+      {:ok, result} = Assets.update_all_asset_data()
+
+      assert result.prices_success == 0
+      assert result.prices_errors == 0
+      assert result.dividends_success == 1
+      assert result.dividends_errors == 0
+    end
+
+    @tag :capture_log
+    test "dividends_synced_at updated after successful non-combined dividend sync" do
+      {:ok, user} =
+        Boonorbust2.Accounts.create_user(%{
+          email: "user_div_ts@example.com",
+          name: "User",
+          provider: "google",
+          uid: "uid_div_ts",
+          currency: "USD"
+        })
+
+      {:ok, asset} = Assets.create_asset(%{name: "Div Timestamp Asset", currency: "USD"})
+
+      stale = DateTime.add(DateTime.utc_now(), -90_000, :second) |> DateTime.truncate(:second)
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+      asset =
+        asset
+        |> Ecto.Changeset.change(%{
+          price_url: "https://api.marketstack.com/divts",
+          prices_synced_at: now,
+          dividend_url: "https://www.dividends.sg/view/divts",
+          distributes_dividends: true,
+          dividend_withholding_tax: Decimal.new("0.0"),
+          dividends_synced_at: stale
+        })
+        |> Repo.update!()
+
+      setup_asset_with_holdings(asset, user)
+
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok,
+         %{
+           status: 200,
+           body: """
+           <html>
+           <table class="table-striped"><tbody>
+           <tr>
+             <td>2024</td><td>5%</td><td>SGD 0.05</td>
+             <td>SGD0.05</td><td>2024-01-15</td><td>2024-02-01</td>
+             <td>Rate: SGD 0.05</td>
+           </tr>
+           </tbody></table>
+           </html>
+           """
+         }}
+      end)
+
+      {:ok, _result} = Assets.update_all_asset_data()
+
+      reloaded = Repo.get!(Assets.Asset, asset.id)
+      assert DateTime.compare(reloaded.dividends_synced_at, stale) == :gt
+    end
+  end
 end
