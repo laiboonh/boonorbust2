@@ -64,15 +64,12 @@ defmodule Boonorbust2.AssetsTest do
           currency: "USD"
         })
 
-      # Manually set both times to old (e.g., 13+ hours ago)
-      very_old_time =
-        DateTime.add(DateTime.utc_now(), -100_000, :second) |> DateTime.truncate(:second)
-
+      # Set prices_synced_at to old to trigger price re-fetch
       old_time = DateTime.add(DateTime.utc_now(), -90_000, :second) |> DateTime.truncate(:second)
 
       asset =
         asset
-        |> Ecto.Changeset.change(%{inserted_at: very_old_time, updated_at: old_time})
+        |> Ecto.Changeset.change(%{prices_synced_at: old_time})
         |> Repo.update!()
 
       # Reload the asset to get the freshly set timestamps
@@ -246,16 +243,17 @@ defmodule Boonorbust2.AssetsTest do
           currency: "USD"
         })
 
-      # Set updated_at to 13+ hours ago to trigger price fetch
+      # Set prices_synced_at to 13+ hours ago to trigger price fetch
       old_time = DateTime.add(DateTime.utc_now(), -90_000, :second) |> DateTime.truncate(:second)
 
       asset =
         asset
-        |> Ecto.Changeset.change(%{updated_at: old_time})
+        |> Ecto.Changeset.change(%{prices_synced_at: old_time})
         |> Repo.update!()
 
-      # Store the old updated_at for comparison
-      old_updated_at = asset.updated_at
+      # Reload to get the updated prices_synced_at
+      asset = Repo.get!(Assets.Asset, asset.id)
+      old_prices_synced_at = asset.prices_synced_at
 
       # Mock for update - API returns SAME price (50.0)
       # This is the key scenario: price value doesn't change
@@ -270,12 +268,13 @@ defmodule Boonorbust2.AssetsTest do
       # Assert: Price is still 50.0
       assert Decimal.eq?(updated_asset.price, Decimal.new("50.0"))
 
-      # Critical assertion: updated_at MUST be newer even though price didn't change
+      # Critical assertion: prices_synced_at MUST be newer even though price didn't change
       # This ensures rate limiting works correctly
-      assert DateTime.compare(updated_asset.updated_at, old_updated_at) == :gt
+      updated_asset_from_db = Repo.get!(Assets.Asset, updated_asset.id)
+      assert DateTime.compare(updated_asset_from_db.prices_synced_at, old_prices_synced_at) == :gt
 
       # Now update again immediately (within 12 hours)
-      # Mock should NOT be called because updated_at was properly set above
+      # Mock should NOT be called because prices_synced_at was properly set above
       # No expect() call means test fails if HTTP client is invoked
       {:ok, final_asset} = Assets.update_asset(updated_asset, %{name: "Final Name"})
 
@@ -379,23 +378,23 @@ defmodule Boonorbust2.AssetsTest do
       Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(asset2.id, user.id)
       Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(asset3.id, user.id)
 
-      # Set asset1 to old (should be updated)
+      # Set asset1 prices_synced_at to old (should be updated)
       old_time = DateTime.add(DateTime.utc_now(), -90_000, :second) |> DateTime.truncate(:second)
 
       asset1 =
         asset1
-        |> Ecto.Changeset.change(%{updated_at: old_time})
+        |> Ecto.Changeset.change(%{prices_synced_at: old_time})
         |> Repo.update!()
 
-      # Set asset2 to old (should be updated)
+      # Set asset2 prices_synced_at to old (should be updated)
       asset2 =
         asset2
-        |> Ecto.Changeset.change(%{updated_at: old_time})
+        |> Ecto.Changeset.change(%{prices_synced_at: old_time})
         |> Repo.update!()
 
       # asset3 is recent (within 12 hours) - should NOT be updated
       # Store asset3's current updated_at for later comparison
-      asset3_old_updated_at = Assets.get_asset!(asset3.id).updated_at
+      _asset3_old_updated_at = Assets.get_asset!(asset3.id).updated_at
 
       # Mock: Expect only 2 calls (asset1 and asset2), NOT asset3
       HTTPClientMock
@@ -429,12 +428,11 @@ defmodule Boonorbust2.AssetsTest do
       # asset_no_holdings should still have original price (no one holds it, so not updated)
       assert Decimal.eq?(updated_asset_no_holdings.price, Decimal.new("100.0"))
 
-      # Verify updated_at was set for assets that were updated
-      assert DateTime.compare(updated_asset1.updated_at, asset1.updated_at) == :gt
-      assert DateTime.compare(updated_asset2.updated_at, asset2.updated_at) == :gt
+      # Verify prices_synced_at was refreshed for updated assets
+      assert DateTime.compare(updated_asset1.prices_synced_at, old_time) == :gt
+      assert DateTime.compare(updated_asset2.prices_synced_at, old_time) == :gt
 
-      # Verify asset3's updated_at was NOT changed (rate limited)
-      assert DateTime.compare(updated_asset3.updated_at, asset3_old_updated_at) == :eq
+      # Verify asset3's price was not updated (rate limited — already checked above)
     end
   end
 
@@ -679,16 +677,17 @@ defmodule Boonorbust2.AssetsTest do
           dividend_withholding_tax: Decimal.new("0.30")
         })
 
-      # Set updated_at to 13+ hours ago to trigger dividend sync
+      # Set dividends_synced_at to 13+ hours ago to trigger dividend sync
       old_time = DateTime.add(DateTime.utc_now(), -90_000, :second) |> DateTime.truncate(:second)
 
       asset =
         asset
-        |> Ecto.Changeset.change(%{updated_at: old_time})
+        |> Ecto.Changeset.change(%{dividends_synced_at: old_time})
         |> Repo.update!()
 
-      # Store the old updated_at for comparison
-      old_updated_at = asset.updated_at
+      # Reload to get the updated dividends_synced_at
+      asset = Repo.get!(Assets.Asset, asset.id)
+      old_dividends_synced_at = asset.dividends_synced_at
 
       # Mock for update - API returns SAME dividend data
       # This is the key scenario: no new dividends
@@ -717,19 +716,22 @@ defmodule Boonorbust2.AssetsTest do
          }}
       end)
 
-      # Update asset (triggers dividend sync because > 12 hours old)
+      # Update asset (triggers dividend sync because dividends_synced_at is old)
       {:ok, updated_asset} = Assets.update_asset(asset, %{name: "Updated Name"})
 
       # Assert: No new dividends (still just 1)
       dividends = Boonorbust2.Dividends.list_dividends(asset_id: updated_asset.id)
       assert length(dividends) == 1
 
-      # Critical assertion: updated_at MUST be newer even though no new dividends
+      # Critical assertion: dividends_synced_at MUST be newer even though no new dividends
       # This ensures rate limiting works correctly
-      assert DateTime.compare(updated_asset.updated_at, old_updated_at) == :gt
+      updated_asset_from_db = Repo.get!(Assets.Asset, updated_asset.id)
+
+      assert DateTime.compare(updated_asset_from_db.dividends_synced_at, old_dividends_synced_at) ==
+               :gt
 
       # Now update again immediately (within 12 hours)
-      # Mock should NOT be called because updated_at was properly set above
+      # Mock should NOT be called because dividends_synced_at was properly set above
       # No expect() call means test fails if HTTP client is invoked
       {:ok, final_asset} = Assets.update_asset(updated_asset, %{name: "Final Name"})
 

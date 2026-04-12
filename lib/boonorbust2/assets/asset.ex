@@ -22,6 +22,8 @@ defmodule Boonorbust2.Assets.Asset do
           :name => nil | binary(),
           :price => nil | %Decimal{},
           :price_url => nil | binary(),
+          :prices_synced_at => nil | %DateTime{},
+          :dividends_synced_at => nil | %DateTime{},
           :updated_at => nil | %NaiveDateTime{}
         }
 
@@ -33,6 +35,8 @@ defmodule Boonorbust2.Assets.Asset do
     field :distributes_dividends, :boolean, default: false
     field :dividend_url, :string
     field :dividend_withholding_tax, :decimal
+    field :prices_synced_at, :utc_datetime
+    field :dividends_synced_at, :utc_datetime
 
     has_many :asset_tags, AssetTag
     has_many :dividends, Dividend
@@ -50,7 +54,9 @@ defmodule Boonorbust2.Assets.Asset do
       :currency,
       :distributes_dividends,
       :dividend_url,
-      :dividend_withholding_tax
+      :dividend_withholding_tax,
+      :prices_synced_at,
+      :dividends_synced_at
     ])
     |> validate_required([:name, :currency])
     |> validate_number(:price, greater_than_or_equal_to: 0)

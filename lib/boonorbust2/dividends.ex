@@ -271,33 +271,12 @@ defmodule Boonorbust2.Dividends do
 
   @spec parse_dividends_stockanalysis(Floki.html_tree()) :: {:ok, [map()]} | {:error, String.t()}
   defp parse_dividends_stockanalysis(document) do
-    # Find all dividend rows in the table
-    # stockanalysis.com uses tbody for data rows
-    # We only extract ex_date and pay_date for enrichment purposes
     rows = Floki.find(document, "table tbody tr")
-
-    IO.puts("Total rows found: #{length(rows)}")
-
-    # Log first row structure if available
-    if rows != [] do
-      first_row = Enum.at(rows, 0)
-      cells = Floki.find(first_row, "td")
-      IO.puts("First row has #{length(cells)} cells")
-
-      cells
-      |> Enum.with_index()
-      |> Enum.each(fn {_cell, idx} ->
-        text = extract_cell_text(cells, idx)
-        IO.puts("  Cell #{idx}: #{inspect(text)}")
-      end)
-    end
 
     dividends =
       rows
       |> Enum.map(&parse_dividend_stockanalysis_row/1)
       |> Enum.reject(&is_nil/1)
-
-    IO.puts("Parsed #{length(dividends)} dividends")
 
     if Enum.empty?(dividends) do
       {:error, "No valid dividend data found"}
@@ -441,27 +420,19 @@ defmodule Boonorbust2.Dividends do
     # We only extract ex_date and pay_date for matching/enrichment
 
     if length(cells) < 4 do
-      IO.puts("Skipping row: only #{length(cells)} cells")
       nil
     else
       ex_date_text = extract_cell_text(cells, 0)
       pay_date_text = extract_cell_text(cells, 3)
 
-      IO.puts("Parsing: ex_date=#{inspect(ex_date_text)}, pay_date=#{inspect(pay_date_text)}")
-
-      # Parse the dates
       with {:ok, ex_date} <- parse_date(ex_date_text),
            {:ok, pay_date} <- parse_date(pay_date_text) do
-        IO.puts("Success: ex_date=#{ex_date}, pay_date=#{pay_date}")
-
         %{
           ex_date: ex_date,
           pay_date: pay_date
         }
       else
-        error ->
-          IO.puts("Parse failed: #{inspect(error)}")
-          nil
+        _ -> nil
       end
     end
   end

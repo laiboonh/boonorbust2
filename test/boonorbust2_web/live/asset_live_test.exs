@@ -344,7 +344,7 @@ defmodule Boonorbust2Web.AssetLiveTest do
       old_time = DateTime.add(DateTime.utc_now(), -90_000, :second) |> DateTime.truncate(:second)
 
       asset
-      |> Ecto.Changeset.change(%{updated_at: old_time})
+      |> Ecto.Changeset.change(%{prices_synced_at: old_time})
       |> Boonorbust2.Repo.update!()
 
       HTTPClientMock

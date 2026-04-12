@@ -104,71 +104,10 @@ defmodule Boonorbust2.Assets do
   def create_asset(attrs \\ %{}) do
     Repo.transaction(fn ->
       case %Asset{} |> Asset.changeset(attrs) |> Repo.insert() do
-        {:ok, asset} -> handle_asset_creation(asset)
+        {:ok, asset} -> fetch_and_sync_on_save(asset)
         {:error, %Ecto.Changeset{} = changeset} -> Repo.rollback(changeset)
       end
     end)
-  end
-
-  @spec handle_asset_creation(Asset.t()) :: Asset.t()
-  defp handle_asset_creation(asset) do
-    if can_use_combined_fetch?(asset) do
-      do_combined_create(asset)
-    else
-      do_separate_creates(asset)
-    end
-  end
-
-  @spec do_combined_create(Asset.t()) :: Asset.t()
-  defp do_combined_create(asset) do
-    case fetch_combined_data(asset) do
-      {:ok, {price, dividends}} ->
-        # Only set updated_at after BOTH operations succeed
-        with {:ok, price_updated_asset} <- update_asset_price(asset, price),
-             {:ok, _div_result} <- sync_dividends_from_data(price_updated_asset, dividends),
-             {:ok, final_asset} <- set_updated_at(price_updated_asset) do
-          final_asset
-        else
-          {:error, %Ecto.Changeset{} = changeset} -> Repo.rollback(changeset)
-        end
-
-      {:error, reason} ->
-        rollback_with_price_error(asset, reason)
-    end
-  end
-
-  @spec do_separate_creates(Asset.t()) :: Asset.t()
-  defp do_separate_creates(asset) do
-    # Only set updated_at after BOTH operations succeed
-    with {:ok, price_updated_asset} <- maybe_update_price_from_url(asset),
-         {:ok, _div_result} <- maybe_sync_dividends_from_url(price_updated_asset) do
-      maybe_set_timestamp_on_create(price_updated_asset)
-    else
-      {:error, %Ecto.Changeset{} = changeset} ->
-        Repo.rollback(changeset)
-
-      {:error, reason} when is_binary(reason) ->
-        rollback_with_dividend_error(asset, reason)
-    end
-  end
-
-  defp maybe_set_timestamp_on_create(asset) do
-    should_set_timestamp =
-      not is_nil(asset.price_url) or
-        (not is_nil(asset.dividend_url) and asset.distributes_dividends)
-
-    if should_set_timestamp do
-      finalize_with_timestamp(asset)
-    else
-      asset
-    end
-  end
-
-  defp finalize_with_timestamp(asset) do
-    case set_updated_at(asset) do
-      {:ok, final_asset} -> final_asset
-      {:error, changeset} -> Repo.rollback(changeset)
-    end
   end
 
   @spec update_asset(Asset.t(), map()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
@@ -176,13 +115,20 @@ defmodule Boonorbust2.Assets do
     price_url_changed? = url_changed?(attrs, asset.price_url, :price_url)
     dividend_url_changed? = url_changed?(attrs, asset.dividend_url, :dividend_url)
 
-    # Check if we should update price/dividends BEFORE updating the record
-    # (because update will change updated_at timestamp)
-    should_fetch_price = price_url_changed? or should_update_price?(asset)
-    should_sync_dividends = dividend_url_changed? or should_update_dividends?(asset)
-
     Repo.transaction(fn ->
-      do_update_asset(asset, attrs, should_fetch_price, should_sync_dividends)
+      case asset |> Asset.changeset(attrs) |> Repo.update() do
+        {:ok, _} ->
+          # Reload to get the latest prices_synced_at / dividends_synced_at — these are set
+          # by separate Repo.update calls (e.g. during a previous create_asset) and won't
+          # be present in the struct returned by this changeset update.
+          fresh_asset = Repo.get!(Asset, asset.id)
+          should_fetch_price = price_url_changed? or should_update_price?(fresh_asset)
+          should_sync_dividends = dividend_url_changed? or should_update_dividends?(fresh_asset)
+          fetch_and_sync_on_save(fresh_asset, should_fetch_price, should_sync_dividends)
+
+        {:error, %Ecto.Changeset{} = changeset} ->
+          Repo.rollback(changeset)
+      end
     end)
   end
 
@@ -197,24 +143,42 @@ defmodule Boonorbust2.Assets do
     end
   end
 
-  defp do_update_asset(asset, attrs, should_fetch_price, should_sync_dividends) do
-    case asset |> Asset.changeset(attrs) |> Repo.update() do
-      {:ok, updated_asset} ->
-        handle_asset_update(updated_asset, should_fetch_price, should_sync_dividends)
-
-      {:error, %Ecto.Changeset{} = changeset} ->
-        Repo.rollback(changeset)
+  # Fetches price and syncs dividends after a create or update, inside a transaction.
+  # On create, always fetches if URLs are present. On update, respects the should_* flags.
+  @spec fetch_and_sync_on_save(Asset.t(), boolean(), boolean()) :: Asset.t()
+  defp fetch_and_sync_on_save(asset, should_fetch_price \\ true, should_sync_dividends \\ true) do
+    if should_fetch_price and should_sync_dividends and can_use_combined_fetch?(asset) do
+      do_combined_save(asset)
+    else
+      with {:ok, asset} <- maybe_fetch_and_save_price(asset, should_fetch_price),
+           {:ok, _} <- maybe_sync_and_save_dividends(asset, should_sync_dividends) do
+        asset
+      else
+        {:error, %Ecto.Changeset{} = changeset} -> Repo.rollback(changeset)
+        {:error, reason} when is_binary(reason) -> rollback_with_dividend_error(asset, reason)
+      end
     end
   end
 
-  @spec handle_asset_update(Asset.t(), boolean(), boolean()) :: Asset.t()
-  defp handle_asset_update(asset, should_fetch_price, should_sync_dividends) do
-    # Try combined fetch if both price and dividends need updating and URLs match
-    if should_fetch_price and should_sync_dividends and can_use_combined_fetch?(asset) do
-      do_combined_update(asset)
-    else
-      # Fall back to separate fetches
-      do_separate_updates(asset, should_fetch_price, should_sync_dividends)
+  # Single HTTP call for assets where price_url == dividend_url (dividends.sg, etnet).
+  # Sets prices_synced_at and dividends_synced_at only when both operations succeed.
+  @spec do_combined_save(Asset.t()) :: Asset.t()
+  defp do_combined_save(asset) do
+    case fetch_combined_data(asset) do
+      {:ok, {price, dividends}} ->
+        now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+        with {:ok, price_asset} <- fetch_and_save_price_value(asset, price, now),
+             {:ok, _} <- Boonorbust2.Dividends.sync_dividends_from_data(price_asset, dividends),
+             {:ok, final_asset} <-
+               price_asset |> Asset.changeset(%{dividends_synced_at: now}) |> Repo.update() do
+          final_asset
+        else
+          {:error, %Ecto.Changeset{} = changeset} -> Repo.rollback(changeset)
+        end
+
+      {:error, reason} ->
+        rollback_with_price_error(asset, reason)
     end
   end
 
@@ -225,7 +189,6 @@ defmodule Boonorbust2.Assets do
          distributes_dividends: true
        })
        when not is_nil(url) do
-    # Check if URL is supported for combined fetch
     case url do
       "https://www.dividends.sg/" <> _ -> true
       "https://www.etnet.com.hk/" <> _ -> true
@@ -235,83 +198,26 @@ defmodule Boonorbust2.Assets do
 
   defp can_use_combined_fetch?(_asset), do: false
 
-  @spec do_combined_update(Asset.t()) :: Asset.t()
-  defp do_combined_update(asset) do
-    case fetch_combined_data(asset) do
-      {:ok, {price, dividends}} ->
-        # Update both price and dividends from the single fetch
-        # Only set updated_at after BOTH operations succeed
-        with {:ok, price_updated_asset} <- update_asset_price(asset, price),
-             {:ok, _div_result} <- sync_dividends_from_data(price_updated_asset, dividends),
-             {:ok, final_asset} <- set_updated_at(price_updated_asset) do
-          final_asset
-        else
-          {:error, %Ecto.Changeset{} = changeset} -> Repo.rollback(changeset)
-        end
-
-      {:error, reason} ->
-        # Combined fetch failed, rollback with error
-        rollback_with_price_error(asset, reason)
-    end
-  end
-
-  @spec do_separate_updates(Asset.t(), boolean(), boolean()) :: Asset.t()
-  defp do_separate_updates(asset, should_fetch_price, should_sync_dividends) do
-    # Only set updated_at after BOTH operations succeed
-    with {:ok, price_updated_asset} <- maybe_fetch_price(asset, should_fetch_price),
-         {:ok, _div_result} <- maybe_sync_dividends(price_updated_asset, should_sync_dividends) do
-      maybe_set_timestamp_on_update(
-        price_updated_asset,
-        should_fetch_price,
-        should_sync_dividends
-      )
-    else
-      {:error, %Ecto.Changeset{} = changeset} ->
-        Repo.rollback(changeset)
-
-      {:error, reason} when is_binary(reason) ->
-        rollback_with_dividend_error(asset, reason)
-    end
-  end
-
-  defp maybe_set_timestamp_on_update(asset, should_fetch_price, should_sync_dividends) do
-    if should_fetch_price or should_sync_dividends do
-      finalize_with_timestamp(asset)
-    else
-      asset
-    end
-  end
-
-  @spec update_asset_price(Asset.t(), any()) ::
+  @spec maybe_fetch_and_save_price(Asset.t(), boolean()) ::
           {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
-  defp update_asset_price(asset, price_value) do
-    asset
-    |> Asset.changeset(%{price: price_value})
-    |> Repo.update()
+  defp maybe_fetch_and_save_price(%Asset{price_url: nil} = asset, _), do: {:ok, asset}
+  defp maybe_fetch_and_save_price(asset, false), do: {:ok, asset}
+
+  defp maybe_fetch_and_save_price(asset, true) do
+    fetch_and_save_price(asset)
   end
 
-  @spec sync_dividends_from_data(Asset.t(), [map()]) ::
-          {:ok,
-           %{
-             inserted: non_neg_integer(),
-             errors: non_neg_integer(),
-             realized_profits_created: non_neg_integer()
-           }}
-          | {:error, String.t()}
-  defp sync_dividends_from_data(asset, dividends) do
-    Boonorbust2.Dividends.sync_dividends_from_data(asset, dividends)
-  end
+  @spec maybe_sync_and_save_dividends(Asset.t(), boolean()) ::
+          {:ok, any()} | {:error, String.t()}
+  defp maybe_sync_and_save_dividends(%Asset{dividend_url: nil} = _asset, _), do: {:ok, :skipped}
 
-  @spec set_updated_at(Asset.t()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
-  defp set_updated_at(asset) do
-    # Force updated_at to be set - this ensures rate limiting works correctly
-    asset
-    |> Asset.changeset(%{})
-    |> Ecto.Changeset.force_change(
-      :updated_at,
-      DateTime.utc_now() |> DateTime.truncate(:second)
-    )
-    |> Repo.update()
+  defp maybe_sync_and_save_dividends(%Asset{distributes_dividends: false} = _asset, _),
+    do: {:ok, :skipped}
+
+  defp maybe_sync_and_save_dividends(_asset, false), do: {:ok, :skipped}
+
+  defp maybe_sync_and_save_dividends(asset, true) do
+    sync_and_save_dividends(asset)
   end
 
   @spec rollback_with_dividend_error(Asset.t(), String.t()) :: no_return()
@@ -333,13 +239,6 @@ defmodule Boonorbust2.Assets do
 
     Repo.rollback(changeset)
   end
-
-  @spec maybe_fetch_price(Asset.t(), boolean()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
-  defp maybe_fetch_price(asset, true) when not is_nil(asset.price_url) do
-    fetch_and_update_price(asset)
-  end
-
-  defp maybe_fetch_price(asset, _), do: {:ok, asset}
 
   @spec delete_asset(Asset.t()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
   def delete_asset(%Asset{} = asset) do
@@ -824,21 +723,31 @@ defmodule Boonorbust2.Assets do
     |> Enum.take(20)
   end
 
-  @spec maybe_update_price_from_url(Asset.t()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
-  defp maybe_update_price_from_url(%Asset{price_url: nil} = asset), do: {:ok, asset}
+  @spec should_update_price?(Asset.t()) :: boolean()
+  defp should_update_price?(%Asset{price_url: nil}), do: false
+  defp should_update_price?(%Asset{prices_synced_at: nil}), do: true
 
-  defp maybe_update_price_from_url(%Asset{} = asset) do
-    # For CREATE, always fetch the price if price_url is set
-    fetch_and_update_price(asset)
+  defp should_update_price?(%Asset{prices_synced_at: prices_synced_at}) do
+    DateTime.diff(DateTime.utc_now(), prices_synced_at, :second) >= 43_200
   end
 
-  @spec fetch_and_update_price(Asset.t()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
-  defp fetch_and_update_price(%Asset{} = asset) do
+  @spec should_update_dividends?(Asset.t()) :: boolean()
+  defp should_update_dividends?(%Asset{dividend_url: nil}), do: false
+  defp should_update_dividends?(%Asset{distributes_dividends: false}), do: false
+  defp should_update_dividends?(%Asset{dividends_synced_at: nil}), do: true
+
+  defp should_update_dividends?(%Asset{dividends_synced_at: dividends_synced_at}) do
+    DateTime.diff(DateTime.utc_now(), dividends_synced_at, :second) >= 43_200
+  end
+
+  # Fetches price from URL, saves price + prices_synced_at. Used in both transaction and
+  # scheduled job contexts.
+  @spec fetch_and_save_price(Asset.t()) :: {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
+  defp fetch_and_save_price(asset) do
     case fetch_price(asset) do
       {:ok, price_value} ->
-        asset
-        |> Asset.changeset(%{price: price_value})
-        |> Repo.update()
+        now = DateTime.utc_now() |> DateTime.truncate(:second)
+        asset |> Asset.changeset(%{price: price_value, prices_synced_at: now}) |> Repo.update()
 
       {:error, reason} ->
         changeset =
@@ -850,56 +759,25 @@ defmodule Boonorbust2.Assets do
     end
   end
 
-  @spec should_update_price?(Asset.t()) :: boolean()
-  defp should_update_price?(%Asset{price_url: nil}), do: false
-  defp should_update_price?(%Asset{updated_at: nil}), do: true
-
-  defp should_update_price?(%Asset{updated_at: updated_at}) do
-    # Fetch price if the record is more than 12 hours old
-    now = DateTime.utc_now()
-    diff_seconds = DateTime.diff(now, updated_at, :second)
-    # 12 hours = 43200 seconds
-    diff_seconds >= 43_200
+  # Saves a pre-fetched price value + prices_synced_at in one update.
+  # Used inside do_combined_save where the price was already extracted from the HTTP response.
+  @spec fetch_and_save_price_value(Asset.t(), any(), DateTime.t()) ::
+          {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
+  defp fetch_and_save_price_value(asset, price_value, now) do
+    asset |> Asset.changeset(%{price: price_value, prices_synced_at: now}) |> Repo.update()
   end
 
-  @spec should_update_dividends?(Asset.t()) :: boolean()
-  defp should_update_dividends?(%Asset{dividend_url: nil}), do: false
-  defp should_update_dividends?(%Asset{distributes_dividends: false}), do: false
-  defp should_update_dividends?(%Asset{updated_at: nil}), do: true
+  # Syncs dividends from URL and saves dividends_synced_at on success.
+  @spec sync_and_save_dividends(Asset.t()) :: {:ok, any()} | {:error, String.t()}
+  defp sync_and_save_dividends(asset) do
+    with {:ok, result} <- Boonorbust2.Dividends.sync_dividends(asset) do
+      now = DateTime.utc_now() |> DateTime.truncate(:second)
 
-  defp should_update_dividends?(%Asset{updated_at: updated_at}) do
-    # Sync dividends if the record is more than 12 hours old
-    now = DateTime.utc_now()
-    diff_seconds = DateTime.diff(now, updated_at, :second)
-    # 12 hours = 43200 seconds
-    diff_seconds >= 43_200
-  end
-
-  @spec maybe_sync_dividends_from_url(Asset.t()) :: {:ok, any()} | {:error, String.t()}
-  defp maybe_sync_dividends_from_url(%Asset{dividend_url: nil} = _asset), do: {:ok, :skipped}
-
-  defp maybe_sync_dividends_from_url(%Asset{distributes_dividends: false} = _asset),
-    do: {:ok, :skipped}
-
-  defp maybe_sync_dividends_from_url(%Asset{} = asset) do
-    # For CREATE, always sync dividends if dividend_url is set and distributes_dividends is true
-    sync_asset_dividends(asset)
-  end
-
-  @spec maybe_sync_dividends(Asset.t(), boolean()) :: {:ok, any()} | {:error, String.t()}
-  defp maybe_sync_dividends(_asset, false), do: {:ok, :skipped}
-  defp maybe_sync_dividends(%Asset{dividend_url: nil} = _asset, true), do: {:ok, :skipped}
-
-  defp maybe_sync_dividends(%Asset{distributes_dividends: false} = _asset, true),
-    do: {:ok, :skipped}
-
-  defp maybe_sync_dividends(%Asset{} = asset, true) do
-    sync_asset_dividends(asset)
-  end
-
-  @spec sync_asset_dividends(Asset.t()) :: {:ok, any()} | {:error, String.t()}
-  defp sync_asset_dividends(%Asset{} = asset) do
-    Boonorbust2.Dividends.sync_dividends(asset)
+      case asset |> Asset.changeset(%{dividends_synced_at: now}) |> Repo.update() do
+        {:ok, _} -> {:ok, result}
+        {:error, changeset} -> {:error, changeset}
+      end
+    end
   end
 
   @spec format_changeset_errors(Ecto.Changeset.t()) :: String.t()
@@ -925,207 +803,6 @@ defmodule Boonorbust2.Assets do
     )
   end
 
-  @spec count_combined_results(list(), list(Asset.t())) ::
-          {non_neg_integer(), non_neg_integer(), list(Asset.t())}
-  defp count_combined_results(combined_results, assets) do
-    timed_out_assets =
-      combined_results
-      |> Enum.zip(assets)
-      |> Enum.filter(fn
-        {{:exit, :timeout}, _asset} -> true
-        _ -> false
-      end)
-      |> Enum.map(fn {_result, asset} -> asset end)
-
-    successes =
-      Enum.count(combined_results, fn
-        {:ok, {:fetched, :synced}} -> true
-        _ -> false
-      end)
-
-    errors =
-      Enum.count(combined_results, fn
-        {:ok, {:error, _}} -> true
-        {:exit, :timeout} -> true
-        _ -> false
-      end)
-
-    {successes, errors, timed_out_assets}
-  end
-
-  @spec count_price_results(list(), list(Asset.t())) ::
-          {non_neg_integer(), non_neg_integer(), non_neg_integer(), list(Asset.t())}
-  defp count_price_results(price_results, assets) do
-    timed_out_assets =
-      price_results
-      |> Enum.zip(assets)
-      |> Enum.filter(fn
-        {{:exit, :timeout}, _asset} -> true
-        _ -> false
-      end)
-      |> Enum.map(fn {_result, asset} -> asset end)
-
-    successes =
-      Enum.count(price_results, fn {status, result} -> status == :ok and result == :fetched end)
-
-    errors =
-      Enum.count(price_results, fn
-        {:ok, :error} -> true
-        {:exit, :timeout} -> true
-        _ -> false
-      end)
-
-    skipped =
-      Enum.count(price_results, fn {status, result} -> status == :ok and result == :skipped end)
-
-    {successes, errors, skipped, timed_out_assets}
-  end
-
-  @spec count_dividend_results(list(), list(Asset.t())) ::
-          {non_neg_integer(), non_neg_integer(), non_neg_integer(), list(Asset.t())}
-  defp count_dividend_results(dividend_results, assets) do
-    timed_out_assets =
-      dividend_results
-      |> Enum.zip(assets)
-      |> Enum.filter(fn
-        {{:exit, :timeout}, _asset} -> true
-        _ -> false
-      end)
-      |> Enum.map(fn {_result, asset} -> asset end)
-
-    successes =
-      Enum.count(dividend_results, fn {status, result} -> status == :ok and result == :synced end)
-
-    errors =
-      Enum.count(dividend_results, fn
-        {:ok, :error} -> true
-        {:exit, :timeout} -> true
-        _ -> false
-      end)
-
-    skipped =
-      Enum.count(dividend_results, fn {status, result} ->
-        status == :ok and result == :skipped
-      end)
-
-    {successes, errors, skipped, timed_out_assets}
-  end
-
-  @spec fetch_asset_price(Asset.t(), boolean()) :: :fetched | :skipped | :error
-  defp fetch_asset_price(asset, set_timestamp \\ true) do
-    should_fetch = should_update_price?(asset)
-
-    with {:ok, updated_asset} <- maybe_fetch_price(asset, should_fetch),
-         {:ok, _final_asset} <- maybe_set_updated_at(updated_asset, should_fetch, set_timestamp) do
-      if should_fetch do
-        Logger.info("Successfully fetched price for asset: #{asset.name} (ID: #{asset.id})")
-        :fetched
-      else
-        :skipped
-      end
-    else
-      {:error, changeset} when is_struct(changeset, Ecto.Changeset) ->
-        errors = format_changeset_errors(changeset)
-
-        Logger.error(
-          "Failed to fetch price for asset: #{asset.name} (ID: #{asset.id}). Errors: #{errors}"
-        )
-
-        :error
-    end
-  end
-
-  @spec set_updated_at_if_needed(Asset.t(), boolean()) ::
-          {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
-  defp set_updated_at_if_needed(asset, true), do: set_updated_at(asset)
-  defp set_updated_at_if_needed(asset, false), do: {:ok, asset}
-
-  @spec maybe_set_updated_at(Asset.t(), boolean(), boolean()) ::
-          {:ok, Asset.t()} | {:error, Ecto.Changeset.t()}
-  defp maybe_set_updated_at(asset, _should_update, false), do: {:ok, asset}
-
-  defp maybe_set_updated_at(asset, should_update, true),
-    do: set_updated_at_if_needed(asset, should_update)
-
-  @spec sync_asset_dividends_with_status(Asset.t(), boolean()) :: :synced | :skipped | :error
-  defp sync_asset_dividends_with_status(asset, set_timestamp \\ true) do
-    should_sync = should_update_dividends?(asset)
-
-    # Need to reload asset to get latest version (in case price was updated in parallel)
-    fresh_asset = Repo.get!(Asset, asset.id)
-
-    with {:ok, _div_result} <- maybe_sync_dividends(fresh_asset, should_sync),
-         {:ok, _final_asset} <- maybe_set_updated_at(fresh_asset, should_sync, set_timestamp) do
-      if should_sync do
-        Logger.info("Successfully synced dividends for asset: #{asset.name} (ID: #{asset.id})")
-        :synced
-      else
-        :skipped
-      end
-    else
-      {:error, changeset} when is_struct(changeset, Ecto.Changeset) ->
-        errors = format_changeset_errors(changeset)
-
-        Logger.error(
-          "Failed to sync dividends for asset: #{asset.name} (ID: #{asset.id}). Errors: #{errors}"
-        )
-
-        :error
-
-      {:error, reason} ->
-        Logger.error(
-          "Failed to sync dividends for asset: #{asset.name} (ID: #{asset.id}). Reason: #{inspect(reason)}"
-        )
-
-        :error
-    end
-  end
-
-  @spec fetch_and_update_both(Asset.t()) ::
-          {:error, :partial_failure | :timestamp_update_failed} | {:fetched, :synced}
-  defp fetch_and_update_both(asset) do
-    # Fetch price and sync dividends separately, only set updated_at if BOTH succeed
-    price_result = fetch_asset_price(asset, false)
-    dividend_result = sync_asset_dividends_with_status(asset, false)
-
-    handle_both_results(asset, price_result, dividend_result)
-  end
-
-  @spec handle_both_results(Asset.t(), :error | :fetched | :skipped, :error | :skipped | :synced) ::
-          {:fetched, :synced} | {:error, :partial_failure | :timestamp_update_failed}
-  defp handle_both_results(asset, :fetched, :synced) do
-    # Both succeeded, now set updated_at
-    fresh_asset = Repo.get!(Asset, asset.id)
-
-    case set_updated_at(fresh_asset) do
-      {:ok, _updated_asset} ->
-        Logger.info(
-          "Successfully updated price and dividends for asset: #{asset.name} (ID: #{asset.id})"
-        )
-
-        {:fetched, :synced}
-
-      {:error, changeset} ->
-        errors = format_changeset_errors(changeset)
-
-        Logger.error(
-          "Failed to set updated_at for asset: #{asset.name} (ID: #{asset.id}). Errors: #{errors}"
-        )
-
-        {:error, :timestamp_update_failed}
-    end
-  end
-
-  defp handle_both_results(asset, price_result, dividend_result) do
-    # At least one failed, don't set updated_at
-    Logger.error(
-      "Failed to update asset: #{asset.name} (ID: #{asset.id}). " <>
-        "Price result: #{inspect(price_result)}, Dividend result: #{inspect(dividend_result)}"
-    )
-
-    {:error, :partial_failure}
-  end
-
   @doc """
   Updates prices and dividends for all assets that have a price_url or dividend_url configured.
   Only updates assets where ANY user currently has holdings (quantity > 0).
@@ -1147,183 +824,137 @@ defmodule Boonorbust2.Assets do
   def update_all_asset_data do
     Logger.info("Starting update_all_asset_data")
 
-    # Get asset IDs where ANY user has holdings (quantity > 0)
     asset_ids_with_holdings = Boonorbust2.PortfolioPositions.get_asset_ids_with_holdings()
-
     assets = list_assets()
 
-    # Filter to assets where any user has holdings
     assets_with_holdings =
-      Enum.filter(assets, fn asset ->
-        asset.id in asset_ids_with_holdings
-      end)
+      Enum.filter(assets, fn asset -> asset.id in asset_ids_with_holdings end)
 
     Logger.info(
       "Found #{length(assets_with_holdings)} assets with holdings out of #{length(assets)} total assets"
     )
 
-    # Separate assets into those that can use combined fetch and those that can't
-    {assets_for_combined, assets_for_separate} =
-      Enum.split_with(assets_with_holdings, fn asset ->
-        should_update_price?(asset) and should_update_dividends?(asset) and
-          can_use_combined_fetch?(asset)
-      end)
-
-    Logger.info(
-      "Processing #{length(assets_for_combined)} assets with combined fetch, #{length(assets_for_separate)} with separate fetch"
-    )
-
-    # Process combined fetch assets (single HTTP call per asset)
-    combined_results =
-      assets_for_combined
-      |> Task.async_stream(
-        &fetch_and_update_combined/1,
+    raw_results =
+      assets_with_holdings
+      |> Task.async_stream(&update_asset_data/1,
         max_concurrency: 5,
         timeout: 30_000,
         on_timeout: :kill_task
       )
       |> Enum.to_list()
 
-    {combined_prices_success, combined_prices_errors, combined_timed_out_assets} =
-      count_combined_results(combined_results, assets_for_combined)
-
-    log_timeout_warning(combined_timed_out_assets, "combined fetch operations")
-
-    combined_dividends_success = combined_prices_success
-    combined_dividends_errors = combined_prices_errors
-
-    # Process remaining assets separately
-    # Separate into three groups to ensure updated_at is only set when BOTH succeed
-    {assets_needing_both, assets_needing_one} =
-      Enum.split_with(assets_for_separate, fn asset ->
-        should_update_price?(asset) and should_update_dividends?(asset)
+    timed_out_assets =
+      raw_results
+      |> Enum.zip(assets_with_holdings)
+      |> Enum.filter(fn
+        {{:exit, :timeout}, _} -> true
+        _ -> false
       end)
+      |> Enum.map(fn {_, asset} -> asset end)
 
-    # Process assets needing both price and dividend updates
-    Logger.info(
-      "Processing #{length(assets_needing_both)} assets needing both price and dividend updates"
-    )
+    log_timeout_warning(timed_out_assets, "update operations")
 
-    both_results =
-      assets_needing_both
-      |> Task.async_stream(
-        &fetch_and_update_both/1,
-        max_concurrency: 5,
-        timeout: 60_000,
-        on_timeout: :kill_task
-      )
-      |> Enum.to_list()
-
-    {both_success, both_errors, both_timed_out_assets} =
-      count_combined_results(both_results, assets_needing_both)
-
-    log_timeout_warning(both_timed_out_assets, "price+dividend operations")
-
-    # Now process assets that only need one type of update
-    # Update prices for assets with price_url (only those not needing dividends)
-    assets_with_price_url =
-      Enum.filter(assets_needing_one, fn asset ->
-        not is_nil(asset.price_url) and should_update_price?(asset)
+    results =
+      Enum.map(raw_results, fn
+        {:ok, result} -> result
+        {:exit, :timeout} -> {:error, :error}
       end)
-
-    Logger.info("Fetching prices for #{length(assets_with_price_url)} assets (price only)")
-
-    price_results =
-      assets_with_price_url
-      |> Task.async_stream(
-        &fetch_asset_price/1,
-        max_concurrency: 5,
-        timeout: 30_000,
-        on_timeout: :kill_task
-      )
-      |> Enum.to_list()
-
-    {prices_success, prices_errors, prices_skipped, price_timed_out_assets} =
-      count_price_results(price_results, assets_with_price_url)
-
-    log_timeout_warning(price_timed_out_assets, "price fetch operations")
-
-    # Update dividends for assets with dividend_url (only those not needing prices)
-    assets_with_dividend_url =
-      Enum.filter(assets_needing_one, fn asset ->
-        not is_nil(asset.dividend_url) and asset.distributes_dividends and
-          should_update_dividends?(asset)
-      end)
-
-    Logger.info(
-      "Syncing dividends for #{length(assets_with_dividend_url)} assets (dividend only)"
-    )
-
-    dividend_results =
-      assets_with_dividend_url
-      |> Task.async_stream(
-        &sync_asset_dividends_with_status/1,
-        max_concurrency: 5,
-        timeout: 30_000,
-        on_timeout: :kill_task
-      )
-      |> Enum.to_list()
-
-    {dividends_success, dividends_errors, dividends_skipped, dividend_timed_out_assets} =
-      count_dividend_results(dividend_results, assets_with_dividend_url)
-
-    log_timeout_warning(dividend_timed_out_assets, "dividend sync operations")
 
     result = %{
-      prices_success: prices_success + combined_prices_success + both_success,
-      prices_errors: prices_errors + combined_prices_errors + both_errors,
-      dividends_success: dividends_success + combined_dividends_success + both_success,
-      dividends_errors: dividends_errors + combined_dividends_errors + both_errors
+      prices_success: Enum.count(results, fn {p, _} -> p == :fetched end),
+      prices_errors: Enum.count(results, fn {p, _} -> p == :error end),
+      dividends_success: Enum.count(results, fn {_, d} -> d == :synced end),
+      dividends_errors: Enum.count(results, fn {_, d} -> d == :error end)
     }
 
     Logger.info(
       "Completed update_all_asset_data - " <>
-        "Prices: #{result.prices_success} succeeded, #{result.prices_errors} failed, #{prices_skipped} skipped (rate limited). " <>
-        "Dividends: #{result.dividends_success} succeeded, #{result.dividends_errors} failed, #{dividends_skipped} skipped (rate limited). " <>
-        "Combined operations (both price+dividend): #{both_success} succeeded, #{both_errors} failed."
+        "Prices: #{result.prices_success} succeeded, #{result.prices_errors} failed. " <>
+        "Dividends: #{result.dividends_success} succeeded, #{result.dividends_errors} failed."
     )
 
     {:ok, result}
   end
 
-  @spec fetch_and_update_combined(Asset.t()) ::
-          {:fetched, :synced} | {:error, String.t()}
-  defp fetch_and_update_combined(asset) do
-    case fetch_combined_data(asset) do
-      {:ok, {price, dividends}} ->
-        # Only set updated_at after BOTH operations succeed
-        with {:ok, price_asset} <- update_asset_price(asset, price),
-             {:ok, _div_result} <- sync_dividends_from_data(price_asset, dividends),
-             {:ok, _final_asset} <- set_updated_at(price_asset) do
+  # Per-asset update function run by the scheduled job.
+  # Returns {price_result, dividend_result} where each is :fetched/:synced/:skipped/:error.
+  # Uses a single HTTP call when both are due and the URL supports combined fetch.
+  @spec update_asset_data(Asset.t()) ::
+          {:fetched | :skipped | :error, :synced | :skipped | :error}
+  defp update_asset_data(asset) do
+    needs_price? = should_update_price?(asset)
+    needs_dividends? = should_update_dividends?(asset)
+
+    if needs_price? and needs_dividends? and can_use_combined_fetch?(asset) do
+      case fetch_and_save_combined(asset) do
+        {:ok, _} ->
           Logger.info(
-            "Successfully fetched combined data (price + dividends) for asset: #{asset.name} (ID: #{asset.id})"
+            "Successfully updated price and dividends for asset: #{asset.name} (ID: #{asset.id})"
           )
 
           {:fetched, :synced}
-        else
-          {:error, changeset} when is_struct(changeset, Ecto.Changeset) ->
-            errors = format_changeset_errors(changeset)
 
-            Logger.error(
-              "Failed to update combined data for asset: #{asset.name} (ID: #{asset.id}). Errors: #{errors}"
-            )
+        {:error, reason} ->
+          Logger.error(
+            "Failed combined update for asset: #{asset.name} (ID: #{asset.id}). Reason: #{inspect(reason)}"
+          )
 
-            {:error, "Failed to update asset: #{errors}"}
+          {:error, :error}
+      end
+    else
+      price_result = if needs_price?, do: run_price_update(asset), else: :skipped
+      div_result = if needs_dividends?, do: run_dividend_sync(asset), else: :skipped
+      {price_result, div_result}
+    end
+  end
 
-          {:error, reason} ->
-            Logger.error(
-              "Failed to update combined data for asset: #{asset.name} (ID: #{asset.id}). Reason: #{inspect(reason)}"
-            )
+  @spec run_price_update(Asset.t()) :: :fetched | :error
+  defp run_price_update(asset) do
+    case fetch_and_save_price(asset) do
+      {:ok, _} ->
+        Logger.info("Successfully fetched price for asset: #{asset.name} (ID: #{asset.id})")
+        :fetched
 
-            {:error, "Failed to update asset: #{inspect(reason)}"}
-        end
+      {:error, changeset} ->
+        Logger.error(
+          "Failed to fetch price for asset: #{asset.name} (ID: #{asset.id}). Errors: #{format_changeset_errors(changeset)}"
+        )
+
+        :error
+    end
+  end
+
+  @spec run_dividend_sync(Asset.t()) :: :synced | :error
+  defp run_dividend_sync(asset) do
+    case sync_and_save_dividends(asset) do
+      {:ok, _} ->
+        Logger.info("Successfully synced dividends for asset: #{asset.name} (ID: #{asset.id})")
+        :synced
 
       {:error, reason} ->
         Logger.error(
-          "Failed to fetch combined data for asset: #{asset.name} (ID: #{asset.id}). Reason: #{inspect(reason)}"
+          "Failed to sync dividends for asset: #{asset.name} (ID: #{asset.id}). Reason: #{inspect(reason)}"
         )
 
-        {:error, "Failed to fetch combined data: #{inspect(reason)}"}
+        :error
+    end
+  end
+
+  # Combined fetch for the scheduled job (not inside a transaction).
+  # Sets prices_synced_at immediately, dividends_synced_at after both succeed.
+  @spec fetch_and_save_combined(Asset.t()) :: {:ok, Asset.t()} | {:error, any()}
+  defp fetch_and_save_combined(asset) do
+    case fetch_combined_data(asset) do
+      {:ok, {price, dividends}} ->
+        now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+        with {:ok, price_asset} <- fetch_and_save_price_value(asset, price, now),
+             {:ok, _} <- Boonorbust2.Dividends.sync_dividends_from_data(price_asset, dividends) do
+          price_asset |> Asset.changeset(%{dividends_synced_at: now}) |> Repo.update()
+        end
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
