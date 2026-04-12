@@ -4,6 +4,7 @@ defmodule Boonorbust2Web.AssetLive do
   alias Boonorbust2.Assets
   alias Boonorbust2.Assets.Asset
   alias Boonorbust2.Dividends
+  alias Boonorbust2.Tags
 
   @impl true
   def mount(_params, _session, socket) do
@@ -16,6 +17,8 @@ defmodule Boonorbust2Web.AssetLive do
       |> assign(:form_errors, nil)
       |> assign(:asset_in_progress, nil)
       |> assign(:dividends_modal, nil)
+      |> assign(:tags_modal, nil)
+      |> assign(:asset_tags_map, %{})
       |> assign(:update_result, nil)
 
     {:ok, socket}
@@ -153,10 +156,63 @@ defmodule Boonorbust2Web.AssetLive do
     {:noreply, assign(socket, dividends_modal: nil)}
   end
 
+  def handle_event("show_tags", %{"id" => asset_id}, socket) do
+    asset = Assets.get_asset!(asset_id)
+    tags = Tags.list_tags_for_asset(asset.id, socket.assigns.user_id)
+
+    {:noreply, assign(socket, tags_modal: %{asset: asset, tags: tags})}
+  end
+
+  def handle_event("close_tags_modal", _params, socket) do
+    {:noreply, assign(socket, tags_modal: nil)}
+  end
+
+  def handle_event("add_tag", %{"tag_name" => tag_name}, socket) do
+    %{user_id: user_id} = socket.assigns
+    asset = socket.assigns.tags_modal.asset
+
+    case Tags.get_or_create_tag(tag_name, user_id) do
+      {:ok, tag} ->
+        Tags.add_tag_to_asset(asset.id, tag.id)
+        tags = Tags.list_tags_for_asset(asset.id, user_id)
+
+        socket =
+          socket
+          |> assign(:tags_modal, %{asset: asset, tags: tags})
+          |> reload_assets()
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("remove_tag", %{"asset-id" => asset_id, "tag-id" => tag_id}, socket) do
+    %{user_id: user_id} = socket.assigns
+
+    Tags.remove_tag_from_asset(String.to_integer(asset_id), String.to_integer(tag_id))
+
+    asset = socket.assigns.tags_modal.asset
+    tags = Tags.list_tags_for_asset(asset.id, user_id)
+
+    socket =
+      socket
+      |> assign(:tags_modal, %{asset: asset, tags: tags})
+      |> reload_assets()
+
+    {:noreply, socket}
+  end
+
   defp reload_assets(socket) do
     %{user_id: user_id, filter: filter} = socket.assigns
     assets = Assets.list_assets(filter: filter, user_id: user_id)
-    stream(socket, :assets, assets, reset: true)
+    asset_ids = Enum.map(assets, & &1.id)
+    asset_tags_map = Tags.list_tags_for_assets(asset_ids, user_id)
+
+    socket
+    |> assign(:asset_tags_map, asset_tags_map)
+    |> stream(:assets, assets, reset: true)
   end
 
   defp assign_form_error(socket, changeset, asset_params) do

@@ -6,6 +6,7 @@ defmodule Boonorbust2Web.AssetLiveTest do
 
   alias Boonorbust2.Assets
   alias Boonorbust2.HTTPClientMock
+  alias Boonorbust2.Tags
 
   setup :verify_on_exit!
 
@@ -387,6 +388,156 @@ defmodule Boonorbust2Web.AssetLiveTest do
 
       view |> element(~s|button[phx-click="close_dividends_modal"]|) |> render_click()
       refute render(view) =~ "Dividends for Dividend Stock"
+    end
+  end
+
+  describe "tags" do
+    test "shows tag button on each asset card", %{user_conn: conn} do
+      create_asset(%{name: "Tagged Asset"})
+
+      {:ok, _view, html} = live(conn, ~p"/assets")
+
+      assert html =~ "Manage tags"
+    end
+
+    test "opens tags modal and shows no tags message", %{user_conn: conn} do
+      asset = create_asset(%{name: "Tagless Asset"})
+
+      {:ok, view, _html} = live(conn, ~p"/assets")
+
+      view
+      |> element(~s|button[phx-click="show_tags"][phx-value-id="#{asset.id}"]|)
+      |> render_click()
+
+      html = render(view)
+      assert html =~ "Manage Tags - Tagless Asset"
+      assert html =~ "No tags yet"
+    end
+
+    test "closes tags modal", %{user_conn: conn} do
+      asset = create_asset(%{name: "Some Asset"})
+
+      {:ok, view, _html} = live(conn, ~p"/assets")
+
+      view
+      |> element(~s|button[phx-click="show_tags"][phx-value-id="#{asset.id}"]|)
+      |> render_click()
+
+      assert render(view) =~ "Manage Tags - Some Asset"
+
+      view |> element(~s|button[phx-click="close_tags_modal"]|) |> render_click()
+
+      refute render(view) =~ "Manage Tags - Some Asset"
+    end
+
+    test "shows existing tags in modal when asset already has tags", %{
+      user_conn: conn,
+      regular_user: user
+    } do
+      asset = create_asset(%{name: "Pre-tagged Asset"})
+      {:ok, tag} = Tags.create_tag(%{name: "Existing", user_id: user.id})
+      Tags.add_tag_to_asset(asset.id, tag.id)
+
+      {:ok, view, _html} = live(conn, ~p"/assets")
+
+      view
+      |> element(~s|button[phx-click="show_tags"][phx-value-id="#{asset.id}"]|)
+      |> render_click()
+
+      assert render(view) =~ "Existing"
+    end
+
+    test "adds a tag to an asset", %{user_conn: conn} do
+      asset = create_asset(%{name: "Tag Me"})
+
+      {:ok, view, _html} = live(conn, ~p"/assets")
+
+      view
+      |> element(~s|button[phx-click="show_tags"][phx-value-id="#{asset.id}"]|)
+      |> render_click()
+
+      view
+      |> form(~s|form[phx-submit="add_tag"]|, %{"tag_name" => "NewTag"})
+      |> render_submit()
+
+      html = render(view)
+      assert html =~ "NewTag"
+    end
+
+    test "adding an existing tag name reuses the tag", %{user_conn: conn, regular_user: user} do
+      asset = create_asset(%{name: "Reuse Tag Asset"})
+      {:ok, _tag} = Tags.create_tag(%{name: "Reuse", user_id: user.id})
+
+      {:ok, view, _html} = live(conn, ~p"/assets")
+
+      view
+      |> element(~s|button[phx-click="show_tags"][phx-value-id="#{asset.id}"]|)
+      |> render_click()
+
+      view
+      |> form(~s|form[phx-submit="add_tag"]|, %{"tag_name" => "Reuse"})
+      |> render_submit()
+
+      html = render(view)
+      assert html =~ "Reuse"
+      assert length(Tags.list_tags(user.id)) == 1
+    end
+
+    test "removes a tag from an asset", %{user_conn: conn, regular_user: user} do
+      asset = create_asset(%{name: "Remove Tag Asset"})
+      {:ok, tag} = Tags.create_tag(%{name: "RemoveMe", user_id: user.id})
+      Tags.add_tag_to_asset(asset.id, tag.id)
+
+      {:ok, view, _html} = live(conn, ~p"/assets")
+
+      view
+      |> element(~s|button[phx-click="show_tags"][phx-value-id="#{asset.id}"]|)
+      |> render_click()
+
+      view
+      |> element(
+        ~s|button[phx-click="remove_tag"][phx-value-asset-id="#{asset.id}"][phx-value-tag-id="#{tag.id}"]|
+      )
+      |> render_click()
+
+      html = render(view)
+      refute html =~ "RemoveMe"
+    end
+
+    test "displays tag badges on asset card after adding a tag", %{user_conn: conn} do
+      asset = create_asset(%{name: "Badge Asset"})
+
+      {:ok, view, _html} = live(conn, ~p"/assets")
+
+      view
+      |> element(~s|button[phx-click="show_tags"][phx-value-id="#{asset.id}"]|)
+      |> render_click()
+
+      view
+      |> form(~s|form[phx-submit="add_tag"]|, %{"tag_name" => "BadgeTag"})
+      |> render_submit()
+
+      view |> element(~s|button[phx-click="close_tags_modal"]|) |> render_click()
+
+      assert render(view) =~ "BadgeTag"
+    end
+
+    test "filters assets by tag name", %{user_conn: conn, regular_user: user} do
+      asset1 = create_asset(%{name: "Alpha Stock"})
+      _asset2 = create_asset(%{name: "Beta Stock"})
+
+      {:ok, tag} = Tags.create_tag(%{name: "Equity", user_id: user.id})
+      Tags.add_tag_to_asset(asset1.id, tag.id)
+
+      {:ok, view, _html} = live(conn, ~p"/assets")
+
+      view
+      |> form(~s|form[phx-submit="filter"]|, %{"filter" => "Equity"})
+      |> render_submit()
+
+      html = render(view)
+      assert html =~ "Alpha Stock"
+      refute html =~ "Beta Stock"
     end
   end
 

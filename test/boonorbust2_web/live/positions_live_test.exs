@@ -46,14 +46,6 @@ defmodule Boonorbust2Web.PositionsLiveTest do
           currency: "USD"
         })
 
-      {:ok, tag} =
-        Boonorbust2.Tags.create_tag(%{
-          name: "Technology",
-          user_id: user.id
-        })
-
-      Boonorbust2.Tags.add_tag_to_asset(asset.id, tag.id)
-
       {:ok, _transaction} =
         Boonorbust2.PortfolioTransactions.create_portfolio_transaction(%{
           "asset_id" => asset.id,
@@ -71,7 +63,6 @@ defmodule Boonorbust2Web.PositionsLiveTest do
       {:ok, _view, html} = live(conn, ~p"/positions")
 
       assert html =~ "Test Stock"
-      assert html =~ "Technology"
     end
   end
 
@@ -259,150 +250,6 @@ defmodule Boonorbust2Web.PositionsLiveTest do
         |> render_click()
 
       refute html =~ "Realized Profits - Profits Asset"
-    end
-  end
-
-  describe "tags modal" do
-    test "opens and closes tags modal", %{conn: conn, user: user} do
-      HTTPClientMock
-      |> expect(:get, 1, fn _url, _opts ->
-        {:ok, %{status: 200, body: %{"data" => [%{"close" => 100.00}]}}}
-      end)
-
-      {:ok, asset} =
-        Boonorbust2.Assets.create_asset(%{
-          name: "Tags Asset",
-          price_url: "https://api.marketstack.com/test",
-          currency: "USD"
-        })
-
-      {:ok, _} =
-        Boonorbust2.PortfolioTransactions.create_portfolio_transaction(%{
-          "asset_id" => asset.id,
-          "user_id" => user.id,
-          "action" => "buy",
-          "quantity" => "10",
-          "price" => "100.00",
-          "currency" => "USD",
-          "commission" => "0",
-          "transaction_date" => DateTime.utc_now()
-        })
-
-      Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
-
-      {:ok, view, _html} = live(conn, ~p"/positions")
-
-      # Open tags modal
-      html =
-        view
-        |> element(~s|button[phx-click="show_tags"][phx-value-id="#{asset.id}"]|)
-        |> render_click()
-
-      assert html =~ "Manage Tags - Tags Asset"
-
-      # Close tags modal
-      html =
-        view
-        |> element(~s|button[phx-click="close_tags_modal"]|)
-        |> render_click()
-
-      refute html =~ "Manage Tags - Tags Asset"
-    end
-
-    test "adds a tag to asset", %{conn: conn, user: user} do
-      HTTPClientMock
-      |> expect(:get, 1, fn _url, _opts ->
-        {:ok, %{status: 200, body: %{"data" => [%{"close" => 100.00}]}}}
-      end)
-
-      {:ok, asset} =
-        Boonorbust2.Assets.create_asset(%{
-          name: "Tag Add Asset",
-          price_url: "https://api.marketstack.com/test",
-          currency: "USD"
-        })
-
-      {:ok, _} =
-        Boonorbust2.PortfolioTransactions.create_portfolio_transaction(%{
-          "asset_id" => asset.id,
-          "user_id" => user.id,
-          "action" => "buy",
-          "quantity" => "10",
-          "price" => "100.00",
-          "currency" => "USD",
-          "commission" => "0",
-          "transaction_date" => DateTime.utc_now()
-        })
-
-      Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
-
-      {:ok, view, _html} = live(conn, ~p"/positions")
-
-      # Open tags modal
-      view
-      |> element(~s|button[phx-click="show_tags"][phx-value-id="#{asset.id}"]|)
-      |> render_click()
-
-      # Add tag
-      html =
-        view
-        |> form(~s|form[phx-submit="add_tag"]|, %{"tag_name" => "NewTag"})
-        |> render_submit()
-
-      assert html =~ "NewTag"
-    end
-
-    test "removes a tag from asset", %{conn: conn, user: user} do
-      HTTPClientMock
-      |> expect(:get, 1, fn _url, _opts ->
-        {:ok, %{status: 200, body: %{"data" => [%{"close" => 100.00}]}}}
-      end)
-
-      {:ok, asset} =
-        Boonorbust2.Assets.create_asset(%{
-          name: "Tag Remove Asset",
-          price_url: "https://api.marketstack.com/test",
-          currency: "USD"
-        })
-
-      {:ok, tag} =
-        Boonorbust2.Tags.create_tag(%{
-          name: "RemoveMe",
-          user_id: user.id
-        })
-
-      Boonorbust2.Tags.add_tag_to_asset(asset.id, tag.id)
-
-      {:ok, _} =
-        Boonorbust2.PortfolioTransactions.create_portfolio_transaction(%{
-          "asset_id" => asset.id,
-          "user_id" => user.id,
-          "action" => "buy",
-          "quantity" => "10",
-          "price" => "100.00",
-          "currency" => "USD",
-          "commission" => "0",
-          "transaction_date" => DateTime.utc_now()
-        })
-
-      Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
-
-      {:ok, view, _html} = live(conn, ~p"/positions")
-
-      # Open tags modal
-      view
-      |> element(~s|button[phx-click="show_tags"][phx-value-id="#{asset.id}"]|)
-      |> render_click()
-
-      # Remove tag
-      html =
-        view
-        |> element(
-          ~s|button[phx-click="remove_tag"][phx-value-asset-id="#{asset.id}"][phx-value-tag-id="#{tag.id}"]|
-        )
-        |> render_click()
-
-      refute html =~ "RemoveMe"
     end
   end
 

@@ -85,6 +85,23 @@ defmodule Boonorbust2.Tags do
     )
   end
 
+  @spec list_tags_for_assets([integer()], Ecto.UUID.t()) :: %{integer() => [Tag.t()]}
+  def list_tags_for_assets([], _user_id), do: %{}
+
+  def list_tags_for_assets(asset_ids, user_id) do
+    rows =
+      Repo.all(
+        from t in Tag,
+          join: at in AssetTag,
+          on: at.tag_id == t.id,
+          where: at.asset_id in ^asset_ids and t.user_id == ^user_id,
+          order_by: t.name,
+          select: {at.asset_id, t}
+      )
+
+    Enum.group_by(rows, fn {asset_id, _tag} -> asset_id end, fn {_asset_id, tag} -> tag end)
+  end
+
   @spec list_assets_for_tag(integer()) :: [integer()]
   def list_assets_for_tag(tag_id) do
     Repo.all(
