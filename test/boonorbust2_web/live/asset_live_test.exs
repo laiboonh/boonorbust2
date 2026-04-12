@@ -522,6 +522,78 @@ defmodule Boonorbust2Web.AssetLiveTest do
       assert render(view) =~ "BadgeTag"
     end
 
+    test "add_tag persists the tag association to the database", %{
+      user_conn: conn,
+      regular_user: user
+    } do
+      asset = create_asset(%{name: "DB Persist Asset"})
+
+      {:ok, view, _html} = live(conn, ~p"/assets")
+
+      view
+      |> element(~s|button[phx-click="show_tags"][phx-value-id="#{asset.id}"]|)
+      |> render_click()
+
+      view
+      |> form(~s|form[phx-submit="add_tag"]|, %{"tag_name" => "DBTag"})
+      |> render_submit()
+
+      db_tags = Tags.list_tags_for_asset(asset.id, user.id)
+      assert length(db_tags) == 1
+      assert hd(db_tags).name == "DBTag"
+    end
+
+    test "tag badge appears on asset card on fresh page load after adding", %{
+      user_conn: conn,
+      regular_user: user
+    } do
+      asset = create_asset(%{name: "Reload Badge Asset"})
+      {:ok, tag} = Tags.create_tag(%{name: "ReloadTag", user_id: user.id})
+      Tags.add_tag_to_asset(asset.id, tag.id)
+
+      {:ok, _view, html} = live(conn, ~p"/assets")
+
+      assert html =~ "ReloadTag"
+    end
+
+    test "tag badge appears only on the correct asset card", %{
+      user_conn: conn,
+      regular_user: user
+    } do
+      asset1 = create_asset(%{name: "Asset With Tag"})
+      _asset2 = create_asset(%{name: "Asset Without Tag"})
+      {:ok, tag} = Tags.create_tag(%{name: "OnlyForAsset1", user_id: user.id})
+      Tags.add_tag_to_asset(asset1.id, tag.id)
+
+      {:ok, _view, html} = live(conn, ~p"/assets")
+
+      assert html =~ "OnlyForAsset1"
+      assert html =~ "Asset Without Tag"
+    end
+
+    test "remove_tag removes the association from the database", %{
+      user_conn: conn,
+      regular_user: user
+    } do
+      asset = create_asset(%{name: "DB Remove Asset"})
+      {:ok, tag} = Tags.create_tag(%{name: "ToRemove", user_id: user.id})
+      Tags.add_tag_to_asset(asset.id, tag.id)
+
+      {:ok, view, _html} = live(conn, ~p"/assets")
+
+      view
+      |> element(~s|button[phx-click="show_tags"][phx-value-id="#{asset.id}"]|)
+      |> render_click()
+
+      view
+      |> element(
+        ~s|button[phx-click="remove_tag"][phx-value-asset-id="#{asset.id}"][phx-value-tag-id="#{tag.id}"]|
+      )
+      |> render_click()
+
+      assert Tags.list_tags_for_asset(asset.id, user.id) == []
+    end
+
     test "filters assets by tag name", %{user_conn: conn, regular_user: user} do
       asset1 = create_asset(%{name: "Alpha Stock"})
       _asset2 = create_asset(%{name: "Beta Stock"})
