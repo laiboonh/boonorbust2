@@ -1419,4 +1419,139 @@ defmodule Boonorbust2.AssetsTest do
       assert DateTime.compare(reloaded.dividends_synced_at, stale) == :gt
     end
   end
+
+  describe "update_asset URL change force-fetch" do
+    test "changing price_url forces price fetch even when prices_synced_at is fresh" do
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: %{"data" => [%{"close" => 10.0}]}}}
+      end)
+
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "URL Change Test",
+          price_url: "https://api.marketstack.com/old",
+          currency: "USD"
+        })
+
+      # prices_synced_at is fresh from creation — normally no refetch
+      assert asset.prices_synced_at != nil
+
+      # Changing to a new price_url must force a fetch regardless of freshness
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: %{"data" => [%{"close" => 99.0}]}}}
+      end)
+
+      {:ok, updated} =
+        Assets.update_asset(asset, %{price_url: "https://api.marketstack.com/new"})
+
+      assert Decimal.eq?(updated.price, Decimal.new("99.0"))
+    end
+
+    test "changing dividend_url forces dividend sync even when dividends_synced_at is fresh" do
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok,
+         %{
+           status: 200,
+           body: """
+           <html><table class="table-striped"><tbody>
+           <tr><td>2024</td><td>5%</td><td>SGD 0.05</td>
+           <td>SGD0.05</td><td>2024-01-15</td><td>2024-02-01</td>
+           <td>Rate: SGD 0.05</td></tr>
+           </tbody></table></html>
+           """
+         }}
+      end)
+
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "Div URL Change Test",
+          currency: "SGD",
+          distributes_dividends: true,
+          dividend_url: "https://www.dividends.sg/view/old",
+          dividend_withholding_tax: Decimal.new("0.0")
+        })
+
+      # dividends_synced_at is fresh from creation — normally no re-sync
+      reloaded = Repo.get!(Assets.Asset, asset.id)
+      assert reloaded.dividends_synced_at != nil
+
+      # Changing dividend_url must force a sync regardless of freshness
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok,
+         %{
+           status: 200,
+           body: """
+           <html><table class="table-striped"><tbody>
+           <tr><td>2024</td><td>8%</td><td>SGD 0.08</td>
+           <td>SGD0.08</td><td>2024-06-15</td><td>2024-07-01</td>
+           <td>Rate: SGD 0.08</td></tr>
+           </tbody></table></html>
+           """
+         }}
+      end)
+
+      {:ok, _updated} =
+        Assets.update_asset(reloaded, %{
+          dividend_url: "https://www.dividends.sg/view/new",
+          distributes_dividends: true,
+          dividend_withholding_tax: Decimal.new("0.0")
+        })
+
+      dividends = Boonorbust2.Dividends.list_dividends(asset_id: asset.id)
+      assert Enum.any?(dividends, fn d -> Decimal.eq?(d.value, Decimal.new("0.08")) end)
+    end
+
+    test "string-keyed price_url in attrs triggers force-fetch (form submission style)" do
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: %{"data" => [%{"close" => 10.0}]}}}
+      end)
+
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "String Key Test",
+          price_url: "https://api.marketstack.com/old",
+          currency: "USD"
+        })
+
+      # Use string keys (as Phoenix form params produce) with a new URL
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: %{"data" => [%{"close" => 55.0}]}}}
+      end)
+
+      {:ok, updated} =
+        Assets.update_asset(asset, %{
+          "price_url" => "https://api.marketstack.com/new",
+          "currency" => "USD"
+        })
+
+      assert Decimal.eq?(updated.price, Decimal.new("55.0"))
+    end
+  end
+
+  describe "maybe_sync_and_save_dividends guards" do
+    test "skips dividend sync when asset has no dividend_url" do
+      # No mock expectation — verifies no HTTP call is made for dividend sync
+      {:ok, asset} =
+        Assets.create_asset(%{
+          name: "No Div URL Asset",
+          currency: "USD"
+        })
+
+      # Set dividends_synced_at to nil to ensure the rate-limit check would pass
+      # if there were a dividend_url — confirms the nil-URL guard fires, not rate limiting
+      asset
+      |> Ecto.Changeset.change(%{dividends_synced_at: nil})
+      |> Repo.update!()
+
+      {:ok, updated} = Assets.update_asset(asset, %{name: "Renamed"})
+
+      assert updated.name == "Renamed"
+    end
+  end
 end
