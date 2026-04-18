@@ -160,7 +160,8 @@ defmodule Boonorbust2.Dashboard do
   """
   @spec prepare_dividend_chart_data(String.t(), String.t()) :: %{
           labels: [String.t()],
-          datasets: [map()]
+          datasets: [map()],
+          avg_monthly_income: float()
         }
   def prepare_dividend_chart_data(user_id, user_currency) do
     # Get dividend data for the last 24 months (approximately 730 days)
@@ -176,9 +177,12 @@ defmodule Boonorbust2.Dashboard do
     # Build datasets: one dataset per asset
     datasets = build_dividend_datasets(assets, months, converted_data)
 
+    avg_monthly_income = calculate_avg_monthly_income(converted_data, months)
+
     %{
       labels: months,
-      datasets: datasets
+      datasets: datasets,
+      avg_monthly_income: avg_monthly_income
     }
   end
 
@@ -379,5 +383,13 @@ defmodule Boonorbust2.Dashboard do
       nil -> 0.0
       item -> item.amount
     end
+  end
+
+  # Calculates average monthly dividend income across all months
+  defp calculate_avg_monthly_income(_converted_data, []), do: 0.0
+
+  defp calculate_avg_monthly_income(converted_data, months) do
+    total = Enum.reduce(converted_data, 0.0, fn item, acc -> acc + item.amount end)
+    total / length(months)
   end
 end

@@ -209,18 +209,33 @@ Hooks.ChartInit = {
   _createDividendBar(chartData, currency) {
     const format = currencyFormatter(currency);
     const formatShort = currencyFormatter(currency, 0, 0);
+    const avg = chartData.avg_monthly_income || 0;
 
     const datasets = chartData.datasets.map((dataset, index) => ({
       ...dataset,
       backgroundColor: dividendColors[index % dividendColors.length],
-      borderWidth: 0
+      borderWidth: 0,
+      stack: 'bars'
     }));
+
+    const avgLineDataset = {
+      label: 'Monthly Average',
+      data: chartData.labels.map(() => avg),
+      type: 'line',
+      borderColor: 'rgba(220, 38, 38, 0.85)',
+      borderWidth: 2,
+      borderDash: [6, 4],
+      pointRadius: 0,
+      fill: false,
+      order: -1,
+      yAxisID: 'y'
+    };
 
     this._chart = new Chart(this.el, {
       type: 'bar',
       data: {
         labels: chartData.labels,
-        datasets: datasets
+        datasets: [...datasets, avgLineDataset]
       },
       options: {
         responsive: true,
@@ -230,16 +245,26 @@ Hooks.ChartInit = {
           legend: {
             display: true,
             position: 'bottom',
-            labels: { boxWidth: 12, padding: 10, font: { size: 10 } }
+            labels: {
+              boxWidth: 12,
+              padding: 10,
+              font: { size: 10 },
+              filter: function(item) { return item.text !== 'Monthly Average'; }
+            }
           },
           tooltip: {
             callbacks: {
               title: function(context) { return context[0].label; },
               label: function(context) {
+                if (context.dataset.label === 'Monthly Average') {
+                  return 'Avg: ' + format(context.parsed.y);
+                }
                 return context.dataset.label + ': ' + format(context.parsed.y);
               },
               footer: function(context) {
-                const total = context.reduce((sum, item) => sum + item.parsed.y, 0);
+                const total = context
+                  .filter(item => item.dataset.label !== 'Monthly Average')
+                  .reduce((sum, item) => sum + item.parsed.y, 0);
                 return 'Total: ' + format(total);
               }
             }
