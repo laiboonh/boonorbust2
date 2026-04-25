@@ -17,7 +17,6 @@ defmodule Boonorbust2Web.DashboardLive do
     realized_profits_by_asset = RealizedProfits.get_totals_by_asset(user_id)
     all_tags = Tags.list_tags(user_id)
     portfolios = Portfolios.list_portfolios(user_id)
-    portfolio_snapshots = PortfolioSnapshots.list_snapshots(user_id, days: 90)
     upcoming_dividends = RealizedProfits.list_upcoming_dividend_payments(user_id)
     recent_dividends = RealizedProfits.list_recent_dividend_payments(user_id)
 
@@ -31,8 +30,9 @@ defmodule Boonorbust2Web.DashboardLive do
     total_portfolio_value =
       PortfolioPositions.calculate_total_portfolio_value(enriched_positions, user_currency)
 
-    # Save snapshot (side effect - could be async job in future)
+    # Save snapshot before fetching so today's value is always included in the chart
     PortfolioPositions.save_portfolio_snapshot(user_id, total_portfolio_value)
+    portfolio_snapshots = PortfolioSnapshots.list_snapshots(user_id, days: 90)
 
     # Calculate chart data
     tag_chart_data = Dashboard.calculate_tag_chart_data(enriched_positions)
