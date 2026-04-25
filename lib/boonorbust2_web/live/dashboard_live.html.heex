@@ -1,186 +1,192 @@
 <.tab_content class="min-h-screen bg-gray-50">
   <div class="px-4 py-8">
     <div class="max-w-lg mx-auto">
-      <%= if !Enum.empty?(@upcoming_dividends) do %>
-        <div class="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
-          <h2 class="text-base sm:text-lg font-semibold text-gray-900 mb-4">
-            Upcoming Dividends (Next 2 Weeks)
-          </h2>
-          <div class="space-y-3">
-            <%= for dividend <- @upcoming_dividends do %>
-              <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                <div class="flex justify-between items-start mb-2">
-                  <div class="flex-1 pr-2">
-                    <h3 class="text-sm font-medium text-gray-900 break-words">
-                      {dividend.asset.name}
-                    </h3>
-                  </div>
-                  <div class="text-right">
-                    <p class="text-base font-semibold text-emerald-600 whitespace-nowrap">
-                      {Money.to_string!(dividend.converted_amount)}
-                    </p>
-                  </div>
-                </div>
-                <div class="flex items-center">
-                  <svg
-                    class="w-4 h-4 text-gray-400 mr-1.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    >
-                    </path>
-                  </svg>
-                  <p class="text-xs text-gray-500">
-                    Pay date: {Calendar.strftime(dividend.dividend.pay_date, "%b %d, %Y")}
-                  </p>
-                </div>
-              </div>
-            <% end %>
-          </div>
-        </div>
-      <% end %>
-
-      <%= if !Enum.empty?(@recent_dividends) do %>
-        <div class="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
-          <h2 class="text-base sm:text-lg font-semibold text-gray-900 mb-4">
-            Recent Dividends (Past 2 Weeks)
-          </h2>
-          <div class="space-y-3">
-            <%= for dividend <- @recent_dividends do %>
-              <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
-                <div class="flex justify-between items-start mb-2">
-                  <div class="flex-1 pr-2">
-                    <h3 class="text-sm font-medium text-gray-900 break-words">
-                      {dividend.asset.name}
-                    </h3>
-                  </div>
-                  <div class="text-right">
-                    <p class="text-base font-semibold text-emerald-600 whitespace-nowrap">
-                      {Money.to_string!(dividend.converted_amount)}
-                    </p>
-                  </div>
-                </div>
-                <div class="flex items-center">
-                  <svg
-                    class="w-4 h-4 text-gray-400 mr-1.5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                    >
-                    </path>
-                  </svg>
-                  <p class="text-xs text-gray-500">
-                    Paid: {Calendar.strftime(dividend.dividend.pay_date, "%b %d, %Y")}
-                  </p>
-                </div>
-              </div>
-            <% end %>
-          </div>
-        </div>
-      <% end %>
-
-      <%= if Enum.empty?(@portfolios) do %>
-        <div class="bg-white rounded-lg shadow p-8 text-center">
-          <p class="text-gray-500 mb-4">No portfolios yet.</p>
-          <p class="text-sm text-gray-400">
-            Create a portfolio and tag your assets to see your portfolio breakdown here.
-          </p>
+      <%= if @loading do %>
+        <div class="flex justify-center items-center py-20">
+          <.icon name="hero-arrow-path" class="h-8 w-8 text-emerald-500 animate-spin" />
         </div>
       <% else %>
-        <div class="space-y-6">
-          <%= for {portfolio, index} <- Enum.with_index(@portfolios) do %>
-            <%= if !Enum.empty?(portfolio.chart_data) do %>
-              <div class="bg-white rounded-lg shadow p-6">
-                <div class="mb-4">
-                  <h2 class="text-lg font-semibold text-gray-900">{portfolio.name}</h2>
-                  <%= if portfolio.description do %>
-                    <p class="text-sm text-gray-600 mt-1">{portfolio.description}</p>
-                  <% end %>
+        <%= if !Enum.empty?(@upcoming_dividends) do %>
+          <div class="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+            <h2 class="text-base sm:text-lg font-semibold text-gray-900 mb-4">
+              Upcoming Dividends (Next 2 Weeks)
+            </h2>
+            <div class="space-y-3">
+              <%= for dividend <- @upcoming_dividends do %>
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div class="flex justify-between items-start mb-2">
+                    <div class="flex-1 pr-2">
+                      <h3 class="text-sm font-medium text-gray-900 break-words">
+                        {dividend.asset.name}
+                      </h3>
+                    </div>
+                    <div class="text-right">
+                      <p class="text-base font-semibold text-emerald-600 whitespace-nowrap">
+                        {Money.to_string!(dividend.converted_amount)}
+                      </p>
+                    </div>
+                  </div>
+                  <div class="flex items-center">
+                    <svg
+                      class="w-4 h-4 text-gray-400 mr-1.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      >
+                      </path>
+                    </svg>
+                    <p class="text-xs text-gray-500">
+                      Pay date: {Calendar.strftime(dividend.dividend.pay_date, "%b %d, %Y")}
+                    </p>
+                  </div>
                 </div>
-                <div class="relative" style="height: 400px;">
-                  <canvas
-                    id={"portfolio-chart-#{portfolio.id}"}
-                    phx-hook="ChartInit"
-                    data-chart-type="portfolio-pie"
-                    data-chart-data={Jason.encode!(portfolio.chart_data)}
-                    data-currency={@user_currency}
-                    data-color-index={index}
-                  >
-                  </canvas>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+
+        <%= if !Enum.empty?(@recent_dividends) do %>
+          <div class="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+            <h2 class="text-base sm:text-lg font-semibold text-gray-900 mb-4">
+              Recent Dividends (Past 2 Weeks)
+            </h2>
+            <div class="space-y-3">
+              <%= for dividend <- @recent_dividends do %>
+                <div class="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div class="flex justify-between items-start mb-2">
+                    <div class="flex-1 pr-2">
+                      <h3 class="text-sm font-medium text-gray-900 break-words">
+                        {dividend.asset.name}
+                      </h3>
+                    </div>
+                    <div class="text-right">
+                      <p class="text-base font-semibold text-emerald-600 whitespace-nowrap">
+                        {Money.to_string!(dividend.converted_amount)}
+                      </p>
+                    </div>
+                  </div>
+                  <div class="flex items-center">
+                    <svg
+                      class="w-4 h-4 text-gray-400 mr-1.5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                      >
+                      </path>
+                    </svg>
+                    <p class="text-xs text-gray-500">
+                      Paid: {Calendar.strftime(dividend.dividend.pay_date, "%b %d, %Y")}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              <% end %>
+            </div>
+          </div>
+        <% end %>
+
+        <%= if Enum.empty?(@portfolios) do %>
+          <div class="bg-white rounded-lg shadow p-8 text-center">
+            <p class="text-gray-500 mb-4">No portfolios yet.</p>
+            <p class="text-sm text-gray-400">
+              Create a portfolio and tag your assets to see your portfolio breakdown here.
+            </p>
+          </div>
+        <% else %>
+          <div class="space-y-6">
+            <%= for {portfolio, index} <- Enum.with_index(@portfolios) do %>
+              <%= if !Enum.empty?(portfolio.chart_data) do %>
+                <div class="bg-white rounded-lg shadow p-6">
+                  <div class="mb-4">
+                    <h2 class="text-lg font-semibold text-gray-900">{portfolio.name}</h2>
+                    <%= if portfolio.description do %>
+                      <p class="text-sm text-gray-600 mt-1">{portfolio.description}</p>
+                    <% end %>
+                  </div>
+                  <div class="relative" style="height: 400px;">
+                    <canvas
+                      id={"portfolio-chart-#{portfolio.id}"}
+                      phx-hook="ChartInit"
+                      data-chart-type="portfolio-pie"
+                      data-chart-data={Jason.encode!(portfolio.chart_data)}
+                      data-currency={@user_currency}
+                      data-color-index={index}
+                    >
+                    </canvas>
+                  </div>
+                </div>
+              <% end %>
             <% end %>
-          <% end %>
-        </div>
-      <% end %>
-      <!-- Portfolio Value Line Chart -->
-      <%= if !Enum.empty?(@portfolio_snapshots) do %>
-        <div class="bg-white rounded-lg shadow p-6 mt-6">
-          <div class="mb-4">
-            <h2 class="text-lg font-semibold text-gray-900">Portfolio Value Over Time</h2>
-            <p class="text-sm text-gray-600 mt-1">Last 90 days</p>
           </div>
-          <div class="relative" style="height: 300px;">
-            <canvas
-              id="portfolio-value-chart"
-              phx-hook="ChartInit"
-              data-chart-type="portfolio-value"
-              data-chart-data={Jason.encode!(@portfolio_snapshots)}
-              data-currency={@user_currency}
-            >
-            </canvas>
+        <% end %>
+        <!-- Portfolio Value Line Chart -->
+        <%= if !Enum.empty?(@portfolio_snapshots) do %>
+          <div class="bg-white rounded-lg shadow p-6 mt-6">
+            <div class="mb-4">
+              <h2 class="text-lg font-semibold text-gray-900">Portfolio Value Over Time</h2>
+              <p class="text-sm text-gray-600 mt-1">Last 90 days</p>
+            </div>
+            <div class="relative" style="height: 300px;">
+              <canvas
+                id="portfolio-value-chart"
+                phx-hook="ChartInit"
+                data-chart-type="portfolio-value"
+                data-chart-data={Jason.encode!(@portfolio_snapshots)}
+                data-currency={@user_currency}
+              >
+              </canvas>
+            </div>
           </div>
-        </div>
-      <% end %>
-      <!-- Dividend Realized Profits Stacked Bar Chart -->
-      <%= if !Enum.empty?(@dividend_chart_data.datasets) do %>
-        <div class="bg-white rounded-lg shadow p-6 mt-6">
-          <div class="mb-4">
-            <h2 class="text-lg font-semibold text-gray-900">Dividend Income by Asset</h2>
-            <p class="text-sm text-gray-600 mt-1">Last 24 months</p>
+        <% end %>
+        <!-- Dividend Realized Profits Stacked Bar Chart -->
+        <%= if !Enum.empty?(@dividend_chart_data.datasets) do %>
+          <div class="bg-white rounded-lg shadow p-6 mt-6">
+            <div class="mb-4">
+              <h2 class="text-lg font-semibold text-gray-900">Dividend Income by Asset</h2>
+              <p class="text-sm text-gray-600 mt-1">Last 24 months</p>
+            </div>
+            <div class="relative" style="height: 500px;">
+              <canvas
+                id="dividend-income-chart"
+                phx-hook="ChartInit"
+                data-chart-type="dividend-bar"
+                data-chart-data={Jason.encode!(@dividend_chart_data)}
+                data-currency={@user_currency}
+              >
+              </canvas>
+            </div>
           </div>
-          <div class="relative" style="height: 500px;">
-            <canvas
-              id="dividend-income-chart"
-              phx-hook="ChartInit"
-              data-chart-type="dividend-bar"
-              data-chart-data={Jason.encode!(@dividend_chart_data)}
-              data-currency={@user_currency}
-            >
-            </canvas>
+        <% end %>
+        <!-- Investment Allocation Horizontal Bar Chart -->
+        <%= if !Enum.empty?(@investment_allocation_chart_data) do %>
+          <div class="bg-white rounded-lg shadow p-6 mt-6">
+            <div class="mb-4">
+              <h2 class="text-lg font-semibold text-gray-900">Investment Allocation</h2>
+              <p class="text-sm text-gray-600 mt-1">Percentage of total portfolio value</p>
+            </div>
+            <div id="investment-allocation-chart-container" class="relative">
+              <canvas
+                id="investment-allocation-chart"
+                phx-hook="ChartInit"
+                data-chart-type="investment-allocation"
+                data-chart-data={Jason.encode!(@investment_allocation_chart_data)}
+                data-currency={@user_currency}
+              >
+              </canvas>
+            </div>
           </div>
-        </div>
-      <% end %>
-      <!-- Investment Allocation Horizontal Bar Chart -->
-      <%= if !Enum.empty?(@investment_allocation_chart_data) do %>
-        <div class="bg-white rounded-lg shadow p-6 mt-6">
-          <div class="mb-4">
-            <h2 class="text-lg font-semibold text-gray-900">Investment Allocation</h2>
-            <p class="text-sm text-gray-600 mt-1">Percentage of total portfolio value</p>
-          </div>
-          <div id="investment-allocation-chart-container" class="relative">
-            <canvas
-              id="investment-allocation-chart"
-              phx-hook="ChartInit"
-              data-chart-type="investment-allocation"
-              data-chart-data={Jason.encode!(@investment_allocation_chart_data)}
-              data-currency={@user_currency}
-            >
-            </canvas>
-          </div>
-        </div>
+        <% end %>
       <% end %>
     </div>
 
