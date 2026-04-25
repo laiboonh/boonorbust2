@@ -192,6 +192,29 @@ defmodule Boonorbust2.Dividends do
     end
   end
 
+  def fetch_dividends(%Asset{dividend_url: "https://divvydiary.com/" <> _rest = dividend_url}) do
+    http_client =
+      Application.get_env(:boonorbust2, :http_client, Boonorbust2.HTTPClient.ReqAdapter)
+
+    opts = [
+      headers: [
+        {"user-agent",
+         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}
+      ]
+    ]
+
+    case http_client.get(dividend_url, opts) do
+      {:ok, %{status: 200, body: body}} ->
+        parse_dividends_divvydiary(body)
+
+      {:ok, %{status: status}} ->
+        {:error, "HTTP request failed with status #{status}"}
+
+      {:error, error} ->
+        {:error, "Request failed: #{inspect(error)}"}
+    end
+  end
+
   def fetch_dividends(%Asset{dividend_url: dividend_url}) do
     {:error, "Request failed: Unexpected dividend url #{dividend_url}"}
   end
@@ -673,6 +696,59 @@ defmodule Boonorbust2.Dividends do
       _ -> {:error, "Invalid date"}
     end
   end
+
+  @spec parse_dividends_divvydiary(String.t()) :: {:ok, [map()]} | {:error, String.t()}
+  defp parse_dividends_divvydiary(body) do
+    # Dividend data is JSON-escaped inside a JS string, so quotes appear as \" in the HTML.
+    # We match the array that starts with an object (not empty), then unescape before parsing.
+    case Regex.run(~r/\\"dividends\\":\[(\{\\"id\\".+?)\]/s, body) do
+      [_, escaped_json] ->
+        ("[" <> String.replace(escaped_json, ~S(\"), ~S(")) <> "]")
+        |> parse_divvydiary_json()
+
+      nil ->
+        {:error, "No dividend data found on page"}
+    end
+  end
+
+  @spec parse_divvydiary_json(String.t()) :: {:ok, [map()]} | {:error, String.t()}
+  defp parse_divvydiary_json(json_str) do
+    case Jason.decode(json_str) do
+      {:ok, entries} ->
+        dividends =
+          entries
+          |> Enum.reject(fn e -> Map.get(e, "forecast", false) end)
+          |> Enum.map(&parse_divvydiary_entry/1)
+          |> Enum.reject(&is_nil/1)
+
+        if Enum.empty?(dividends) do
+          {:error, "No valid dividend data found"}
+        else
+          {:ok, dividends}
+        end
+
+      {:error, _} ->
+        {:error, "Failed to parse dividend JSON"}
+    end
+  end
+
+  @spec parse_divvydiary_entry(map()) :: map() | nil
+  defp parse_divvydiary_entry(%{
+         "exDate" => ex_date_str,
+         "payDate" => pay_date_str,
+         "amount" => amount,
+         "currency" => currency
+       }) do
+    with {:ok, ex_date} <- Date.from_iso8601(ex_date_str),
+         {:ok, pay_date} <- Date.from_iso8601(pay_date_str),
+         {decimal, _} <- Decimal.parse(to_string(amount)) do
+      %{ex_date: ex_date, pay_date: pay_date, value: decimal, currency: currency}
+    else
+      _ -> nil
+    end
+  end
+
+  defp parse_divvydiary_entry(_), do: nil
 
   @spec should_enrich_pay_dates?([map()]) :: boolean()
   defp should_enrich_pay_dates?(dividends) do
