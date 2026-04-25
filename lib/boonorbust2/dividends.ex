@@ -580,7 +580,7 @@ defmodule Boonorbust2.Dividends do
   defp parse_currency_and_amount(text) do
     # Extract currency code (typically 3 letters at the start) and amount
     # Example: "SGD0.0185" -> {"SGD", 0.0185}
-    case Regex.run(~r/^([A-Z]{3})([\d\.]+)/, text) do
+    case Regex.run(~r/^([A-Z]{3})([\d\.]+(?:[Ee][+-]?\d+)?)/, text) do
       [_, currency, amount] ->
         case Decimal.parse(amount) do
           {decimal, _} -> {:ok, {currency, decimal}}
