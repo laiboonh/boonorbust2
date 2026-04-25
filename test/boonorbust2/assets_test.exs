@@ -462,6 +462,17 @@ defmodule Boonorbust2.AssetsTest do
 
       assert names == ["Asset C", "Asset A", "Asset B"]
     end
+
+    test "returns assets sorted alphabetically by name when sort: :name is given" do
+      {:ok, _} = Assets.create_asset(%{name: "Zebra Fund", currency: "USD"})
+      {:ok, _} = Assets.create_asset(%{name: "Apple Stock", currency: "USD"})
+      {:ok, _} = Assets.create_asset(%{name: "Mango ETF", currency: "USD"})
+
+      assets = Assets.list_assets(sort: :name)
+      names = Enum.map(assets, & &1.name)
+
+      assert names == ["Apple Stock", "Mango ETF", "Zebra Fund"]
+    end
   end
 
   describe "dividend sync rate limiting" do

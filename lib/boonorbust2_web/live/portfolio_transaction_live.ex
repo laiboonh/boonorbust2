@@ -41,7 +41,7 @@ defmodule Boonorbust2Web.PortfolioTransactionLive do
 
     socket =
       socket
-      |> assign(:assets, Assets.list_assets())
+      |> assign(:assets, Assets.list_assets(sort: :name))
       |> assign(:page_number, pagination.page_number)
       |> assign(:total_pages, pagination.total_pages)
       |> stream(:transactions, pagination.entries, reset: true)

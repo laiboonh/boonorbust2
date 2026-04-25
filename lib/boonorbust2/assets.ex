@@ -13,10 +13,16 @@ defmodule Boonorbust2.Assets do
   def list_assets(opts \\ []) do
     filter = Keyword.get(opts, :filter, nil)
     user_id = Keyword.get(opts, :user_id, nil)
+    sort = Keyword.get(opts, :sort, :updated_at)
 
     Helper.do_retry(
       fn ->
-        query = from a in Asset, order_by: [desc: a.updated_at]
+        query =
+          case sort do
+            :name -> from a in Asset, order_by: [asc: a.name]
+            _ -> from a in Asset, order_by: [desc: a.updated_at]
+          end
+
         query = apply_filter(query, filter, user_id)
         Repo.all(query)
       end,
