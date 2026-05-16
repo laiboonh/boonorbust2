@@ -9,14 +9,33 @@ defmodule Boonorbust2.RealizedProfits do
   alias Boonorbust2.RealizedProfits.RealizedProfit
   alias Boonorbust2.Repo
 
-  @spec upsert_realized_profit(map()) ::
+  @doc """
+  Upserts a capital gain record for a sell transaction.
+  Conflicts on `portfolio_transaction_id` (one capital gain per sell).
+  """
+  @spec upsert_capital_gain(map()) ::
           {:ok, RealizedProfit.t()} | {:error, Ecto.Changeset.t()}
-  def upsert_realized_profit(attrs) do
+  def upsert_capital_gain(attrs) do
     %RealizedProfit{}
     |> RealizedProfit.changeset(attrs)
     |> Repo.insert(
       on_conflict: {:replace, [:amount, :updated_at]},
       conflict_target: :portfolio_transaction_id
+    )
+  end
+
+  @doc """
+  Upserts a dividend income record for a dividend payment.
+  Conflicts on `(user_id, dividend_id)` (one income record per user per dividend).
+  """
+  @spec upsert_dividend_income(map()) ::
+          {:ok, RealizedProfit.t()} | {:error, Ecto.Changeset.t()}
+  def upsert_dividend_income(attrs) do
+    %RealizedProfit{}
+    |> RealizedProfit.changeset(attrs)
+    |> Repo.insert(
+      on_conflict: {:replace, [:amount, :updated_at]},
+      conflict_target: {:unsafe_fragment, "(user_id, dividend_id) WHERE dividend_id IS NOT NULL"}
     )
   end
 
@@ -259,28 +278,7 @@ defmodule Boonorbust2.RealizedProfits do
       amount: net_dividend
     }
 
-    # Check if a realized profit already exists for this user and dividend
-    case get_realized_profit_by_dividend(position.user_id, dividend.id) do
-      nil ->
-        # Insert new record
-        %RealizedProfit{}
-        |> RealizedProfit.changeset(attrs)
-        |> Repo.insert()
-
-      existing ->
-        # Update existing record
-        existing
-        |> RealizedProfit.changeset(attrs)
-        |> Repo.update()
-    end
-  end
-
-  @spec get_realized_profit_by_dividend(String.t(), integer()) :: RealizedProfit.t() | nil
-  defp get_realized_profit_by_dividend(user_id, dividend_id) do
-    from(rp in RealizedProfit,
-      where: rp.user_id == ^user_id and rp.dividend_id == ^dividend_id
-    )
-    |> Repo.one()
+    upsert_dividend_income(attrs)
   end
 
   @doc """

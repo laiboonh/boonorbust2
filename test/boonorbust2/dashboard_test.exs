@@ -101,7 +101,7 @@ defmodule Boonorbust2.DashboardTest do
 
   defp create_realized_profit(user_id, asset_id, dividend_id, amount, currency) do
     {:ok, rp} =
-      RealizedProfits.upsert_realized_profit(%{
+      RealizedProfits.upsert_dividend_income(%{
         user_id: user_id,
         asset_id: asset_id,
         dividend_id: dividend_id,

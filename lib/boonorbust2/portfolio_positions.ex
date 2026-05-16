@@ -335,7 +335,7 @@ defmodule Boonorbust2.PortfolioPositions do
       amount: realized_profit_amount
     }
 
-    RealizedProfits.upsert_realized_profit(attrs)
+    RealizedProfits.upsert_capital_gain(attrs)
   end
 
   @doc """
