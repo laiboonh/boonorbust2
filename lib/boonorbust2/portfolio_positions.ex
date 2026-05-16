@@ -61,41 +61,58 @@ defmodule Boonorbust2.PortfolioPositions do
   @spec calculate_and_upsert_all_positions([PortfolioTransaction.t()]) ::
           [{:ok, PortfolioPosition.t()} | {:error, Ecto.Changeset.t()}]
   defp calculate_and_upsert_all_positions(transactions) do
-    {results, _state} =
-      Enum.map_reduce(
-        transactions,
-        {nil, Decimal.new(0)},
-        fn transaction, {avg_price, qty_on_hand} ->
-          {new_avg_price, new_qty_on_hand} =
-            calculate_new_position(transaction, avg_price, qty_on_hand)
+    # Step 1: pure calculation — no DB
+    {calculations, _final_state} =
+      Enum.map_reduce(transactions, {nil, Decimal.new(0)}, fn transaction, {avg_price, qty} ->
+        {new_avg, new_qty} = calculate_new_position(transaction, avg_price, qty)
+        {:ok, new_amount} = Money.mult(new_avg, new_qty)
 
-          # Calculate amount_on_hand here
-          {:ok, new_amount_on_hand} = Money.mult(new_avg_price, new_qty_on_hand)
+        calc = %{
+          transaction: transaction,
+          prev_avg_price: avg_price,
+          new_avg_price: new_avg,
+          new_qty_on_hand: new_qty,
+          new_amount_on_hand: new_amount
+        }
 
-          result =
-            upsert_position(
-              transaction.asset_id,
-              new_avg_price,
-              new_qty_on_hand,
-              new_amount_on_hand,
-              transaction.id
-            )
+        {calc, {new_avg, new_qty}}
+      end)
 
-          # Calculate and upsert realized profit for sell transactions
-          if transaction.action == "sell" && avg_price != nil do
-            upsert_realized_profit_for_transaction(transaction, avg_price)
-          end
+    # Step 2: persist positions
+    results =
+      Enum.map(calculations, fn calc ->
+        upsert_position(
+          calc.transaction.asset_id,
+          calc.new_avg_price,
+          calc.new_qty_on_hand,
+          calc.new_amount_on_hand,
+          calc.transaction.id
+        )
+      end)
 
-          {result, {new_avg_price, new_qty_on_hand}}
-        end
-      )
+    # Step 3: persist capital gains — explicit, not hidden in the calculation loop
+    Enum.each(calculations, fn calc ->
+      if calc.transaction.action == "sell" && calc.prev_avg_price != nil do
+        upsert_realized_profit_for_transaction(calc.transaction, calc.prev_avg_price)
+      end
+    end)
 
     results
   end
 
+  @doc """
+  Calculates the new position state after applying a single transaction.
+
+  For buy: increases quantity on hand and recalculates average price using
+  weighted average cost — `(prev_avg × prev_qty + transaction_amount) / new_qty`.
+
+  For sell: decreases quantity on hand; average price is unchanged.
+
+  Returns `{new_avg_price, new_qty_on_hand}`.
+  """
   @spec calculate_new_position(PortfolioTransaction.t(), Money.t() | nil, Decimal.t()) ::
           {Money.t(), Decimal.t()}
-  defp calculate_new_position(transaction, avg_price, qty_on_hand) do
+  def calculate_new_position(transaction, avg_price, qty_on_hand) do
     case transaction.action do
       "buy" ->
         new_qty_on_hand = Decimal.add(qty_on_hand, transaction.quantity)

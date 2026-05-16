@@ -5,6 +5,7 @@ defmodule Boonorbust2.PortfolioPositionsTest do
   alias Boonorbust2.Assets
   alias Boonorbust2.PortfolioPositions
   alias Boonorbust2.PortfolioTransactions
+  alias Boonorbust2.PortfolioTransactions.PortfolioTransaction
   alias Boonorbust2.RealizedProfits
 
   setup do
@@ -18,6 +19,91 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       })
 
     %{user: user}
+  end
+
+  describe "calculate_new_position/3" do
+    defp buy_tx(quantity, amount) do
+      %PortfolioTransaction{
+        id: 1,
+        action: "buy",
+        quantity: Decimal.new(quantity),
+        amount: Money.new(:SGD, amount),
+        price: Money.new(:SGD, "0")
+      }
+    end
+
+    defp sell_tx(quantity, price) do
+      %PortfolioTransaction{
+        id: 2,
+        action: "sell",
+        quantity: Decimal.new(quantity),
+        amount: Money.new(:SGD, "0"),
+        price: Money.new(:SGD, price)
+      }
+    end
+
+    test "first buy: avg price = amount / quantity" do
+      tx = buy_tx("100", "15010.00")
+
+      {new_avg, new_qty} = PortfolioPositions.calculate_new_position(tx, nil, Decimal.new(0))
+
+      assert Money.equal?(new_avg, Money.new(:SGD, "150.10"))
+      assert Decimal.equal?(new_qty, Decimal.new("100"))
+    end
+
+    test "second buy: weighted average cost" do
+      tx = buy_tx("50", "8005.00")
+      avg_price = Money.new(:SGD, "150.10")
+      qty_on_hand = Decimal.new("100")
+
+      {new_avg, new_qty} = PortfolioPositions.calculate_new_position(tx, avg_price, qty_on_hand)
+
+      # (150.10 * 100 + 8005) / 150 = 23015 / 150 = 153.4333...
+      # Round to 4dp to match DB storage precision used in integration tests
+      rounded = Decimal.round(new_avg.amount, 4)
+      assert Decimal.equal?(rounded, Decimal.new("153.4333"))
+      assert Decimal.equal?(new_qty, Decimal.new("150"))
+    end
+
+    test "sell: average price is unchanged, quantity decreases" do
+      tx = sell_tx("30", "160.00")
+      avg_price = Money.new(:SGD, "150.10")
+      qty_on_hand = Decimal.new("100")
+
+      {new_avg, new_qty} = PortfolioPositions.calculate_new_position(tx, avg_price, qty_on_hand)
+
+      assert Money.equal?(new_avg, avg_price)
+      assert Decimal.equal?(new_qty, Decimal.new("70"))
+    end
+
+    test "sell to zero: quantity reaches zero, avg price unchanged" do
+      tx = sell_tx("100", "200.00")
+      avg_price = Money.new(:SGD, "150.10")
+      qty_on_hand = Decimal.new("100")
+
+      {new_avg, new_qty} = PortfolioPositions.calculate_new_position(tx, avg_price, qty_on_hand)
+
+      assert Money.equal?(new_avg, avg_price)
+      assert Decimal.equal?(new_qty, Decimal.new("0"))
+    end
+
+    test "sell without prior buy raises ArgumentError" do
+      tx = sell_tx("10", "100.00")
+
+      assert_raise ArgumentError, ~r/Cannot sell asset without a prior buy transaction/, fn ->
+        PortfolioPositions.calculate_new_position(tx, nil, Decimal.new(0))
+      end
+    end
+
+    test "oversell raises ArgumentError" do
+      tx = sell_tx("50", "100.00")
+      avg_price = Money.new(:SGD, "80.00")
+      qty_on_hand = Decimal.new("10")
+
+      assert_raise ArgumentError, ~r/Cannot sell more than quantity on hand/, fn ->
+        PortfolioPositions.calculate_new_position(tx, avg_price, qty_on_hand)
+      end
+    end
   end
 
   describe "calculate_and_upsert_positions_for_asset/2" do
