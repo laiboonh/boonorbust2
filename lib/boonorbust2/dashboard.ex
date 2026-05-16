@@ -43,8 +43,11 @@ defmodule Boonorbust2.Dashboard do
   """
   @spec enrich_positions_for_dashboard([map()], String.t(), String.t()) :: [map()]
   def enrich_positions_for_dashboard(positions, user_id, user_currency) do
+    asset_ids = Enum.map(positions, & &1.asset_id)
+    tags_by_asset = Tags.list_tags_for_assets(asset_ids, user_id)
+
     positions
-    |> Enum.map(&enrich_single_position(&1, user_id, user_currency))
+    |> Enum.map(&enrich_single_position(&1, tags_by_asset, user_currency))
     |> Enum.sort_by(
       fn position ->
         Decimal.to_float(position.converted_total_value.amount)
@@ -251,7 +254,7 @@ defmodule Boonorbust2.Dashboard do
   # ============================================================================
 
   # Enriches a single position with converted values and tags
-  defp enrich_single_position(position, user_id, user_currency) do
+  defp enrich_single_position(position, tags_by_asset, user_currency) do
     {total_value, unrealized_profit} =
       if position.asset.price do
         tv =
@@ -280,7 +283,7 @@ defmodule Boonorbust2.Dashboard do
         nil
       end
 
-    tags = Tags.list_tags_for_asset(position.asset_id, user_id)
+    tags = Map.get(tags_by_asset, position.asset_id, [])
 
     position
     |> Map.put(:total_value, total_value)
