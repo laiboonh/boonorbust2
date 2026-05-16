@@ -34,6 +34,8 @@ defmodule Boonorbust2.Dashboard do
 
   ## Returns
     - List of enriched position maps with added fields:
+      - :total_value
+      - :unrealized_profit
       - :converted_total_value
       - :converted_total_cost
       - :converted_unrealized_profit
@@ -250,23 +252,26 @@ defmodule Boonorbust2.Dashboard do
 
   # Enriches a single position with converted values and tags
   defp enrich_single_position(position, user_id, user_currency) do
-    total_value =
+    {total_value, unrealized_profit} =
       if position.asset.price do
-        Money.new!(
-          Decimal.mult(position.quantity_on_hand, position.asset.price),
-          position.amount_on_hand.currency
-        )
+        tv =
+          Money.new!(
+            Decimal.mult(position.quantity_on_hand, position.asset.price),
+            position.amount_on_hand.currency
+          )
+
+        {:ok, up} = Money.sub(tv, position.amount_on_hand)
+        {tv, up}
       else
-        position.amount_on_hand
+        {nil, nil}
       end
 
-    # Convert to user's preferred currency
-    converted_total_value = ExchangeRates.convert_money(total_value, user_currency)
+    converted_total_value =
+      ExchangeRates.convert_money(total_value || position.amount_on_hand, user_currency)
 
     converted_total_cost =
       ExchangeRates.convert_money(position.amount_on_hand, user_currency)
 
-    # Calculate converted unrealized profit
     converted_unrealized_profit =
       if position.asset.price do
         {:ok, profit} = Money.sub(converted_total_value, converted_total_cost)
@@ -275,11 +280,11 @@ defmodule Boonorbust2.Dashboard do
         nil
       end
 
-    # Load tags for this asset
     tags = Tags.list_tags_for_asset(position.asset_id, user_id)
 
-    # Add converted values to position for display
     position
+    |> Map.put(:total_value, total_value)
+    |> Map.put(:unrealized_profit, unrealized_profit)
     |> Map.put(:converted_total_value, converted_total_value)
     |> Map.put(:converted_total_cost, converted_total_cost)
     |> Map.put(:converted_unrealized_profit, converted_unrealized_profit)

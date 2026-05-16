@@ -164,14 +164,8 @@ defmodule Boonorbust2Web.PositionsLive do
           </div>
         </div>
         <%= if @position.asset.price do %>
-          <% total_value =
-            Money.new!(
-              Decimal.mult(@position.quantity_on_hand, @position.asset.price),
-              @position.amount_on_hand.currency
-            )
-
-          {:ok, unrealized_profit} = Money.sub(total_value, @position.amount_on_hand)
-
+          <% total_value = @position.total_value
+          unrealized_profit = @position.unrealized_profit
           converted_value = Map.get(@position, :converted_total_value)
 
           show_converted =
