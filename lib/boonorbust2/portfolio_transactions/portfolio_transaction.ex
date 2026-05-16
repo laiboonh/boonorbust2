@@ -81,15 +81,17 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
   end
 
   defp calculate_amount(changeset) do
+    action = get_field(changeset, :action)
     quantity = get_field(changeset, :quantity)
     price = get_field(changeset, :price)
     commission = get_field(changeset, :commission)
 
     case {quantity, price, commission} do
       {%Decimal{} = qty, %Money{} = p, %Money{} = comm} ->
-        # Calculate: (quantity * price) + commission
+        apply_commission = if action == "sell", do: &Money.sub/2, else: &Money.add/2
+
         with {:ok, subtotal} <- Money.mult(p, qty),
-             {:ok, total} <- Money.add(subtotal, comm) do
+             {:ok, total} <- apply_commission.(subtotal, comm) do
           put_change(changeset, :amount, total)
         else
           {:error, _} -> changeset

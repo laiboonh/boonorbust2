@@ -247,3 +247,17 @@ The project uses these quality tools:
 - `mix test` - Test suite
 
 All must pass before code can be committed to maintain code quality.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (`gh` CLI). See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default canonical label strings (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repo — one `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
