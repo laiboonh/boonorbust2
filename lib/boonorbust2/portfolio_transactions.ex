@@ -140,6 +140,20 @@ defmodule Boonorbust2.PortfolioTransactions do
     end
   end
 
+  @doc """
+  Parses CSV content into a list of row maps without touching the database.
+
+  Returns `{:ok, rows}` where each element is `{:ok, map()} | {:error, String.t()}`.
+  The header row is consumed and not included in the results.
+  """
+  @spec parse_csv_rows(String.t()) :: {:ok, [{:ok, map()} | {:error, String.t()}]}
+  def parse_csv_rows(content) do
+    case String.split(content, "\n", trim: true) do
+      [_header | data_lines] -> {:ok, Enum.map(data_lines, &parse_csv_line/1)}
+      [] -> {:ok, []}
+    end
+  end
+
   @spec process_csv_content(String.t(), String.t()) ::
           {:ok,
            %{
@@ -150,40 +164,34 @@ defmodule Boonorbust2.PortfolioTransactions do
              affected_asset_ids: [integer()]
            }}
   defp process_csv_content(content, user_id) do
-    lines = String.split(content, "\n", trim: true)
+    {:ok, parsed_rows} = parse_csv_rows(content)
 
-    case lines do
-      [_header | data_lines] ->
-        results = Enum.map(data_lines, &process_csv_row(&1, user_id))
+    results = Enum.map(parsed_rows, &import_parsed_row(&1, user_id))
 
-        successes = Enum.filter(results, fn {status, _} -> status == :ok end)
-        errors = Enum.filter(results, fn {status, _} -> status == :error end)
+    successes = Enum.filter(results, fn {status, _} -> status == :ok end)
+    errors = Enum.filter(results, fn {status, _} -> status == :error end)
 
-        # Extract unique asset IDs from successful transactions
-        affected_asset_ids =
-          successes
-          |> Enum.map(fn {:ok, transaction} -> transaction.asset_id end)
-          |> Enum.uniq()
+    affected_asset_ids =
+      successes
+      |> Enum.map(fn {:ok, transaction} -> transaction.asset_id end)
+      |> Enum.uniq()
 
-        {:ok,
-         %{
-           total: length(data_lines),
-           success: length(successes),
-           errors: length(errors),
-           error_details: Enum.map(errors, fn {:error, msg} -> msg end),
-           affected_asset_ids: affected_asset_ids
-         }}
-
-      [] ->
-        {:ok, %{total: 0, success: 0, errors: 0, error_details: [], affected_asset_ids: []}}
-    end
+    {:ok,
+     %{
+       total: length(parsed_rows),
+       success: length(successes),
+       errors: length(errors),
+       error_details: Enum.map(errors, fn {:error, msg} -> msg end),
+       affected_asset_ids: affected_asset_ids
+     }}
   end
 
-  @spec process_csv_row(String.t(), String.t()) ::
+  @spec import_parsed_row({:ok, map()} | {:error, String.t()}, String.t()) ::
           {:ok, PortfolioTransaction.t()} | {:error, String.t()}
-  defp process_csv_row(line, user_id) do
-    with {:ok, data} <- parse_csv_line(line),
-         {:ok, asset} <- Assets.find_or_create_asset(data.stock, data.currency),
+  defp import_parsed_row({:error, _} = err, _user_id), do: err
+
+  defp import_parsed_row({:ok, data}, user_id) do
+    with {:ok, asset} <- Assets.find_or_create_asset(data.stock, data.currency),
          {:ok, transaction} <- create_transaction_from_data(data, asset, user_id) do
       {:ok, transaction}
     else
