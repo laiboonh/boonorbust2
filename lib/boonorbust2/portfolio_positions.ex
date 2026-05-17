@@ -90,14 +90,21 @@ defmodule Boonorbust2.PortfolioPositions do
         )
       end)
 
-    # Step 3: persist capital gains — explicit, not hidden in the calculation loop
-    Enum.each(calculations, fn calc ->
-      if calc.transaction.action == "sell" && calc.prev_avg_price != nil do
-        upsert_realized_profit_for_transaction(calc.transaction, calc.prev_avg_price)
-      end
-    end)
+    # Step 3: persist capital gains — only failures are appended so check_results_for_errors
+    # surfaces them while the success count stays equal to the number of positions
+    capital_gain_errors =
+      calculations
+      |> Enum.filter(fn calc ->
+        calc.transaction.action == "sell" && calc.prev_avg_price != nil
+      end)
+      |> Enum.flat_map(fn calc ->
+        case upsert_realized_profit_for_transaction(calc.transaction, calc.prev_avg_price) do
+          {:ok, _} -> []
+          {:error, _} = err -> [err]
+        end
+      end)
 
-    results
+    results ++ capital_gain_errors
   end
 
   @doc """
