@@ -141,11 +141,7 @@ defmodule Boonorbust2Web.PositionsLive do
 
       <div class="mt-3 pt-3 border-t border-gray-200">
         <% converted_cost = Map.get(@position, :converted_total_cost)
-
-        show_converted_cost =
-          converted_cost &&
-            Money.to_currency_code(converted_cost) !=
-              Money.to_currency_code(@position.amount_on_hand) %>
+        show_converted_cost = Map.get(@position, :show_converted_cost, false) %>
         <div class="flex justify-between items-center mb-2">
           <p class="text-xs text-gray-500">Total Cost</p>
           <div class="text-right">
@@ -167,11 +163,7 @@ defmodule Boonorbust2Web.PositionsLive do
           <% total_value = @position.total_value
           unrealized_profit = @position.unrealized_profit
           converted_value = Map.get(@position, :converted_total_value)
-
-          show_converted =
-            converted_value &&
-              Money.to_currency_code(converted_value) !=
-                Money.to_currency_code(total_value) %>
+          show_converted = Map.get(@position, :show_converted_value, false) %>
           <div class="flex justify-between items-center">
             <p class="text-xs text-gray-500">Total Value</p>
             <div class="text-right">
@@ -190,11 +182,7 @@ defmodule Boonorbust2Web.PositionsLive do
             </div>
           </div>
           <% converted_unrealized_profit = Map.get(@position, :converted_unrealized_profit)
-
-          show_converted_unrealized =
-            converted_unrealized_profit &&
-              Money.to_currency_code(converted_unrealized_profit) !=
-                Money.to_currency_code(unrealized_profit) %>
+          show_converted_unrealized = Map.get(@position, :show_converted_unrealized, false) %>
           <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
             <p class="text-xs text-gray-500">Unrealized Profit</p>
             <div class="text-right">

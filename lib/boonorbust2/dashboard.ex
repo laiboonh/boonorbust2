@@ -285,12 +285,31 @@ defmodule Boonorbust2.Dashboard do
 
     tags = Map.get(tags_by_asset, position.asset_id, [])
 
+    # Pre-compute "show native alongside converted" flags so the template doesn't
+    # repeat the currency-comparison logic for each field
+    show_converted_cost =
+      Money.to_currency_code(converted_total_cost) !=
+        Money.to_currency_code(position.amount_on_hand)
+
+    show_converted_value =
+      total_value != nil &&
+        Money.to_currency_code(converted_total_value) !=
+          Money.to_currency_code(total_value)
+
+    show_converted_unrealized =
+      unrealized_profit != nil &&
+        Money.to_currency_code(converted_unrealized_profit) !=
+          Money.to_currency_code(unrealized_profit)
+
     position
     |> Map.put(:total_value, total_value)
     |> Map.put(:unrealized_profit, unrealized_profit)
     |> Map.put(:converted_total_value, converted_total_value)
     |> Map.put(:converted_total_cost, converted_total_cost)
     |> Map.put(:converted_unrealized_profit, converted_unrealized_profit)
+    |> Map.put(:show_converted_cost, show_converted_cost)
+    |> Map.put(:show_converted_value, show_converted_value)
+    |> Map.put(:show_converted_unrealized, show_converted_unrealized)
     |> Map.put(:tags, tags)
   end
 
