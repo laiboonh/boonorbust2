@@ -7,7 +7,9 @@ defmodule Boonorbust2.Dashboard do
   """
 
   alias Boonorbust2.ExchangeRates
+  alias Boonorbust2.PortfolioPositions
   alias Boonorbust2.Portfolios
+  alias Boonorbust2.PortfolioSnapshots
   alias Boonorbust2.RealizedProfits
   alias Boonorbust2.Tags
 
@@ -16,6 +18,74 @@ defmodule Boonorbust2.Dashboard do
   # ============================================================================
   # Public API
   # ============================================================================
+
+  @doc """
+  Loads all data needed to render the dashboard page in a single call.
+
+  Orchestrates fetching from multiple contexts, enriches positions, saves the
+  daily Portfolio Snapshot (before fetching the snapshot list so today's value
+  is always included), and prepares all chart data.
+
+  Returns a map of assigns ready to be spread onto the LiveView socket.
+  """
+  def load_dashboard_data(user_id, user_currency) do
+    positions = PortfolioPositions.list_latest_positions(user_id, nil)
+    realized_profits_by_asset = RealizedProfits.get_totals_by_asset(user_id)
+    all_tags = Tags.list_tags(user_id)
+    portfolios = Portfolios.list_portfolios(user_id)
+    upcoming_dividends = RealizedProfits.list_upcoming_dividend_payments(user_id)
+    recent_dividends = RealizedProfits.list_recent_dividend_payments(user_id)
+
+    enriched_positions = enrich_positions_for_dashboard(positions, user_id, user_currency)
+
+    converted_realized_profits =
+      convert_realized_profits_by_asset(realized_profits_by_asset, user_currency)
+
+    total_portfolio_value =
+      PortfolioPositions.calculate_total_portfolio_value(enriched_positions, user_currency)
+
+    # Snapshot must be saved before fetching so today's value is always present in the chart
+    PortfolioPositions.save_portfolio_snapshot(user_id, total_portfolio_value)
+    portfolio_snapshots = PortfolioSnapshots.list_snapshots(user_id, days: 90)
+
+    %{
+      positions: enriched_positions,
+      realized_profits_by_asset: realized_profits_by_asset,
+      converted_realized_profits_by_asset: converted_realized_profits,
+      all_tags: all_tags,
+      tag_chart_data: calculate_tag_chart_data(enriched_positions),
+      portfolios: enrich_portfolios_with_chart_data(portfolios, enriched_positions),
+      user_currency: user_currency,
+      portfolio_snapshots: portfolio_snapshots,
+      dividend_chart_data: prepare_dividend_chart_data(user_id, user_currency),
+      upcoming_dividends: convert_dividends_to_user_currency(upcoming_dividends, user_currency),
+      recent_dividends: convert_dividends_to_user_currency(recent_dividends, user_currency),
+      investment_allocation_chart_data:
+        calculate_investment_allocation_data(enriched_positions, total_portfolio_value)
+    }
+  end
+
+  @doc """
+  Loads all data needed to render the positions page in a single call.
+
+  Supports filtering positions by asset name or Tag name.
+
+  Returns a map of assigns ready to be spread onto the LiveView socket.
+  """
+  def load_positions_data(user_id, user_currency, filter \\ nil) do
+    positions = PortfolioPositions.list_latest_positions(user_id, filter)
+    realized_profits_by_asset = RealizedProfits.get_totals_by_asset(user_id)
+    realized_profits_by_type = RealizedProfits.get_totals_by_asset_and_type(user_id)
+
+    %{
+      positions: enrich_positions_for_dashboard(positions, user_id, user_currency),
+      realized_profits_by_asset: realized_profits_by_asset,
+      converted_realized_profits_by_asset:
+        convert_realized_profits_by_asset(realized_profits_by_asset, user_currency),
+      converted_realized_profits_by_type:
+        convert_realized_profits_by_type(realized_profits_by_type, user_currency)
+    }
+  end
 
   @doc """
   Enriches positions with converted values, tags, and sorts by total value.

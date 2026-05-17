@@ -253,25 +253,6 @@ defmodule Boonorbust2Web.PositionsLive do
 
   defp reload_data(socket) do
     %{user_id: user_id, user_currency: user_currency, filter: filter} = socket.assigns
-
-    positions = PortfolioPositions.list_latest_positions(user_id, filter)
-    realized_profits_by_asset = RealizedProfits.get_totals_by_asset(user_id)
-    realized_profits_by_type = RealizedProfits.get_totals_by_asset_and_type(user_id)
-
-    enriched_positions =
-      Dashboard.enrich_positions_for_dashboard(positions, user_id, user_currency)
-
-    converted_realized_profits_by_asset =
-      Dashboard.convert_realized_profits_by_asset(realized_profits_by_asset, user_currency)
-
-    converted_realized_profits_by_type =
-      Dashboard.convert_realized_profits_by_type(realized_profits_by_type, user_currency)
-
-    assign(socket,
-      positions: enriched_positions,
-      realized_profits_by_asset: realized_profits_by_asset,
-      converted_realized_profits_by_asset: converted_realized_profits_by_asset,
-      converted_realized_profits_by_type: converted_realized_profits_by_type
-    )
+    assign(socket, Dashboard.load_positions_data(user_id, user_currency, filter))
   end
 end
