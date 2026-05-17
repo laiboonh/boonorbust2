@@ -109,11 +109,8 @@ defmodule Boonorbust2.Dividends do
   end
 
   @doc """
-  Fetches and stores dividends for an asset.
-
-  This will fetch all dividends from the API and insert/update them in the database.
-  For each successfully upserted dividend, it will automatically process realized profits
-  for all users who held the asset before the ex-date.
+  Fetches and stores dividends for an asset, then processes Dividend Income
+  for all users who held the asset before each dividend's ex-date.
   """
   @spec sync_dividends(Asset.t()) ::
           {:ok,
@@ -125,17 +122,17 @@ defmodule Boonorbust2.Dividends do
           | {:error, String.t()}
   def sync_dividends(%Asset{} = asset) do
     case fetch_dividends(asset) do
-      {:ok, dividends} ->
-        sync_dividends_from_data(asset, dividends)
-
-      {:error, reason} ->
-        {:error, reason}
+      {:ok, dividends} -> sync_dividends_from_data(asset, dividends)
+      {:error, reason} -> {:error, reason}
     end
   end
 
   @doc """
-  Syncs dividends from pre-fetched data instead of fetching from URL.
-  This is used when combining price and dividend fetching to avoid duplicate HTTP calls.
+  Upserts dividends from pre-fetched data, then processes Dividend Income
+  for all users who held the asset before each dividend's ex-date.
+
+  Used when price and dividend data are fetched together in a single HTTP call
+  to avoid a redundant request.
   """
   @spec sync_dividends_from_data(Asset.t(), [map()]) ::
           {:ok,
@@ -146,27 +143,14 @@ defmodule Boonorbust2.Dividends do
            }}
           | {:error, String.t()}
   def sync_dividends_from_data(%Asset{} = asset, dividends) do
-    # Group dividends by date and sum values for same date
-    aggregated_dividends = aggregate_dividends_by_date(dividends)
+    upsert_results = upsert_dividends(asset, dividends)
 
-    results =
-      Enum.map(aggregated_dividends, fn dividend_data ->
-        attrs = Map.put(dividend_data, :asset_id, asset.id)
+    inserted_count = Enum.count(upsert_results, fn {status, _} -> status == :ok end)
+    error_count = Enum.count(upsert_results, fn {status, _} -> status == :error end)
 
-        %Dividend{}
-        |> Dividend.changeset(attrs)
-        |> Repo.insert(
-          on_conflict: {:replace, [:value, :currency, :pay_date, :updated_at]},
-          conflict_target: [:asset_id, :ex_date]
-        )
-      end)
-
-    inserted_count = Enum.count(results, fn {status, _} -> status == :ok end)
-    error_count = Enum.count(results, fn {status, _} -> status == :error end)
-
-    # Process realized profits for all successfully upserted dividends
-    realized_profits_count =
-      results
+    # For each successfully upserted Dividend, record Dividend Income for all eligible users
+    realized_profits_created =
+      upsert_results
       |> Enum.filter(fn {status, _} -> status == :ok end)
       |> Enum.map(fn {:ok, dividend} ->
         {:ok, count} = Boonorbust2.RealizedProfits.process_dividend_for_all_users(dividend)
@@ -178,7 +162,25 @@ defmodule Boonorbust2.Dividends do
      %{
        inserted: inserted_count,
        errors: error_count,
-       realized_profits_created: realized_profits_count
+       realized_profits_created: realized_profits_created
      }}
+  end
+
+  # Upserts raw dividend data for an asset. Returns one result tuple per dividend.
+  @spec upsert_dividends(Asset.t(), [map()]) ::
+          [{:ok, Dividend.t()} | {:error, Ecto.Changeset.t()}]
+  defp upsert_dividends(%Asset{} = asset, dividends) do
+    dividends
+    |> aggregate_dividends_by_date()
+    |> Enum.map(fn dividend_data ->
+      attrs = Map.put(dividend_data, :asset_id, asset.id)
+
+      %Dividend{}
+      |> Dividend.changeset(attrs)
+      |> Repo.insert(
+        on_conflict: {:replace, [:value, :currency, :pay_date, :updated_at]},
+        conflict_target: [:asset_id, :ex_date]
+      )
+    end)
   end
 end
