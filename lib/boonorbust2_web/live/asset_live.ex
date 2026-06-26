@@ -48,7 +48,7 @@ defmodule Boonorbust2Web.AssetLive do
   end
 
   def handle_event("edit", %{"id" => id}, socket) do
-    asset = Assets.get_asset!(id)
+    asset = Assets.get_asset!(String.to_integer(id))
 
     {:noreply,
      assign(socket,
@@ -91,7 +91,7 @@ defmodule Boonorbust2Web.AssetLive do
   end
 
   def handle_event("update", %{"asset_id" => id, "asset" => asset_params}, socket) do
-    asset = Assets.get_asset!(id)
+    asset = Assets.get_asset!(String.to_integer(id))
 
     case Assets.update_asset(asset, asset_params) do
       {:ok, updated_asset} ->
@@ -109,7 +109,7 @@ defmodule Boonorbust2Web.AssetLive do
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
-    asset = Assets.get_asset!(id)
+    asset = Assets.get_asset!(String.to_integer(id))
     {:ok, _} = Assets.delete_asset(asset)
 
     {:noreply, stream_delete(socket, :assets, %Asset{id: asset.id})}
@@ -146,7 +146,7 @@ defmodule Boonorbust2Web.AssetLive do
   end
 
   def handle_event("show_dividends", %{"id" => id}, socket) do
-    asset = Assets.get_asset!(id)
+    asset = Assets.get_asset!(String.to_integer(id))
     dividends = Dividends.list_dividends(asset_id: asset.id)
 
     {:noreply, assign(socket, dividends_modal: %{asset: asset, dividends: dividends})}
@@ -157,7 +157,7 @@ defmodule Boonorbust2Web.AssetLive do
   end
 
   def handle_event("show_tags", %{"id" => asset_id}, socket) do
-    asset = Assets.get_asset!(asset_id)
+    asset = Assets.get_asset!(String.to_integer(asset_id))
     tags = Tags.list_tags_for_asset(asset.id, socket.assigns.user_id)
 
     {:noreply, assign(socket, tags_modal: %{asset: asset, tags: tags})}

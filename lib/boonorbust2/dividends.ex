@@ -11,7 +11,7 @@ defmodule Boonorbust2.Dividends do
   alias Boonorbust2.Repo
 
   @spec list_dividends(keyword()) :: [Dividend.t()]
-  def list_dividends(opts \\ []) do
+  def list_dividends(opts \\ []) when is_list(opts) do
     asset_id = Keyword.get(opts, :asset_id, nil)
 
     query = from d in Dividend, order_by: [desc: d.ex_date]
@@ -21,10 +21,10 @@ defmodule Boonorbust2.Dividends do
   end
 
   @spec get_dividend!(integer()) :: Dividend.t()
-  def get_dividend!(id), do: Repo.get!(Dividend, id)
+  def get_dividend!(id) when is_integer(id), do: Repo.get!(Dividend, id)
 
   @spec get_dividend(integer()) :: Dividend.t() | nil
-  def get_dividend(id), do: Repo.get(Dividend, id)
+  def get_dividend(id) when is_integer(id), do: Repo.get(Dividend, id)
 
   @spec create_dividend(map()) :: {:ok, Dividend.t()} | {:error, Ecto.Changeset.t()}
   def create_dividend(attrs \\ %{}) do

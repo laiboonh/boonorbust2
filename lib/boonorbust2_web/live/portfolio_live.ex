@@ -40,7 +40,7 @@ defmodule Boonorbust2Web.PortfolioLive do
   end
 
   def handle_event("edit", %{"id" => id}, socket) do
-    portfolio = Portfolios.load_portfolio_with_tags(id)
+    portfolio = Portfolios.load_portfolio_with_tags(String.to_integer(id))
     {:noreply, assign(socket, portfolio_in_progress: portfolio, form_errors: nil)}
   end
 
@@ -75,7 +75,7 @@ defmodule Boonorbust2Web.PortfolioLive do
         %{"portfolio_id" => id, "portfolio" => portfolio_params} = params,
         socket
       ) do
-    portfolio = Portfolios.get_portfolio(id)
+    portfolio = Portfolios.get_portfolio(String.to_integer(id))
     tag_ids = Map.get(params, "tag_ids", [])
 
     case Portfolios.update_portfolio_with_tags(portfolio, portfolio_params, tag_ids) do
@@ -96,12 +96,13 @@ defmodule Boonorbust2Web.PortfolioLive do
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
-    Portfolios.delete_portfolio_by_id(id)
+    portfolio_id = String.to_integer(id)
+    Portfolios.delete_portfolio_by_id(portfolio_id)
 
     socket =
       socket
       |> assign(:portfolio_in_progress, nil)
-      |> stream_delete(:portfolios, %Portfolio{id: id})
+      |> stream_delete(:portfolios, %Portfolio{id: portfolio_id})
 
     {:noreply, socket}
   end

@@ -26,6 +26,7 @@ defmodule Boonorbust2.Portfolios.PortfolioTag do
   end
 
   @doc false
+  @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(portfolio_tag, attrs) do
     portfolio_tag
     |> cast(attrs, [:portfolio_id, :tag_id])

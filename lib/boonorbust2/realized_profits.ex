@@ -40,7 +40,8 @@ defmodule Boonorbust2.RealizedProfits do
   end
 
   @spec get_realized_profit_by_transaction(integer()) :: RealizedProfit.t() | nil
-  def get_realized_profit_by_transaction(portfolio_transaction_id) do
+  def get_realized_profit_by_transaction(portfolio_transaction_id)
+      when is_integer(portfolio_transaction_id) do
     from(rp in RealizedProfit,
       where: rp.portfolio_transaction_id == ^portfolio_transaction_id
     )
@@ -48,7 +49,7 @@ defmodule Boonorbust2.RealizedProfits do
   end
 
   @spec list_realized_profits_by_user(String.t()) :: [RealizedProfit.t()]
-  def list_realized_profits_by_user(user_id) do
+  def list_realized_profits_by_user(user_id) when is_binary(user_id) do
     from(rp in RealizedProfit,
       where: rp.user_id == ^user_id,
       order_by: [desc: rp.inserted_at],
@@ -58,7 +59,8 @@ defmodule Boonorbust2.RealizedProfits do
   end
 
   @spec list_realized_profits_by_asset(integer(), String.t()) :: [RealizedProfit.t()]
-  def list_realized_profits_by_asset(asset_id, user_id) do
+  def list_realized_profits_by_asset(asset_id, user_id)
+      when is_integer(asset_id) and is_binary(user_id) do
     from(rp in RealizedProfit,
       where: rp.asset_id == ^asset_id and rp.user_id == ^user_id,
       order_by: [desc: rp.inserted_at],
@@ -72,7 +74,7 @@ defmodule Boonorbust2.RealizedProfits do
   Returns realized profits with dividends whose pay_date is within 2 weeks from today.
   """
   @spec list_upcoming_dividend_payments(String.t()) :: [RealizedProfit.t()]
-  def list_upcoming_dividend_payments(user_id) do
+  def list_upcoming_dividend_payments(user_id) when is_binary(user_id) do
     today = Date.utc_today()
     two_weeks_from_now = Date.add(today, 14)
 
@@ -96,7 +98,7 @@ defmodule Boonorbust2.RealizedProfits do
   Returns realized profits with dividends whose pay_date is within 2 weeks before today.
   """
   @spec list_recent_dividend_payments(String.t()) :: [RealizedProfit.t()]
-  def list_recent_dividend_payments(user_id) do
+  def list_recent_dividend_payments(user_id) when is_binary(user_id) do
     today = Date.utc_today()
     two_weeks_ago = Date.add(today, -14)
 
@@ -139,7 +141,7 @@ defmodule Boonorbust2.RealizedProfits do
   Calculates the total realized profit for a user across all assets.
   """
   @spec calculate_total_by_user(String.t()) :: Money.t()
-  def calculate_total_by_user(user_id) do
+  def calculate_total_by_user(user_id) when is_binary(user_id) do
     user_id
     |> list_realized_profits_by_user()
     |> calculate_total()
@@ -149,7 +151,7 @@ defmodule Boonorbust2.RealizedProfits do
   Returns a map of asset_id => total realized profit for all assets owned by a user.
   """
   @spec get_totals_by_asset(String.t()) :: %{integer() => Money.t()}
-  def get_totals_by_asset(user_id) do
+  def get_totals_by_asset(user_id) when is_binary(user_id) do
     user_id
     |> list_realized_profits_by_user()
     |> Enum.group_by(& &1.asset_id)
@@ -165,7 +167,7 @@ defmodule Boonorbust2.RealizedProfits do
   @spec get_totals_by_asset_and_type(String.t()) :: %{
           integer() => %{capital_gains: Money.t(), dividend_income: Money.t()}
         }
-  def get_totals_by_asset_and_type(user_id) do
+  def get_totals_by_asset_and_type(user_id) when is_binary(user_id) do
     user_id
     |> list_realized_profits_by_user()
     |> Enum.group_by(& &1.asset_id)
@@ -293,7 +295,7 @@ defmodule Boonorbust2.RealizedProfits do
   Results are sorted by month (descending) and limited to recent months.
   """
   @spec get_dividend_chart_data(String.t(), keyword()) :: [map()]
-  def get_dividend_chart_data(user_id, opts \\ []) do
+  def get_dividend_chart_data(user_id, opts \\ []) when is_binary(user_id) and is_list(opts) do
     days = Keyword.get(opts, :days, 365)
     cutoff_date = Date.add(Date.utc_today(), -days)
 

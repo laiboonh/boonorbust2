@@ -29,7 +29,8 @@ defmodule Boonorbust2.PortfolioPositions do
   """
   @spec calculate_and_upsert_positions_for_asset(integer(), String.t()) ::
           {:ok, non_neg_integer()} | {:error, Ecto.Changeset.t()}
-  def calculate_and_upsert_positions_for_asset(asset_id, user_id) do
+  def calculate_and_upsert_positions_for_asset(asset_id, user_id)
+      when is_integer(asset_id) and is_binary(user_id) do
     transactions =
       from(pt in PortfolioTransaction,
         where: pt.asset_id == ^asset_id and pt.user_id == ^user_id,
@@ -195,7 +196,8 @@ defmodule Boonorbust2.PortfolioPositions do
   This represents the current state of the position after all transactions.
   """
   @spec get_latest_position_for_asset(integer(), String.t()) :: PortfolioPosition.t() | nil
-  def get_latest_position_for_asset(asset_id, user_id) do
+  def get_latest_position_for_asset(asset_id, user_id)
+      when is_integer(asset_id) and is_binary(user_id) do
     from(pp in PortfolioPosition,
       join: pt in assoc(pp, :portfolio_transaction),
       where: pp.asset_id == ^asset_id and pp.user_id == ^user_id,
@@ -210,7 +212,8 @@ defmodule Boonorbust2.PortfolioPositions do
   Gets all positions for a given asset, ordered by transaction date descending.
   """
   @spec get_positions_for_asset(integer(), String.t()) :: [PortfolioPosition.t()]
-  def get_positions_for_asset(asset_id, user_id) do
+  def get_positions_for_asset(asset_id, user_id)
+      when is_integer(asset_id) and is_binary(user_id) do
     from(pp in PortfolioPosition,
       join: pt in assoc(pp, :portfolio_transaction),
       where: pp.asset_id == ^asset_id and pp.user_id == ^user_id,
@@ -225,7 +228,7 @@ defmodule Boonorbust2.PortfolioPositions do
   Supports filtering by asset name or tag name.
   """
   @spec list_latest_positions(String.t(), String.t() | nil) :: [PortfolioPosition.t()]
-  def list_latest_positions(user_id, filter \\ nil) do
+  def list_latest_positions(user_id, filter \\ nil) when is_binary(user_id) do
     # Get the latest position for each asset based on transaction date
     latest_positions_subquery =
       from(pp in PortfolioPosition,
@@ -358,7 +361,7 @@ defmodule Boonorbust2.PortfolioPositions do
     - Money.t() representing the total portfolio value
   """
   @spec calculate_total_portfolio_value([map()], String.t()) :: Money.t()
-  def calculate_total_portfolio_value(enriched_positions, currency) do
+  def calculate_total_portfolio_value(enriched_positions, currency) when is_binary(currency) do
     total_amount =
       enriched_positions
       |> Enum.reduce(Decimal.new(0), fn position, acc ->
@@ -382,7 +385,7 @@ defmodule Boonorbust2.PortfolioPositions do
     - :ok
   """
   @spec save_portfolio_snapshot(String.t(), Money.t()) :: :ok
-  def save_portfolio_snapshot(user_id, total_value) do
+  def save_portfolio_snapshot(user_id, total_value) when is_binary(user_id) do
     today = Date.utc_today()
 
     case PortfolioSnapshots.upsert_snapshot(user_id, today, total_value) do

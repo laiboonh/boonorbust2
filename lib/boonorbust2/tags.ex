@@ -11,18 +11,19 @@ defmodule Boonorbust2.Tags do
   # Tag functions
 
   @spec list_tags(Ecto.UUID.t()) :: [Tag.t()]
-  def list_tags(user_id) do
+  def list_tags(user_id) when is_binary(user_id) do
     Repo.all(from t in Tag, where: t.user_id == ^user_id, order_by: t.name)
   end
 
   @spec get_tag!(integer()) :: Tag.t()
-  def get_tag!(id), do: Repo.get!(Tag, id)
+  def get_tag!(id) when is_integer(id), do: Repo.get!(Tag, id)
 
   @spec get_tag(integer()) :: Tag.t() | nil
-  def get_tag(id), do: Repo.get(Tag, id)
+  def get_tag(id) when is_integer(id), do: Repo.get(Tag, id)
 
   @spec get_tag_by_name(String.t(), Ecto.UUID.t()) :: Tag.t() | nil
-  def get_tag_by_name(name, user_id), do: Repo.get_by(Tag, name: name, user_id: user_id)
+  def get_tag_by_name(name, user_id) when is_binary(name) and is_binary(user_id),
+    do: Repo.get_by(Tag, name: name, user_id: user_id)
 
   @spec create_tag(map()) :: {:ok, Tag.t()} | {:error, Ecto.Changeset.t()}
   def create_tag(attrs \\ %{}) do
@@ -52,7 +53,7 @@ defmodule Boonorbust2.Tags do
 
   @spec add_tag_to_asset(integer(), integer()) ::
           {:ok, AssetTag.t()} | {:error, Ecto.Changeset.t()}
-  def add_tag_to_asset(asset_id, tag_id) do
+  def add_tag_to_asset(asset_id, tag_id) when is_integer(asset_id) and is_integer(tag_id) do
     %AssetTag{}
     |> AssetTag.changeset(%{
       asset_id: asset_id,
@@ -63,7 +64,7 @@ defmodule Boonorbust2.Tags do
 
   @spec remove_tag_from_asset(integer(), integer()) ::
           {:ok, AssetTag.t()} | {:error, Ecto.Changeset.t() | :not_found}
-  def remove_tag_from_asset(asset_id, tag_id) do
+  def remove_tag_from_asset(asset_id, tag_id) when is_integer(asset_id) and is_integer(tag_id) do
     asset_tag =
       Repo.get_by(AssetTag, asset_id: asset_id, tag_id: tag_id)
 
@@ -75,7 +76,7 @@ defmodule Boonorbust2.Tags do
   end
 
   @spec list_tags_for_asset(integer(), Ecto.UUID.t()) :: [Tag.t()]
-  def list_tags_for_asset(asset_id, user_id) do
+  def list_tags_for_asset(asset_id, user_id) when is_integer(asset_id) and is_binary(user_id) do
     Repo.all(
       from t in Tag,
         join: at in AssetTag,
@@ -103,7 +104,7 @@ defmodule Boonorbust2.Tags do
   end
 
   @spec list_assets_for_tag(integer()) :: [integer()]
-  def list_assets_for_tag(tag_id) do
+  def list_assets_for_tag(tag_id) when is_integer(tag_id) do
     Repo.all(
       from at in AssetTag,
         where: at.tag_id == ^tag_id,
@@ -113,7 +114,7 @@ defmodule Boonorbust2.Tags do
 
   @spec get_or_create_tag(String.t(), Ecto.UUID.t()) ::
           {:ok, Tag.t()} | {:error, Ecto.Changeset.t()}
-  def get_or_create_tag(name, user_id) do
+  def get_or_create_tag(name, user_id) when is_binary(name) and is_binary(user_id) do
     case get_tag_by_name(name, user_id) do
       nil -> create_tag(%{name: name, user_id: user_id})
       tag -> {:ok, tag}

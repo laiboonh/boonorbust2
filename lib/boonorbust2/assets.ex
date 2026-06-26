@@ -10,7 +10,7 @@ defmodule Boonorbust2.Assets do
   alias Boonorbust2.Repo
 
   @spec list_assets(keyword()) :: [Asset.t()]
-  def list_assets(opts \\ []) do
+  def list_assets(opts \\ []) when is_list(opts) do
     filter = Keyword.get(opts, :filter, nil)
     user_id = Keyword.get(opts, :user_id, nil)
     sort = Keyword.get(opts, :sort, :updated_at)
@@ -69,23 +69,25 @@ defmodule Boonorbust2.Assets do
   end
 
   @spec get_asset!(integer()) :: Asset.t()
-  def get_asset!(id), do: Repo.get!(Asset, id)
+  def get_asset!(id) when is_integer(id), do: Repo.get!(Asset, id)
 
   @spec get_asset(integer()) :: Asset.t() | nil
-  def get_asset(id), do: Repo.get(Asset, id)
+  def get_asset(id) when is_integer(id), do: Repo.get(Asset, id)
 
   @spec get_asset_by_price_url(String.t()) :: Asset.t() | nil
-  def get_asset_by_price_url(price_url), do: Repo.get_by(Asset, price_url: price_url)
+  def get_asset_by_price_url(price_url) when is_binary(price_url),
+    do: Repo.get_by(Asset, price_url: price_url)
 
   @spec get_asset_by_name(String.t()) :: Asset.t() | nil
-  def get_asset_by_name(name), do: Repo.get_by(Asset, name: name)
+  def get_asset_by_name(name) when is_binary(name), do: Repo.get_by(Asset, name: name)
 
   @doc """
   Finds an existing asset by name, or creates a new one with the given currency.
   """
   @spec find_or_create_asset(String.t(), String.t()) ::
           {:ok, Asset.t()} | {:error, String.t()}
-  def find_or_create_asset(asset_name, currency) do
+  def find_or_create_asset(asset_name, currency)
+      when is_binary(asset_name) and is_binary(currency) do
     case get_asset_by_name(asset_name) do
       nil -> do_create_asset(asset_name, currency)
       asset -> {:ok, asset}
@@ -279,7 +281,8 @@ defmodule Boonorbust2.Assets do
   def fetch_combined_data(%Asset{}), do: {:error, :unsupported}
 
   @spec fetch_data(String.t(), (String.t() -> String.t())) :: String.t()
-  def fetch_data(response, data_fetcher) do
+  def fetch_data(response, data_fetcher)
+      when is_binary(response) and is_function(data_fetcher, 1) do
     data_fetcher.(response)
   end
 

@@ -15,7 +15,7 @@ defmodule Boonorbust2.PortfolioTransactions do
           total_entries: non_neg_integer(),
           total_pages: non_neg_integer()
         }
-  def list_portfolio_transactions(opts \\ []) do
+  def list_portfolio_transactions(opts \\ []) when is_list(opts) do
     page = Keyword.get(opts, :page, 1)
     page_size = Keyword.get(opts, :page_size, 10)
     filter = Keyword.get(opts, :filter, nil)
@@ -65,7 +65,7 @@ defmodule Boonorbust2.PortfolioTransactions do
   end
 
   @spec get_portfolio_transaction!(integer(), String.t()) :: PortfolioTransaction.t()
-  def get_portfolio_transaction!(id, user_id) do
+  def get_portfolio_transaction!(id, user_id) when is_integer(id) and is_binary(user_id) do
     from(pt in PortfolioTransaction,
       where: pt.id == ^id and pt.user_id == ^user_id,
       preload: [:asset]
@@ -74,7 +74,7 @@ defmodule Boonorbust2.PortfolioTransactions do
   end
 
   @spec get_portfolio_transaction(integer(), String.t()) :: PortfolioTransaction.t() | nil
-  def get_portfolio_transaction(id, user_id) do
+  def get_portfolio_transaction(id, user_id) when is_integer(id) and is_binary(user_id) do
     from(pt in PortfolioTransaction,
       where: pt.id == ^id and pt.user_id == ^user_id,
       preload: [:asset]
@@ -130,7 +130,7 @@ defmodule Boonorbust2.PortfolioTransactions do
   - Return a summary of the import
   """
   @spec import_from_csv(String.t(), String.t()) :: {:ok, map()} | {:error, String.t()}
-  def import_from_csv(file_path, user_id) do
+  def import_from_csv(file_path, user_id) when is_binary(file_path) and is_binary(user_id) do
     case File.read(file_path) do
       {:ok, content} ->
         process_csv_content(content, user_id)
@@ -147,7 +147,7 @@ defmodule Boonorbust2.PortfolioTransactions do
   The header row is consumed and not included in the results.
   """
   @spec parse_csv_rows(String.t()) :: {:ok, [{:ok, map()} | {:error, String.t()}]}
-  def parse_csv_rows(content) do
+  def parse_csv_rows(content) when is_binary(content) do
     case String.split(content, "\n", trim: true) do
       [_header | data_lines] -> {:ok, Enum.map(data_lines, &parse_csv_line/1)}
       [] -> {:ok, []}
@@ -408,7 +408,8 @@ defmodule Boonorbust2.PortfolioTransactions do
   """
   @spec format_import_result_message(non_neg_integer(), non_neg_integer(), non_neg_integer()) ::
           String.t()
-  def format_import_result_message(success_count, error_count, total_count) do
+  def format_import_result_message(success_count, error_count, total_count)
+      when is_integer(success_count) and is_integer(error_count) and is_integer(total_count) do
     if error_count > 0 do
       "Imported #{success_count} of #{total_count} transactions (#{error_count} errors)"
     else

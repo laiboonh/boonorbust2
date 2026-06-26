@@ -6,7 +6,7 @@ This document contains configuration and commands for working with this project 
 
 ### Quality & Testing
 ```bash
-# Run all quality checks (format, credo, dialyzer)
+# Run all quality checks (format, credo)
 mix quality
 
 # Run tests
@@ -17,9 +17,6 @@ mix format
 
 # Run Credo (static analysis)
 mix credo --strict
-
-# Run Dialyzer (type checking)
-mix dialyzer
 ```
 
 ### Development Server
@@ -109,7 +106,7 @@ This project follows the **Thin Controller Pattern** with strict separation of c
 
 3. **Public API specifications**
    - ALL public functions in contexts must have `@spec` type annotations
-   - Private functions should NOT have `@spec` (Dialyzer infers better types)
+   - Private functions should NOT have `@spec` (the compiler infers their types automatically)
    - Public APIs should be well-documented with `@doc`
 
 ### Example Pattern
@@ -228,14 +225,14 @@ end
 - App version: 0.1.0 (displayed in header)
 - Uses Phoenix 1.8+ with LiveView
 - PostgreSQL database
-- Elixir ~> 1.18
+- Elixir ~> 1.20
 
 ## IMPORTANT: Pre-commit Hooks
 
 **NEVER skip pre-commit checks** - Always resolve all errors and warnings before committing:
 
 1. **Pre-commit hooks are mandatory** - They run automatically on `git commit`
-2. **Quality checks must pass**: format, credo, dialyzer, tests
+2. **Quality checks must pass**: format, credo, tests
 3. **If hooks fail**: Fix all issues and commit again
 4. **Don't force commits** - Always let the hooks complete successfully
 5. **Code formatting**: Hooks will auto-format code - commit the formatted version
@@ -243,7 +240,6 @@ end
 The project uses these quality tools:
 - `mix format` - Code formatting
 - `mix credo --strict` - Static code analysis
-- `mix dialyzer` - Type checking
 - `mix test` - Test suite
 
 All must pass before code can be committed to maintain code quality.

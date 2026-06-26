@@ -8,8 +8,8 @@ defmodule Boonorbust2.Accounts do
   alias Boonorbust2.Accounts.User
   alias Boonorbust2.Repo
 
-  @spec get_user_by_id(any()) :: any()
-  def get_user_by_id(user_id) do
+  @spec get_user_by_id(Ecto.UUID.t()) :: User.t() | nil
+  def get_user_by_id(user_id) when is_binary(user_id) do
     Helper.do_retry(fn -> Repo.get(Boonorbust2.Accounts.User, user_id) end, [
       DBConnection.ConnectionError
     ])

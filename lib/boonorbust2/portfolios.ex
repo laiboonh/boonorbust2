@@ -12,18 +12,18 @@ defmodule Boonorbust2.Portfolios do
   # Portfolio functions
 
   @spec list_portfolios(Ecto.UUID.t()) :: [Portfolio.t()]
-  def list_portfolios(user_id) do
+  def list_portfolios(user_id) when is_binary(user_id) do
     Repo.all(from p in Portfolio, where: p.user_id == ^user_id, order_by: p.name)
   end
 
   @spec get_portfolio(integer()) :: Portfolio.t() | nil
-  def get_portfolio(id), do: Repo.get(Portfolio, id)
+  def get_portfolio(id) when is_integer(id), do: Repo.get(Portfolio, id)
 
   @doc """
   Deletes a portfolio by ID, including its associated portfolio tags.
   """
   @spec delete_portfolio_by_id(integer()) :: :ok
-  def delete_portfolio_by_id(id) do
+  def delete_portfolio_by_id(id) when is_integer(id) do
     tags_query = from(pt in PortfolioTag, where: pt.portfolio_id == ^id)
     portfolio_query = from(p in Portfolio, where: p.id == ^id)
 
@@ -39,7 +39,7 @@ defmodule Boonorbust2.Portfolios do
   Lists all portfolios for a user with their associated tags in a single query.
   """
   @spec list_portfolios_with_tags(Ecto.UUID.t()) :: [map()]
-  def list_portfolios_with_tags(user_id) do
+  def list_portfolios_with_tags(user_id) when is_binary(user_id) do
     query =
       from p in Portfolio,
         left_join: pt in PortfolioTag,
@@ -62,8 +62,8 @@ defmodule Boonorbust2.Portfolios do
   @doc """
   Loads a single portfolio with its tags preloaded.
   """
-  @spec load_portfolio_with_tags(integer()) :: map()
-  def load_portfolio_with_tags(portfolio_id) do
+  @spec load_portfolio_with_tags(integer()) :: %{:tags => [any()], optional(any()) => any()}
+  def load_portfolio_with_tags(portfolio_id) when is_integer(portfolio_id) do
     query =
       from p in Portfolio,
         left_join: pt in PortfolioTag,
@@ -93,7 +93,7 @@ defmodule Boonorbust2.Portfolios do
   """
   @spec create_portfolio_with_tags(map(), [String.t()] | [integer()]) ::
           {:ok, Portfolio.t()} | {:error, Ecto.Changeset.t()}
-  def create_portfolio_with_tags(attrs, tag_ids \\ []) do
+  def create_portfolio_with_tags(attrs, tag_ids \\ []) when is_map(attrs) and is_list(tag_ids) do
     Ecto.Multi.new()
     |> Ecto.Multi.insert(:portfolio, Portfolio.changeset(%Portfolio{}, attrs))
     |> Ecto.Multi.run(:tags, fn repo, %{portfolio: portfolio} ->
@@ -115,7 +115,8 @@ defmodule Boonorbust2.Portfolios do
   """
   @spec update_portfolio_with_tags(Portfolio.t(), map(), [String.t()] | [integer()]) ::
           {:ok, Portfolio.t()} | {:error, Ecto.Changeset.t()}
-  def update_portfolio_with_tags(%Portfolio{} = portfolio, attrs, tag_ids \\ []) do
+  def update_portfolio_with_tags(%Portfolio{} = portfolio, attrs, tag_ids \\ [])
+      when is_map(attrs) and is_list(tag_ids) do
     Ecto.Multi.new()
     |> Ecto.Multi.update(:portfolio, Portfolio.changeset(portfolio, attrs))
     |> Ecto.Multi.run(:remove_tags, fn repo, %{portfolio: updated_portfolio} ->
@@ -143,7 +144,7 @@ defmodule Boonorbust2.Portfolios do
   # PortfolioTag functions
 
   @spec list_tags_for_portfolio(integer()) :: [Tag.t()]
-  def list_tags_for_portfolio(portfolio_id) do
+  def list_tags_for_portfolio(portfolio_id) when is_integer(portfolio_id) do
     Repo.all(
       from t in Tag,
         join: pt in PortfolioTag,

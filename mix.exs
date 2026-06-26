@@ -5,17 +5,13 @@ defmodule Boonorbust2.MixProject do
     [
       app: :boonorbust2,
       version: "0.1.0",
-      elixir: "~> 1.19",
+      elixir: "~> 1.20",
+      warnings_as_errors: true,
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
-      listeners: [Phoenix.CodeReloader],
-      dialyzer: [
-        plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
-        plt_add_apps: [:mix, :ex_unit],
-        flags: [:error_handling, :underspecs]
-      ]
+      listeners: [Phoenix.CodeReloader]
     ]
   end
 
@@ -67,7 +63,6 @@ defmodule Boonorbust2.MixProject do
       {:ex_money, "~> 5.17"},
       {:ex_money_sql, "~> 1.0"},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
-      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:retry, "~> 0.18"},
       {:req, "~> 0.5"},
       {:mox, "~> 1.0", only: :test},
@@ -90,7 +85,7 @@ defmodule Boonorbust2.MixProject do
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      quality: ["format", "credo --strict", "dialyzer"],
+      quality: ["format", "credo --strict"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["tailwind boonorbust2", "esbuild boonorbust2"],
       "assets.deploy": [

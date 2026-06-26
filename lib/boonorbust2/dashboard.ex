@@ -13,7 +13,39 @@ defmodule Boonorbust2.Dashboard do
   alias Boonorbust2.RealizedProfits
   alias Boonorbust2.Tags
 
-  require Logger
+  # ============================================================================
+  # Types
+  # ============================================================================
+
+  @type enriched_position :: map()
+
+  @type dashboard_data :: %{
+          positions: [enriched_position()],
+          realized_profits_by_asset: %{integer() => Money.t()},
+          converted_realized_profits_by_asset: %{integer() => Money.t()},
+          all_tags: [map()],
+          tag_chart_data: [%{label: String.t(), value: float()}],
+          portfolios: [map()],
+          user_currency: String.t(),
+          portfolio_snapshots: [map()],
+          dividend_chart_data: %{
+            labels: [String.t()],
+            datasets: [map()],
+            avg_monthly_income: float()
+          },
+          upcoming_dividends: [map()],
+          recent_dividends: [map()],
+          investment_allocation_chart_data: [map()]
+        }
+
+  @type positions_data :: %{
+          positions: [enriched_position()],
+          realized_profits_by_asset: %{integer() => Money.t()},
+          converted_realized_profits_by_asset: %{integer() => Money.t()},
+          converted_realized_profits_by_type: %{
+            integer() => %{capital_gains: Money.t(), dividend_income: Money.t()}
+          }
+        }
 
   # ============================================================================
   # Public API
@@ -28,7 +60,9 @@ defmodule Boonorbust2.Dashboard do
 
   Returns a map of assigns ready to be spread onto the LiveView socket.
   """
-  def load_dashboard_data(user_id, user_currency) do
+  @spec load_dashboard_data(String.t(), String.t()) :: dashboard_data()
+  def load_dashboard_data(user_id, user_currency)
+      when is_binary(user_id) and is_binary(user_currency) do
     positions = PortfolioPositions.list_latest_positions(user_id, nil)
     realized_profits_by_asset = RealizedProfits.get_totals_by_asset(user_id)
     all_tags = Tags.list_tags(user_id)
@@ -72,7 +106,9 @@ defmodule Boonorbust2.Dashboard do
 
   Returns a map of assigns ready to be spread onto the LiveView socket.
   """
-  def load_positions_data(user_id, user_currency, filter \\ nil) do
+  @spec load_positions_data(String.t(), String.t(), String.t() | nil) :: positions_data()
+  def load_positions_data(user_id, user_currency, filter \\ nil)
+      when is_binary(user_id) and is_binary(user_currency) do
     positions = PortfolioPositions.list_latest_positions(user_id, filter)
     realized_profits_by_asset = RealizedProfits.get_totals_by_asset(user_id)
     realized_profits_by_type = RealizedProfits.get_totals_by_asset_and_type(user_id)
@@ -112,7 +148,8 @@ defmodule Boonorbust2.Dashboard do
       - :tags
   """
   @spec enrich_positions_for_dashboard([map()], String.t(), String.t()) :: [map()]
-  def enrich_positions_for_dashboard(positions, user_id, user_currency) do
+  def enrich_positions_for_dashboard(positions, user_id, user_currency)
+      when is_binary(user_id) and is_binary(user_currency) do
     asset_ids = Enum.map(positions, & &1.asset_id)
     tags_by_asset = Tags.list_tags_for_assets(asset_ids, user_id)
 
@@ -137,7 +174,8 @@ defmodule Boonorbust2.Dashboard do
     - Map of asset_id => Money (in user currency)
   """
   @spec convert_realized_profits_by_asset(map(), String.t()) :: map()
-  def convert_realized_profits_by_asset(profits_by_asset, user_currency) do
+  def convert_realized_profits_by_asset(profits_by_asset, user_currency)
+      when is_binary(user_currency) do
     profits_by_asset
     |> Enum.map(fn {asset_id, profit} ->
       {asset_id, ExchangeRates.convert_money(profit, user_currency)}
@@ -156,7 +194,8 @@ defmodule Boonorbust2.Dashboard do
     - Map of asset_id => %{capital_gains: Money, dividend_income: Money} (in user currency)
   """
   @spec convert_realized_profits_by_type(map(), String.t()) :: map()
-  def convert_realized_profits_by_type(profits_by_type, user_currency) do
+  def convert_realized_profits_by_type(profits_by_type, user_currency)
+      when is_binary(user_currency) do
     profits_by_type
     |> Enum.map(fn {asset_id, %{capital_gains: cg, dividend_income: di}} ->
       {asset_id,
@@ -179,7 +218,8 @@ defmodule Boonorbust2.Dashboard do
     - List of dividend maps with :converted_amount field added
   """
   @spec convert_dividends_to_user_currency([map()], String.t()) :: [map()]
-  def convert_dividends_to_user_currency(dividends, user_currency) do
+  def convert_dividends_to_user_currency(dividends, user_currency)
+      when is_binary(user_currency) do
     Enum.map(dividends, fn dividend ->
       converted_amount = ExchangeRates.convert_money(dividend.amount, user_currency)
       Map.put(dividend, :converted_amount, converted_amount)
@@ -238,7 +278,8 @@ defmodule Boonorbust2.Dashboard do
           datasets: [map()],
           avg_monthly_income: float()
         }
-  def prepare_dividend_chart_data(user_id, user_currency) do
+  def prepare_dividend_chart_data(user_id, user_currency)
+      when is_binary(user_id) and is_binary(user_currency) do
     # Get dividend data for the last 24 months (approximately 730 days)
     raw_data = RealizedProfits.get_dividend_chart_data(user_id, days: 730)
 

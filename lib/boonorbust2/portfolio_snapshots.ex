@@ -42,7 +42,7 @@ defmodule Boonorbust2.PortfolioSnapshots do
     * `:days` - Only return snapshots from the last N days
   """
   @spec list_snapshots(String.t(), keyword()) :: [PortfolioSnapshot.t()]
-  def list_snapshots(user_id, opts \\ []) do
+  def list_snapshots(user_id, opts \\ []) when is_binary(user_id) and is_list(opts) do
     limit = Keyword.get(opts, :limit)
     days = Keyword.get(opts, :days)
 
@@ -73,7 +73,7 @@ defmodule Boonorbust2.PortfolioSnapshots do
   Gets the latest portfolio snapshot for a given user.
   """
   @spec get_latest_snapshot(String.t()) :: PortfolioSnapshot.t() | nil
-  def get_latest_snapshot(user_id) do
+  def get_latest_snapshot(user_id) when is_binary(user_id) do
     from(s in PortfolioSnapshot,
       where: s.user_id == ^user_id,
       order_by: [desc: s.snapshot_date],
@@ -86,7 +86,7 @@ defmodule Boonorbust2.PortfolioSnapshots do
   Deletes all snapshots older than the specified number of days.
   """
   @spec delete_old_snapshots(integer()) :: {integer(), nil | [term()]}
-  def delete_old_snapshots(days) do
+  def delete_old_snapshots(days) when is_integer(days) do
     cutoff_date = Date.utc_today() |> Date.add(-days)
 
     from(s in PortfolioSnapshot, where: s.snapshot_date < ^cutoff_date)

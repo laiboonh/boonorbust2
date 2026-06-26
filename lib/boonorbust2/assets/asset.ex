@@ -11,20 +11,20 @@ defmodule Boonorbust2.Assets.Asset do
   alias Boonorbust2.Tags.AssetTag
 
   @type t :: %__MODULE__{
-          :asset_tags => nil | list() | %Ecto.Association.NotLoaded{},
-          :currency => nil | binary(),
-          :distributes_dividends => false | nil | true,
-          :dividend_url => nil | binary(),
-          :dividend_withholding_tax => nil | %Decimal{},
-          :dividends => nil | list() | %Ecto.Association.NotLoaded{},
-          :id => nil | integer(),
-          :inserted_at => nil | %NaiveDateTime{},
-          :name => nil | binary(),
-          :price => nil | %Decimal{},
-          :price_url => nil | binary(),
-          :prices_synced_at => nil | %DateTime{},
-          :dividends_synced_at => nil | %DateTime{},
-          :updated_at => nil | %NaiveDateTime{}
+          asset_tags: [AssetTag.t()] | Ecto.Association.NotLoaded.t() | nil,
+          currency: String.t() | nil,
+          distributes_dividends: boolean() | nil,
+          dividend_url: String.t() | nil,
+          dividend_withholding_tax: Decimal.t() | nil,
+          dividends: [Dividend.t()] | Ecto.Association.NotLoaded.t() | nil,
+          id: integer() | nil,
+          inserted_at: DateTime.t() | nil,
+          name: String.t() | nil,
+          price: Decimal.t() | nil,
+          price_url: String.t() | nil,
+          prices_synced_at: DateTime.t() | nil,
+          dividends_synced_at: DateTime.t() | nil,
+          updated_at: DateTime.t() | nil
         }
 
   schema "assets" do

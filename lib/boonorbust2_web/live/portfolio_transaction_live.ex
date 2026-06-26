@@ -69,7 +69,7 @@ defmodule Boonorbust2Web.PortfolioTransactionLive do
 
   def handle_event("edit", %{"id" => id}, socket) do
     %{user_id: user_id, timezone_offset: timezone_offset} = socket.assigns
-    transaction = PortfolioTransactions.get_portfolio_transaction!(id, user_id)
+    transaction = PortfolioTransactions.get_portfolio_transaction!(String.to_integer(id), user_id)
 
     {:noreply,
      assign(socket,
@@ -115,7 +115,7 @@ defmodule Boonorbust2Web.PortfolioTransactionLive do
         socket
       ) do
     %{user_id: user_id, timezone_offset: timezone_offset} = socket.assigns
-    transaction = PortfolioTransactions.get_portfolio_transaction!(id, user_id)
+    transaction = PortfolioTransactions.get_portfolio_transaction!(String.to_integer(id), user_id)
 
     case PortfolioTransactions.update_portfolio_transaction(
            transaction,
@@ -133,7 +133,7 @@ defmodule Boonorbust2Web.PortfolioTransactionLive do
 
   def handle_event("delete", %{"id" => id}, socket) do
     %{user_id: user_id} = socket.assigns
-    transaction = PortfolioTransactions.get_portfolio_transaction!(id, user_id)
+    transaction = PortfolioTransactions.get_portfolio_transaction!(String.to_integer(id), user_id)
     asset_id = transaction.asset_id
 
     {:ok, _} = PortfolioTransactions.delete_portfolio_transaction(transaction)

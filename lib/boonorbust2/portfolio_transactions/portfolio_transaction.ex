@@ -186,6 +186,7 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
     end
   end
 
+  @spec empty() :: t()
   def empty,
     do: %__MODULE__{
       id: nil,

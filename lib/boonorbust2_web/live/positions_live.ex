@@ -46,7 +46,7 @@ defmodule Boonorbust2Web.PositionsLive do
   end
 
   def handle_event("show_positions", %{"id" => asset_id}, socket) do
-    asset = Assets.get_asset!(asset_id)
+    asset = Assets.get_asset!(String.to_integer(asset_id))
     positions = PortfolioPositions.get_positions_for_asset(asset.id, socket.assigns.user_id)
 
     {:noreply, assign(socket, positions_modal: %{asset: asset, positions: positions})}
@@ -57,7 +57,7 @@ defmodule Boonorbust2Web.PositionsLive do
   end
 
   def handle_event("show_realized_profits", %{"id" => asset_id}, socket) do
-    asset = Assets.get_asset!(asset_id)
+    asset = Assets.get_asset!(String.to_integer(asset_id))
 
     realized_profits =
       RealizedProfits.list_realized_profits_by_asset(asset.id, socket.assigns.user_id)

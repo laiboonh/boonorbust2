@@ -43,3 +43,5 @@ npm-debug.log
 
 # Dialyzer PLT files
 /priv/plts/
+
+.claude

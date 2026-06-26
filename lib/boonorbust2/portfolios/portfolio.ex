@@ -30,6 +30,7 @@ defmodule Boonorbust2.Portfolios.Portfolio do
   end
 
   @doc false
+  @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(portfolio, attrs) do
     portfolio
     |> cast(attrs, [:name, :description, :user_id])
