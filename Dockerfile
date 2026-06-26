@@ -1,4 +1,4 @@
-FROM hexpm/elixir:1.19.5-erlang-27.3.4.7-debian-bullseye-20260202-slim AS builder
+FROM hexpm/elixir:1.20.2-erlang-27.3.4.7-debian-bullseye-20260202-slim AS builder
 
 # install build dependencies
 RUN apt-get update -y && apt-get install -y build-essential git \
