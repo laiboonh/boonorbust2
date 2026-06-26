@@ -61,7 +61,7 @@ jobs:
     - name: Create PLT cache directory
       run: mkdir -p priv/plts
 
-    - name: Run quality checks (format, credo, dialyzer)
+    - name: Run quality checks (format, credo)
       run: mix quality
 
     - name: Compile
