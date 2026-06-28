@@ -107,6 +107,19 @@ defmodule Boonorbust2Web.PortfolioLive do
     {:noreply, socket}
   end
 
+  def handle_event("delete_tag", %{"id" => id}, socket) do
+    %{user_id: user_id} = socket.assigns
+    tag = Tags.get_tag!(String.to_integer(id))
+    Tags.delete_tag(tag)
+
+    socket =
+      socket
+      |> assign(:all_tags, Tags.list_tags(user_id))
+      |> stream(:portfolios, Portfolios.list_portfolios_with_tags(user_id), reset: true)
+
+    {:noreply, socket}
+  end
+
   # Preserve user's submitted values so the form doesn't reset on error.
   # changeset.changes has the submitted field values; tags are managed
   # separately via tag_ids so we rebuild them from all_tags.
