@@ -500,8 +500,10 @@ defmodule Boonorbust2Web.AssetLiveTest do
       )
       |> render_click()
 
-      html = render(view)
-      refute html =~ "RemoveMe"
+      refute has_element?(
+               view,
+               ~s|button[phx-click="remove_tag"][phx-value-tag-id="#{tag.id}"]|
+             )
     end
 
     test "displays tag badges on asset card after adding a tag", %{user_conn: conn} do

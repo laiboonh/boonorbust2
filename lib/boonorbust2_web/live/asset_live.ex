@@ -157,10 +157,12 @@ defmodule Boonorbust2Web.AssetLive do
   end
 
   def handle_event("show_tags", %{"id" => asset_id}, socket) do
+    %{user_id: user_id} = socket.assigns
     asset = Assets.get_asset!(String.to_integer(asset_id))
-    tags = Tags.list_tags_for_asset(asset.id, socket.assigns.user_id)
+    tags = Tags.list_tags_for_asset(asset.id, user_id)
+    all_tags = Tags.list_tags(user_id)
 
-    {:noreply, assign(socket, tags_modal: %{asset: asset, tags: tags})}
+    {:noreply, assign(socket, tags_modal: %{asset: asset, tags: tags, all_tags: all_tags})}
   end
 
   def handle_event("close_tags_modal", _params, socket) do
@@ -175,10 +177,11 @@ defmodule Boonorbust2Web.AssetLive do
       {:ok, tag} ->
         Tags.add_tag_to_asset(asset.id, tag.id)
         tags = Tags.list_tags_for_asset(asset.id, user_id)
+        all_tags = Tags.list_tags(user_id)
 
         socket =
           socket
-          |> assign(:tags_modal, %{asset: asset, tags: tags})
+          |> assign(:tags_modal, %{asset: asset, tags: tags, all_tags: all_tags})
           |> reload_assets()
 
         {:noreply, socket}
@@ -188,6 +191,22 @@ defmodule Boonorbust2Web.AssetLive do
     end
   end
 
+  def handle_event("add_existing_tag", %{"tag-id" => tag_id}, socket) do
+    %{user_id: user_id} = socket.assigns
+    asset = socket.assigns.tags_modal.asset
+
+    Tags.add_tag_to_asset(asset.id, String.to_integer(tag_id))
+    tags = Tags.list_tags_for_asset(asset.id, user_id)
+    all_tags = Tags.list_tags(user_id)
+
+    socket =
+      socket
+      |> assign(:tags_modal, %{asset: asset, tags: tags, all_tags: all_tags})
+      |> reload_assets()
+
+    {:noreply, socket}
+  end
+
   def handle_event("remove_tag", %{"asset-id" => asset_id, "tag-id" => tag_id}, socket) do
     %{user_id: user_id} = socket.assigns
 
@@ -195,10 +214,11 @@ defmodule Boonorbust2Web.AssetLive do
 
     asset = socket.assigns.tags_modal.asset
     tags = Tags.list_tags_for_asset(asset.id, user_id)
+    all_tags = Tags.list_tags(user_id)
 
     socket =
       socket
-      |> assign(:tags_modal, %{asset: asset, tags: tags})
+      |> assign(:tags_modal, %{asset: asset, tags: tags, all_tags: all_tags})
       |> reload_assets()
 
     {:noreply, socket}
