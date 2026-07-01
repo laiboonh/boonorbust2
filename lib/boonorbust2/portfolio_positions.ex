@@ -34,7 +34,7 @@ defmodule Boonorbust2.PortfolioPositions do
     transactions =
       from(pt in PortfolioTransaction,
         where: pt.asset_id == ^asset_id and pt.user_id == ^user_id,
-        order_by: [asc: pt.transaction_date]
+        order_by: [asc: pt.transaction_date, asc: pt.id]
       )
       |> Repo.all()
 
@@ -232,14 +232,9 @@ defmodule Boonorbust2.PortfolioPositions do
     # Get the latest position for each asset based on transaction date
     latest_positions_subquery =
       from(pp in PortfolioPosition,
-        join: pt in assoc(pp, :portfolio_transaction),
         where: pp.user_id == ^user_id,
         group_by: pp.asset_id,
-        select: %{
-          asset_id: pp.asset_id,
-          max_transaction_date: max(pt.transaction_date),
-          max_id: max(pp.id)
-        }
+        select: %{asset_id: pp.asset_id, max_id: max(pp.id)}
       )
 
     query =
@@ -247,9 +242,8 @@ defmodule Boonorbust2.PortfolioPositions do
         join: pt in assoc(pp, :portfolio_transaction),
         join: a in assoc(pp, :asset),
         join: lp in subquery(latest_positions_subquery),
-        on: pp.asset_id == lp.asset_id and pt.transaction_date == lp.max_transaction_date,
+        on: pp.asset_id == lp.asset_id and pp.id == lp.max_id,
         where: pp.user_id == ^user_id,
-        distinct: pp.asset_id,
         preload: [:asset, :portfolio_transaction]
       )
 
@@ -303,25 +297,15 @@ defmodule Boonorbust2.PortfolioPositions do
     # Get the latest position for each user-asset combination
     latest_positions_subquery =
       from(pp in PortfolioPosition,
-        join: pt in assoc(pp, :portfolio_transaction),
         group_by: [pp.user_id, pp.asset_id],
-        select: %{
-          user_id: pp.user_id,
-          asset_id: pp.asset_id,
-          max_transaction_date: max(pt.transaction_date),
-          max_id: max(pp.id)
-        }
+        select: %{user_id: pp.user_id, asset_id: pp.asset_id, max_id: max(pp.id)}
       )
 
     # Get assets where the latest position for any user has quantity > 0
     from(pp in PortfolioPosition,
-      join: pt in assoc(pp, :portfolio_transaction),
       join: lp in subquery(latest_positions_subquery),
-      on:
-        pp.user_id == lp.user_id and pp.asset_id == lp.asset_id and
-          pt.transaction_date == lp.max_transaction_date,
+      on: pp.user_id == lp.user_id and pp.asset_id == lp.asset_id and pp.id == lp.max_id,
       where: pp.quantity_on_hand > 0,
-      distinct: pp.asset_id,
       select: pp.asset_id
     )
     |> Repo.all()

@@ -622,6 +622,38 @@ defmodule Boonorbust2.PortfolioPositionsTest do
       assert Decimal.equal?(latest_position.quantity_on_hand, Decimal.new("1.5"))
     end
 
+    test "list_latest_positions returns final position when two transactions share the same date",
+         %{user: user} do
+      asset = create_asset("AAPL2", "Apple Inc. Same Date")
+
+      # Two buys on exactly the same date
+      create_transaction(user.id, asset.id, %{
+        action: "buy",
+        quantity: "100",
+        price_amount: "150.00",
+        commission_amount: "10.00",
+        transaction_date: ~U[2024-01-01 00:00:00Z]
+      })
+
+      create_transaction(user.id, asset.id, %{
+        action: "buy",
+        quantity: "50",
+        price_amount: "160.00",
+        commission_amount: "5.00",
+        transaction_date: ~U[2024-01-01 00:00:00Z]
+      })
+
+      assert {:ok, 2} =
+               PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
+
+      latest_positions = PortfolioPositions.list_latest_positions(user.id)
+      assert length(latest_positions) == 1
+
+      [pos] = latest_positions
+      # Must reflect the final accumulated state: 100 + 50 = 150 shares
+      assert Decimal.equal?(pos.quantity_on_hand, Decimal.new("150"))
+    end
+
     test "list_latest_positions returns one position per asset", %{user: user} do
       asset1 = create_asset("AAPL", "Apple Inc.")
       asset2 = create_asset("MSFT", "Microsoft Corp.")
