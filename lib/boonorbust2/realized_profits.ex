@@ -205,25 +205,22 @@ defmodule Boonorbust2.RealizedProfits do
     dividend_datetime = DateTime.new!(dividend.ex_date, ~T[00:00:00], "Etc/UTC")
 
     # Get the latest position for each user before the ex-date
-    # Using a subquery to find the max transaction_date and max id for each user
+    # Using a subquery to find the max position id for each user (ties on
+    # transaction_date are broken by id, since multiple transactions can share
+    # the same transaction_date)
     latest_positions_subquery =
       from(pp in PortfolioPosition,
         join: pt in assoc(pp, :portfolio_transaction),
         where: pp.asset_id == ^dividend.asset_id and pt.transaction_date < ^dividend_datetime,
         group_by: pp.user_id,
-        select: %{
-          user_id: pp.user_id,
-          max_transaction_date: max(pt.transaction_date),
-          max_id: max(pp.id)
-        }
+        select: %{user_id: pp.user_id, max_id: max(pp.id)}
       )
 
     # Get positions that match the latest for each user and have quantity > 0
     positions =
       from(pp in PortfolioPosition,
-        join: pt in assoc(pp, :portfolio_transaction),
         join: lp in subquery(latest_positions_subquery),
-        on: pp.user_id == lp.user_id and pt.transaction_date == lp.max_transaction_date,
+        on: pp.user_id == lp.user_id and pp.id == lp.max_id,
         where: pp.asset_id == ^dividend.asset_id and pp.quantity_on_hand > 0,
         preload: [:portfolio_transaction]
       )

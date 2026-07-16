@@ -146,6 +146,53 @@ defmodule Boonorbust2.RealizedProfitsTest do
     end
   end
 
+  describe "process_dividend_for_all_users/1" do
+    test "uses the final cumulative quantity when two buys share the same transaction_date",
+         %{user: user, asset: asset} do
+      # Two buys on exactly the same transaction_date, both before the dividend's ex-date.
+      # Each produces its own position row (100, then 150 cumulative) sharing that date.
+      {:ok, _} =
+        PortfolioTransactions.create_portfolio_transaction(%{
+          "user_id" => user.id,
+          "asset_id" => asset.id,
+          "action" => "buy",
+          "quantity" => "100",
+          "price" => "1.00",
+          "commission" => "0.00",
+          "currency" => "SGD",
+          "transaction_date" => ~U[2024-01-01 00:00:00Z]
+        })
+
+      {:ok, _} =
+        PortfolioTransactions.create_portfolio_transaction(%{
+          "user_id" => user.id,
+          "asset_id" => asset.id,
+          "action" => "buy",
+          "quantity" => "50",
+          "price" => "1.00",
+          "commission" => "0.00",
+          "currency" => "SGD",
+          "transaction_date" => ~U[2024-01-01 00:00:00Z]
+        })
+
+      {:ok, _} =
+        Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(
+          asset.id,
+          user.id
+        )
+
+      dividend = create_dividend(asset.id)
+
+      assert {:ok, 1} = RealizedProfits.process_dividend_for_all_users(dividend)
+
+      [realized_profit] = RealizedProfits.list_realized_profits_by_asset(asset.id, user.id)
+
+      # 150 shares (100 + 50) * SGD 1.00 dividend = SGD 150.00, not double-counted
+      # via the 100-share intermediate position row.
+      assert Money.equal?(realized_profit.amount, Money.new(:SGD, "150.00"))
+    end
+  end
+
   defp create_sell_transaction(user_id, asset_id) do
     {:ok, buy} =
       PortfolioTransactions.create_portfolio_transaction(%{
