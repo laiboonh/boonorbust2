@@ -116,7 +116,7 @@ Hooks.ChartInit = {
           tooltip: {
             displayColors: false,
             callbacks: {
-              title: function() { return ''; },
+              title: function(context) { return context[0].label; },
               label: function(context) { return format(context.parsed); }
             }
           },
