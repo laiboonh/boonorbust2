@@ -128,6 +128,11 @@ Hooks.ChartInit = {
             offset: 8,
             clamp: false,
             padding: { top: 2, bottom: 2, left: 4, right: 4 },
+            display: function(context) {
+              const total = context.dataset.data.reduce((a, b) => a + b, 0);
+              const percentage = (context.dataset.data[context.dataIndex] / total) * 100;
+              return percentage >= 5;
+            },
             formatter: function(value, context) {
               const total = context.dataset.data.reduce((a, b) => a + b, 0);
               const percentage = ((value / total) * 100).toFixed(1);
