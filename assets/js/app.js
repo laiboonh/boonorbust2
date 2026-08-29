@@ -95,6 +95,8 @@ Hooks.ChartInit = {
     const colorIndex = parseInt(this.el.dataset.colorIndex) || 0;
     const colors = colorSchemes[colorIndex % colorSchemes.length];
     const format = currencyFormatter(currency);
+    const total = values.reduce((a, b) => a + b, 0);
+    const percentageOf = (value) => ((value / total) * 100).toFixed(1) + '%';
 
     this._chart = new Chart(this.el, {
       type: 'pie',
@@ -117,7 +119,9 @@ Hooks.ChartInit = {
             displayColors: false,
             callbacks: {
               title: function(context) { return context[0].label; },
-              label: function(context) { return format(context.parsed); }
+              label: function(context) {
+                return format(context.parsed) + ' (' + percentageOf(context.parsed) + ')';
+              }
             }
           },
           datalabels: {
@@ -129,15 +133,11 @@ Hooks.ChartInit = {
             clamp: false,
             padding: { top: 2, bottom: 2, left: 4, right: 4 },
             display: function(context) {
-              const total = context.dataset.data.reduce((a, b) => a + b, 0);
-              const percentage = (context.dataset.data[context.dataIndex] / total) * 100;
-              return percentage >= 5;
+              return parseFloat(percentageOf(context.dataset.data[context.dataIndex])) >= 5;
             },
             formatter: function(value, context) {
-              const total = context.dataset.data.reduce((a, b) => a + b, 0);
-              const percentage = ((value / total) * 100).toFixed(1);
               const label = context.chart.data.labels[context.dataIndex];
-              return label + '\n' + percentage + '%';
+              return label + '\n' + percentageOf(value);
             }
           }
         }
