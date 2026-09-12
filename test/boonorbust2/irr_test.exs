@@ -14,6 +14,11 @@ defmodule Boonorbust2.IrrTest do
 
   setup :verify_on_exit!
 
+  setup do
+    Cachex.clear(:index_prices_cache)
+    :ok
+  end
+
   describe "xirr/2" do
     test "returns the known rate for a simple invest-then-return-more cash flow" do
       start_date = ~D[2024-01-01]

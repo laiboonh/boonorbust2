@@ -27,6 +27,7 @@ defmodule Boonorbust2Web.DashboardLive do
     |> assign(:loading, false)
     |> assign(Dashboard.load_dashboard_data(user_id, user_currency))
     |> assign_async(:irr, fn -> load_irr(user_id) end)
+    |> assign_async(:benchmark_irr, fn -> load_benchmark_irr(user_id) end)
   end
 
   defp load_irr(user_id) do
@@ -40,7 +41,24 @@ defmodule Boonorbust2Web.DashboardLive do
     end
   end
 
+  defp load_benchmark_irr(user_id) do
+    case Irr.calculate_benchmark_irr(user_id) do
+      {:ok, rate} ->
+        {:ok, %{benchmark_irr: rate}}
+
+      {:error, reason} = error ->
+        Logger.warning("Benchmark IRR unavailable for user #{user_id}: #{inspect(reason)}")
+        error
+    end
+  end
+
   defp format_irr_percentage(rate) do
     "#{Float.round(rate * 100, 2)}%"
+  end
+
+  defp format_irr_delta(delta) do
+    percentage = Float.round(delta * 100, 2)
+    sign = if percentage >= 0, do: "+", else: ""
+    "#{sign}#{percentage}%"
   end
 end
