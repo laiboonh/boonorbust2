@@ -1,6 +1,8 @@
 defmodule Boonorbust2Web.DashboardLive do
   use Boonorbust2Web, :live_view
 
+  require Logger
+
   alias Boonorbust2.Dashboard
   alias Boonorbust2.Irr
 
@@ -29,8 +31,12 @@ defmodule Boonorbust2Web.DashboardLive do
 
   defp load_irr(user_id) do
     case Irr.calculate_portfolio_irr(user_id) do
-      {:ok, rate} -> {:ok, %{irr: rate}}
-      {:error, reason} -> {:error, reason}
+      {:ok, rate} ->
+        {:ok, %{irr: rate}}
+
+      {:error, reason} = error ->
+        Logger.warning("IRR unavailable for user #{user_id}: #{inspect(reason)}")
+        error
     end
   end
 
