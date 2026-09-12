@@ -16,7 +16,9 @@ defmodule Boonorbust2.Application do
       # Start the Finch HTTP client for sending emails
       {Finch, name: Boonorbust2.Finch},
       # Start Cachex for caching exchange rates
-      {Cachex, name: :exchange_rates_cache},
+      Supervisor.child_spec({Cachex, name: :exchange_rates_cache}, id: :exchange_rates_cache),
+      # Start Cachex for caching latest index prices
+      Supervisor.child_spec({Cachex, name: :index_prices_cache}, id: :index_prices_cache),
       # Start a worker by calling: Boonorbust2.Worker.start_link(arg)
       # {Boonorbust2.Worker, arg},
       # Start to serve requests, typically the last entry
