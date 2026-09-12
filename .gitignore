@@ -40,3 +40,5 @@ npm-debug.log
 
 # ElixirLS (Language Server)
 .elixir_ls/
+
+.ralphy

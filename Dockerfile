@@ -1,4 +1,4 @@
-FROM hexpm/elixir:1.20.2-erlang-27.3.4.13-debian-bullseye-20260623-slim AS builder
+FROM hexpm/elixir:1.20.2-erlang-27.3.4.13-debian-bookworm-20260623-slim AS builder
 
 # install build dependencies
 RUN apt-get update -y && apt-get install -y build-essential git \
@@ -45,7 +45,7 @@ RUN mix release
 
 # start a new build stage so that the final image will only contain
 # the compiled release and other runtime necessities
-FROM debian:bullseye-20260202-slim
+FROM debian:bookworm-20260623-slim
 
 RUN apt-get update -y && apt-get install -y libstdc++6 openssl libncurses5 locales ca-certificates \
   && apt-get clean && rm -f /var/lib/apt/lists/*_* \
