@@ -14,7 +14,10 @@ defmodule Boonorbust2.Irr do
 
   alias Boonorbust2.Accounts
   alias Boonorbust2.Dashboard
+  alias Boonorbust2.ExchangeRates
   alias Boonorbust2.HistoricalExchangeRates
+  alias Boonorbust2.HistoricalIndexPrices
+  alias Boonorbust2.IndexPrices
   alias Boonorbust2.PortfolioPositions
   alias Boonorbust2.PortfolioTransactions
   alias Boonorbust2.RealizedProfits
@@ -23,6 +26,7 @@ defmodule Boonorbust2.Irr do
   @high_rate_bound 100.0
   @default_tolerance 1.0e-6
   @default_max_iterations 100
+  @benchmark_ticker "VWRA.L"
 
   @doc """
   Solves for the XIRR of an ordered list of `{date, amount}` cash flows.
@@ -77,6 +81,77 @@ defmodule Boonorbust2.Irr do
          {:ok, dividend_flows} <- dividend_cash_flows(user_id, user_currency) do
       terminal_flow = terminal_cash_flow(user_id, user_currency)
       xirr(transaction_flows ++ dividend_flows ++ [terminal_flow])
+    end
+  end
+
+  @doc """
+  Computes the XIRR of a hypothetical VWRA (Vanguard FTSE All-World UCITS ETF)
+  position replaying the user's actual cash-flow timing and amounts.
+
+  Reuses the same transaction and dividend cash flows as
+  `calculate_portfolio_irr/1`, but instead of tracking the user's real
+  holdings, converts each flow's amount to USD and treats it as a buy/sell of
+  VWRA units at that date's closing price (`-usd_amount / price_on_date`,
+  which covers buys, sells, and dividends uniformly since a buy is already a
+  negative flow and a sell/dividend a positive one). The terminal flow is the
+  resulting net unit balance valued at today's live VWRA price, converted to
+  the user's currency at today's live exchange rate.
+
+  Returns `{:ok, rate}` or `{:error, reason}` from `xirr/2` unchanged, or
+  `{:error, reason}` if a historical exchange rate or VWRA price could not be
+  fetched for a needed date — never falls back to a partial result.
+  """
+  @spec calculate_benchmark_irr(String.t()) :: {:ok, float()} | {:error, term()}
+  def calculate_benchmark_irr(user_id) when is_binary(user_id) do
+    user_currency = Accounts.get_user_by_id(user_id).currency
+
+    with {:ok, transaction_flows} <- transaction_cash_flows(user_id, user_currency),
+         {:ok, dividend_flows} <- dividend_cash_flows(user_id, user_currency),
+         {:ok, net_units} <-
+           benchmark_net_units(transaction_flows ++ dividend_flows, user_currency),
+         {:ok, terminal_flow} <- benchmark_terminal_flow(net_units, user_currency) do
+      xirr(transaction_flows ++ dividend_flows ++ [terminal_flow])
+    end
+  end
+
+  defp benchmark_net_units(flows, user_currency) do
+    flows
+    |> Enum.reduce_while({:ok, Decimal.new(0)}, fn {date, amount}, {:ok, net_units} ->
+      with {:ok, usd_amount} <- convert_to_usd(amount, date, user_currency),
+           {:ok, price} <- benchmark_price_on(date) do
+        units_delta = usd_amount |> Decimal.negate() |> Decimal.div(Decimal.from_float(price))
+        {:cont, {:ok, Decimal.add(net_units, units_delta)}}
+      else
+        {:error, _reason} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp convert_to_usd(amount, _date, "USD"), do: {:ok, amount}
+
+  defp convert_to_usd(amount, date, user_currency) do
+    with {:ok, rates} <- HistoricalExchangeRates.get_rates(date, user_currency),
+         rate when rate != nil <- Map.get(rates, "USD") do
+      {:ok, Decimal.mult(amount, Decimal.from_float(rate))}
+    else
+      nil -> {:error, :currency_not_found}
+      {:error, _reason} = error -> error
+    end
+  end
+
+  defp benchmark_price_on(date) do
+    if Date.compare(date, Date.utc_today()) == :lt do
+      HistoricalIndexPrices.get_price(date, @benchmark_ticker)
+    else
+      IndexPrices.get_latest_price(@benchmark_ticker)
+    end
+  end
+
+  defp benchmark_terminal_flow(net_units, user_currency) do
+    with {:ok, price} <- IndexPrices.get_latest_price(@benchmark_ticker) do
+      usd_value = Decimal.mult(net_units, Decimal.from_float(price))
+      converted = usd_value |> Money.new!("USD") |> ExchangeRates.convert_money(user_currency)
+      {:ok, {Date.utc_today(), converted.amount}}
     end
   end
 

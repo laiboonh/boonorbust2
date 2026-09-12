@@ -2,6 +2,36 @@ defmodule Boonorbust2Web.UserEditTest do
   use Boonorbust2Web.ConnCase, async: false
 
   import Phoenix.LiveViewTest
+  import Mox
+
+  alias Boonorbust2.HTTPClientMock
+
+  setup :verify_on_exit!
+
+  setup do
+    Cachex.clear(:index_prices_cache)
+
+    stub(HTTPClientMock, :get, fn _url, _opts ->
+      timestamp = Date.utc_today() |> DateTime.new!(~T[12:00:00], "Etc/UTC") |> DateTime.to_unix()
+
+      {:ok,
+       %{
+         status: 200,
+         body: %{
+           "chart" => %{
+             "result" => [
+               %{
+                 "timestamp" => [timestamp],
+                 "indicators" => %{"quote" => [%{"close" => [100.00]}]}
+               }
+             ]
+           }
+         }
+       }}
+    end)
+
+    :ok
+  end
 
   setup do
     {:ok, user} =
