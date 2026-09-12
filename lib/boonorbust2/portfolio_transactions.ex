@@ -64,6 +64,21 @@ defmodule Boonorbust2.PortfolioTransactions do
       where: ilike(a.name, ^filter_pattern)
   end
 
+  @doc """
+  Lists all portfolio transactions for a user, ordered by transaction date ascending.
+
+  Unlike `list_portfolio_transactions/1`, this is unpaginated — used for cash-flow
+  assembly (e.g. `Boonorbust2.Irr.calculate_portfolio_irr/1`).
+  """
+  @spec list_all_for_user(String.t()) :: [PortfolioTransaction.t()]
+  def list_all_for_user(user_id) when is_binary(user_id) do
+    from(pt in PortfolioTransaction,
+      where: pt.user_id == ^user_id,
+      order_by: [asc: pt.transaction_date, asc: pt.id]
+    )
+    |> Repo.all()
+  end
+
   @spec get_portfolio_transaction!(integer(), String.t()) :: PortfolioTransaction.t()
   def get_portfolio_transaction!(id, user_id) when is_integer(id) and is_binary(user_id) do
     from(pt in PortfolioTransaction,
