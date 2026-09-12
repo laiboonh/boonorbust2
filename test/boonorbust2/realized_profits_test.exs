@@ -183,6 +183,43 @@ defmodule Boonorbust2.RealizedProfitsTest do
       assert [realized_profit] = results
       assert realized_profit.dividend_id == paid_dividend.id
     end
+
+    test "excludes dividend income whose pay_date is still in the future", %{
+      user: user,
+      asset: asset
+    } do
+      paid_dividend = create_dividend(asset.id)
+
+      {:ok, upcoming_dividend} =
+        Dividends.create_dividend(%{
+          asset_id: asset.id,
+          ex_date: ~D[2024-04-01],
+          pay_date: Date.add(Date.utc_today(), 30),
+          value: Decimal.new("1.00"),
+          currency: "SGD"
+        })
+
+      {:ok, _} =
+        RealizedProfits.upsert_dividend_income(%{
+          user_id: user.id,
+          asset_id: asset.id,
+          dividend_id: paid_dividend.id,
+          amount: Money.new(:SGD, "100.00")
+        })
+
+      {:ok, _} =
+        RealizedProfits.upsert_dividend_income(%{
+          user_id: user.id,
+          asset_id: asset.id,
+          dividend_id: upcoming_dividend.id,
+          amount: Money.new(:SGD, "200.00")
+        })
+
+      results = RealizedProfits.list_dividend_income_by_user(user.id)
+
+      assert [realized_profit] = results
+      assert realized_profit.dividend_id == paid_dividend.id
+    end
   end
 
   describe "process_dividend_for_all_users/1" do
