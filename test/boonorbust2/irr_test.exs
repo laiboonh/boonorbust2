@@ -145,6 +145,73 @@ defmodule Boonorbust2.IrrTest do
     end
   end
 
+  describe "calculate_benchmark_irr/1" do
+    @tag :capture_log
+    test "replays real cash flows into a hypothetical VWRA position and XIRRs the result" do
+      user = create_user("USD")
+      asset = create_asset("USD")
+
+      {:ok, buy} =
+        create_transaction(user.id, asset.id, "buy", "10", "100.00", ~U[2024-01-01 00:00:00Z])
+
+      {:ok, sell} =
+        create_transaction(user.id, asset.id, "sell", "10", "150.00", ~U[2024-06-01 00:00:00Z])
+
+      {:ok, _} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
+
+      dividend = create_dividend(asset.id, ~D[2024-03-15], ~D[2024-04-01])
+
+      {:ok, _} =
+        RealizedProfits.upsert_dividend_income(%{
+          user_id: user.id,
+          asset_id: asset.id,
+          dividend_id: dividend.id,
+          amount: Money.new(:USD, "22.00")
+        })
+
+      # Real cash flows (buy: -1000, dividend: +22, sell: +1500), in the same order
+      # calculate_benchmark_irr replays them: transactions first, then dividends.
+      expect_vwra_price(~D[2024-01-01], 100.0)
+      expect_vwra_price(~D[2024-06-01], 200.0)
+      expect_vwra_price(~D[2024-04-01], 110.0)
+      expect_latest_vwra_price(200.0)
+
+      # Hand-worked VWRA unit tracking (units_delta = -usd_amount / price_on_date):
+      #   buy:      -(-1000.00) / 100.0 = +10.0     (running total: 10.0)
+      #   dividend: -(  22.00) / 110.0 = -0.2        (running total: 9.8)
+      #   sell:     -( 1500.00) / 200.0 = -7.5        (running total: 2.3)
+      # Terminal value: 2.3 units * 200.0 (today's live price) = 460.00
+      expected_cash_flows = [
+        {~D[2024-01-01], Decimal.new("-1000.00")},
+        {~D[2024-04-01], Decimal.new("22.00")},
+        {~D[2024-06-01], Decimal.new("1500.00")},
+        {Date.utc_today(), Decimal.new("460.00")}
+      ]
+
+      assert {:ok, expected_rate} = Irr.xirr(expected_cash_flows)
+      assert {:ok, actual_rate} = Irr.calculate_benchmark_irr(user.id)
+      assert_in_delta actual_rate, expected_rate, 0.0001
+
+      _ = buy
+      _ = sell
+    end
+
+    @tag :capture_log
+    test "fails the whole calculation without falling back when a VWRA price fetch fails" do
+      user = create_user("USD")
+      asset = create_asset("USD")
+
+      {:ok, _buy} =
+        create_transaction(user.id, asset.id, "buy", "10", "100.00", ~U[2024-01-01 00:00:00Z])
+
+      {:ok, _} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
+
+      expect_vwra_price_error(~D[2024-01-01])
+
+      assert {:error, _reason} = Irr.calculate_benchmark_irr(user.id)
+    end
+  end
+
   # Helper functions
 
   defp create_user(currency) do
@@ -226,5 +293,51 @@ defmodule Boonorbust2.IrrTest do
   defp seed_live_usd_rate(rate) do
     Cachex.put(:exchange_rates_cache, "usd_rates", %{"SGD" => rate})
     on_exit(fn -> Cachex.del(:exchange_rates_cache, "usd_rates") end)
+  end
+
+  defp expect_vwra_price(date, price) do
+    HTTPClientMock
+    |> expect(:get, fn url, _opts ->
+      assert url_for_vwra?(url)
+      {:ok, %{status: 200, body: chart_response_body(date, price)}}
+    end)
+  end
+
+  defp expect_vwra_price_error(_date) do
+    HTTPClientMock
+    |> expect(:get, fn url, _opts ->
+      assert url_for_vwra?(url)
+      {:error, :network_error}
+    end)
+  end
+
+  defp expect_latest_vwra_price(price) do
+    HTTPClientMock
+    |> expect(:get, fn url, _opts ->
+      assert url_for_vwra?(url)
+      {:ok, %{status: 200, body: chart_response_body(Date.utc_today(), price)}}
+    end)
+  end
+
+  defp url_for_vwra?(url) do
+    String.match?(
+      url,
+      ~r/^https:\/\/query1\.finance\.yahoo\.com\/v8\/finance\/chart\/VWRA\.L\?period1=\d+&period2=\d+&interval=1d$/
+    )
+  end
+
+  defp chart_response_body(date, price) do
+    timestamp = date |> DateTime.new!(~T[12:00:00], "Etc/UTC") |> DateTime.to_unix()
+
+    %{
+      "chart" => %{
+        "result" => [
+          %{
+            "timestamp" => [timestamp],
+            "indicators" => %{"quote" => [%{"close" => [price]}]}
+          }
+        ]
+      }
+    }
   end
 end
