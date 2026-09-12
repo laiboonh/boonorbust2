@@ -91,6 +91,18 @@ defmodule Boonorbust2.HistoricalExchangeRatesTest do
 
       assert {:error, _reason} = HistoricalExchangeRates.get_rates(@date, "USD")
     end
+
+    @tag :capture_log
+    test "handles unexpected API response format" do
+      url = expected_url(@date, "USD")
+
+      HTTPClientMock
+      |> expect(:get, fn ^url, _opts ->
+        {:ok, %{status: 200, body: %{"unexpected" => "shape"}}}
+      end)
+
+      assert {:error, :invalid_response} = HistoricalExchangeRates.get_rates(@date, "USD")
+    end
   end
 
   # Helper functions
@@ -100,12 +112,15 @@ defmodule Boonorbust2.HistoricalExchangeRatesTest do
   end
 
   defp expect_api_call(date, currency, rates) do
-    response_body = %{
-      "amount" => 1,
-      "base" => currency,
-      "date" => Date.to_iso8601(date),
-      "rates" => rates
-    }
+    response_body =
+      Enum.map(rates, fn {quote_currency, rate} ->
+        %{
+          "date" => Date.to_iso8601(date),
+          "base" => currency,
+          "quote" => quote_currency,
+          "rate" => rate
+        }
+      end)
 
     url = expected_url(date, currency)
 

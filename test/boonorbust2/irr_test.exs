@@ -201,12 +201,15 @@ defmodule Boonorbust2.IrrTest do
     url =
       "https://api.frankfurter.dev/v2/rates?date=#{Date.to_iso8601(date)}&base=#{base_currency}"
 
-    response_body = %{
-      "amount" => 1,
-      "base" => base_currency,
-      "date" => Date.to_iso8601(date),
-      "rates" => rates
-    }
+    response_body =
+      Enum.map(rates, fn {quote_currency, rate} ->
+        %{
+          "date" => Date.to_iso8601(date),
+          "base" => base_currency,
+          "quote" => quote_currency,
+          "rate" => rate
+        }
+      end)
 
     HTTPClientMock
     |> expect(:get, fn ^url, _opts -> {:ok, %{status: 200, body: response_body}} end)

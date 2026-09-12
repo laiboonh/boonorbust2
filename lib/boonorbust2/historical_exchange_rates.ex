@@ -72,11 +72,26 @@ defmodule Boonorbust2.HistoricalExchangeRates do
     end
   end
 
-  defp parse_api_response(%{"rates" => rates}) when is_map(rates) do
-    {:ok, rates}
+  defp parse_api_response(body) when is_list(body) do
+    case build_rates_map(body) do
+      {:ok, rates} -> {:ok, rates}
+      :error -> unexpected_response_format(body)
+    end
   end
 
-  defp parse_api_response(body) do
+  defp parse_api_response(body), do: unexpected_response_format(body)
+
+  defp build_rates_map(entries) do
+    Enum.reduce_while(entries, {:ok, %{}}, fn
+      %{"quote" => quote_currency, "rate" => rate}, {:ok, acc} ->
+        {:cont, {:ok, Map.put(acc, quote_currency, rate)}}
+
+      _invalid_entry, _acc ->
+        {:halt, :error}
+    end)
+  end
+
+  defp unexpected_response_format(body) do
     Logger.error("Unexpected API response format: #{inspect(body)}")
     {:error, :invalid_response}
   end
