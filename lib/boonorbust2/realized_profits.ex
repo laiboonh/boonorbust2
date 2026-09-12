@@ -121,13 +121,14 @@ defmodule Boonorbust2.RealizedProfits do
   Lists dividend income realized profits for a user, with the dividend preloaded.
 
   Used for cash-flow assembly (e.g. `Boonorbust2.Irr.calculate_portfolio_irr/1`), which
-  needs each dividend's `pay_date`.
+  needs each dividend's `pay_date` — dividends whose `pay_date` hasn't been recorded yet
+  are excluded, since they have no date to use as a cash flow.
   """
   @spec list_dividend_income_by_user(String.t()) :: [RealizedProfit.t()]
   def list_dividend_income_by_user(user_id) when is_binary(user_id) do
     from(rp in RealizedProfit,
       join: d in assoc(rp, :dividend),
-      where: rp.user_id == ^user_id and not is_nil(rp.dividend_id),
+      where: rp.user_id == ^user_id and not is_nil(rp.dividend_id) and not is_nil(d.pay_date),
       preload: [dividend: d]
     )
     |> Repo.all()

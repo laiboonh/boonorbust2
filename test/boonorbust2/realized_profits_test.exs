@@ -146,6 +146,45 @@ defmodule Boonorbust2.RealizedProfitsTest do
     end
   end
 
+  describe "list_dividend_income_by_user/1" do
+    test "excludes dividend income whose dividend has no pay_date yet", %{
+      user: user,
+      asset: asset
+    } do
+      paid_dividend = create_dividend(asset.id)
+
+      {:ok, unpaid_dividend} =
+        Dividends.create_dividend(%{
+          asset_id: asset.id,
+          ex_date: ~D[2024-04-01],
+          pay_date: nil,
+          value: Decimal.new("1.00"),
+          currency: "SGD"
+        })
+
+      {:ok, _} =
+        RealizedProfits.upsert_dividend_income(%{
+          user_id: user.id,
+          asset_id: asset.id,
+          dividend_id: paid_dividend.id,
+          amount: Money.new(:SGD, "100.00")
+        })
+
+      {:ok, _} =
+        RealizedProfits.upsert_dividend_income(%{
+          user_id: user.id,
+          asset_id: asset.id,
+          dividend_id: unpaid_dividend.id,
+          amount: Money.new(:SGD, "200.00")
+        })
+
+      results = RealizedProfits.list_dividend_income_by_user(user.id)
+
+      assert [realized_profit] = results
+      assert realized_profit.dividend_id == paid_dividend.id
+    end
+  end
+
   describe "process_dividend_for_all_users/1" do
     test "uses the final cumulative quantity when two buys share the same transaction_date",
          %{user: user, asset: asset} do
