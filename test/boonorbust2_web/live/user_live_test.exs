@@ -33,6 +33,8 @@ defmodule Boonorbust2Web.UserEditTest do
       assert html =~ "Edit Profile"
       assert html =~ "Save Changes"
       assert html =~ "Cancel"
+
+      render_async(view)
     end
 
     test "closes modal when clicking cancel", %{conn: conn} do
@@ -43,6 +45,8 @@ defmodule Boonorbust2Web.UserEditTest do
 
       view |> element(~s|button[phx-click="close_user_edit"]|, "Cancel") |> render_click()
       refute render(view) =~ "Edit Profile"
+
+      render_async(view)
     end
 
     test "closes modal when clicking X button", %{conn: conn} do
@@ -53,6 +57,8 @@ defmodule Boonorbust2Web.UserEditTest do
 
       view |> element(~s|button.text-gray-400[phx-click="close_user_edit"]|) |> render_click()
       refute render(view) =~ "Edit Profile"
+
+      render_async(view)
     end
 
     test "updates user name and closes modal", %{conn: conn, user: user} do
@@ -72,6 +78,8 @@ defmodule Boonorbust2Web.UserEditTest do
 
       updated_user = Boonorbust2.Accounts.get_user_by_id(user.id)
       assert updated_user.name == "New Name"
+
+      render_async(view)
     end
 
     test "updates user currency and closes modal", %{conn: conn, user: user} do
@@ -89,6 +97,8 @@ defmodule Boonorbust2Web.UserEditTest do
 
       updated_user = Boonorbust2.Accounts.get_user_by_id(user.id)
       assert updated_user.currency == "SGD"
+
+      render_async(view)
     end
 
     test "shows errors when name is blank", %{conn: conn} do
@@ -105,6 +115,8 @@ defmodule Boonorbust2Web.UserEditTest do
       html = render(view)
       assert html =~ "Edit Profile"
       assert html =~ "can&#39;t be blank" or html =~ "can't be blank"
+
+      render_async(view)
     end
 
     test "stays on current page after save", %{conn: conn} do
