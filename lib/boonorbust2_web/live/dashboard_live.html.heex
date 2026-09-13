@@ -6,53 +6,57 @@
           <.icon name="hero-arrow-path" class="h-8 w-8 text-emerald-500 animate-spin" />
         </div>
       <% else %>
-        <div class="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
-          <h2 class="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-            Portfolio IRR
-          </h2>
-          <.async_result :let={irr} assign={@irr}>
-            <:loading>
-              <div class="flex items-center text-gray-500 text-sm">
-                <.icon name="hero-arrow-path" class="h-4 w-4 mr-2 animate-spin" /> Calculating...
-              </div>
-            </:loading>
-            <:failed :let={_reason}>
-              <p class="text-sm text-gray-500">IRR unavailable</p>
-            </:failed>
-            <p class="text-2xl font-semibold text-emerald-600">{format_irr_percentage(irr)}</p>
-          </.async_result>
-        </div>
+        <div class="grid grid-cols-2 gap-4 mb-6">
+          <div class="bg-white rounded-lg shadow p-4 sm:p-6">
+            <h2 class="text-base sm:text-lg font-semibold text-gray-900 mb-2">
+              Portfolio IRR
+            </h2>
+            <.async_result :let={irr} assign={@irr}>
+              <:loading>
+                <div class="flex items-center text-gray-500 text-sm">
+                  <.icon name="hero-arrow-path" class="h-4 w-4 mr-2 animate-spin" />
+                  Calculating...
+                </div>
+              </:loading>
+              <:failed :let={_reason}>
+                <p class="text-sm text-gray-500">IRR unavailable</p>
+              </:failed>
+              <p class="text-2xl font-semibold text-emerald-600">{format_irr_percentage(irr)}</p>
+            </.async_result>
+          </div>
 
-        <div class="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
-          <h2 class="text-base sm:text-lg font-semibold text-gray-900 mb-2">
-            vs Global Index (VWRA)
-          </h2>
-          <.async_result :let={benchmark_irr} assign={@benchmark_irr}>
-            <:loading>
-              <div class="flex items-center text-gray-500 text-sm">
-                <.icon name="hero-arrow-path" class="h-4 w-4 mr-2 animate-spin" /> Calculating...
-              </div>
-            </:loading>
-            <:failed :let={_reason}>
-              <p class="text-sm text-gray-500">Benchmark unavailable</p>
-            </:failed>
-            <%= if @irr.ok? do %>
-              <% delta = @irr.result - benchmark_irr %>
-              <p class={[
-                "text-2xl font-semibold",
-                if(delta >= 0, do: "text-emerald-600", else: "text-red-600")
-              ]}>
-                {format_irr_delta(delta)}
-              </p>
-              <p class="text-sm text-gray-500 mt-1">
-                VWRA: {format_irr_percentage(benchmark_irr)}
-              </p>
-            <% else %>
-              <p class="text-2xl font-semibold text-gray-700">
-                {format_irr_percentage(benchmark_irr)}
-              </p>
-            <% end %>
-          </.async_result>
+          <div class="bg-white rounded-lg shadow p-4 sm:p-6">
+            <h2 class="text-base sm:text-lg font-semibold text-gray-900 mb-2">
+              vs Global Index (VWRA)
+            </h2>
+            <.async_result :let={benchmark_irr} assign={@benchmark_irr}>
+              <:loading>
+                <div class="flex items-center text-gray-500 text-sm">
+                  <.icon name="hero-arrow-path" class="h-4 w-4 mr-2 animate-spin" />
+                  Calculating...
+                </div>
+              </:loading>
+              <:failed :let={_reason}>
+                <p class="text-sm text-gray-500">Benchmark unavailable</p>
+              </:failed>
+              <%= if @irr.ok? do %>
+                <% delta = @irr.result - benchmark_irr %>
+                <p class={[
+                  "text-2xl font-semibold",
+                  if(delta >= 0, do: "text-emerald-600", else: "text-red-600")
+                ]}>
+                  {format_irr_delta(delta)}
+                </p>
+                <p class="text-sm text-gray-500 mt-1">
+                  VWRA: {format_irr_percentage(benchmark_irr)}
+                </p>
+              <% else %>
+                <p class="text-2xl font-semibold text-gray-700">
+                  {format_irr_percentage(benchmark_irr)}
+                </p>
+              <% end %>
+            </.async_result>
+          </div>
         </div>
 
         <%= if !Enum.empty?(@upcoming_dividends) do %>
