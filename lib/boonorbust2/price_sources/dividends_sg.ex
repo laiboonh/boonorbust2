@@ -73,7 +73,7 @@ defmodule Boonorbust2.PriceSources.DividendsSg do
   @spec parse_price(Floki.html_tree()) :: {:ok, String.t()} | {:error, :price_not_found}
   def parse_price(document) do
     result =
-      [".col-md-8 h4 span", "h4 span", "div.col-md-8 > h4 > span"]
+      [".dividend-company-price", ".col-md-8 h4 span", "h4 span", "div.col-md-8 > h4 > span"]
       |> Enum.find_value(&extract_price_from_selector(document, &1))
 
     case result do
@@ -143,7 +143,7 @@ defmodule Boonorbust2.PriceSources.DividendsSg do
   end
 
   defp parse_currency_and_amount(text) do
-    case Regex.run(~r/^([A-Z]{3})([\d\.]+(?:[Ee][+-]?\d+)?)/, text) do
+    case Regex.run(~r/^([A-Z]{3})\s*([\d\.]+(?:[Ee][+-]?\d+)?)/, text) do
       [_, currency, amount] ->
         case Decimal.parse(amount) do
           {decimal, _} -> {:ok, {currency, decimal}}

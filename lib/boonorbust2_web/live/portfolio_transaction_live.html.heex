@@ -32,8 +32,8 @@
           Import CSV
         </button>
       </div>
-      
-<!-- Filter Form -->
+
+      <!-- Filter Form -->
       <form phx-submit="filter" class="mb-4">
         <div class="flex gap-2">
           <input
@@ -60,8 +60,8 @@
           <% end %>
         </div>
       </form>
-      
-<!-- Transactions List -->
+
+      <!-- Transactions List -->
       <div id="transactions-list" phx-update="stream" class="space-y-4">
         <div
           :for={{dom_id, transaction} <- @streams.transactions}
@@ -163,8 +163,8 @@
           </div>
         </div>
       </div>
-      
-<!-- Pagination -->
+
+      <!-- Pagination -->
       <%= if @total_pages > 1 do %>
         <div class="mt-6 flex justify-center items-center gap-2">
           <%= if @page_number > 1 do %>
@@ -201,8 +201,8 @@
         </div>
       <% end %>
     </div>
-    
-<!-- Transaction Modal -->
+
+    <!-- Transaction Modal -->
     <%= if @transaction_in_progress do %>
       <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
         <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
@@ -408,8 +408,8 @@
         </div>
       </div>
     <% end %>
-    
-<!-- CSV Upload Modal -->
+
+    <!-- CSV Upload Modal -->
     <%= if @csv_modal_open do %>
       <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
         <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">

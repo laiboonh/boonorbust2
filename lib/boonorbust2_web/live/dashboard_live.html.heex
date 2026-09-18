@@ -175,8 +175,7 @@
                       data-chart-data={Jason.encode!(portfolio.chart_data)}
                       data-currency={@user_currency}
                       data-color-index={index}
-                    >
-                    </canvas>
+                    ></canvas>
                   </div>
                 </div>
               <% end %>
@@ -197,8 +196,7 @@
                 data-chart-type="portfolio-value"
                 data-chart-data={Jason.encode!(@portfolio_snapshots)}
                 data-currency={@user_currency}
-              >
-              </canvas>
+              ></canvas>
             </div>
           </div>
         <% end %>
@@ -216,8 +214,7 @@
                 data-chart-type="dividend-bar"
                 data-chart-data={Jason.encode!(@dividend_chart_data)}
                 data-currency={@user_currency}
-              >
-              </canvas>
+              ></canvas>
             </div>
           </div>
         <% end %>
@@ -235,8 +232,7 @@
                 data-chart-type="investment-allocation"
                 data-chart-data={Jason.encode!(@investment_allocation_chart_data)}
                 data-currency={@user_currency}
-              >
-              </canvas>
+              ></canvas>
             </div>
           </div>
         <% end %>

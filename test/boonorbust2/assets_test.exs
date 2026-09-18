@@ -823,14 +823,17 @@ defmodule Boonorbust2.AssetsTest do
     # HTML that dividends.sg would serve — contains both a price and a dividend table.
     @dividends_sg_html """
     <html>
-    <div class="col-md-8"><h4>SGD <span>1.23</span></h4></div>
-    <table class="table-striped">
+    <div class="dividend-company-quote">
+      <strong class="dividend-company-price">1.23</strong>
+      <span class="dividend-company-currency">SGD</span>
+    </div>
+    <table class="table table-bordered table-striped dividend-history-table">
     <tbody>
     <tr>
       <td>2024</td>
       <td>5%</td>
       <td>SGD 0.05</td>
-      <td>SGD0.05</td>
+      <td>SGD 0.05</td>
       <td>2024-01-15</td>
       <td>2024-02-01</td>
       <td>Rate: SGD 0.05</td>

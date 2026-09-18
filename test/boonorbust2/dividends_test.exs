@@ -102,5 +102,28 @@ defmodule Boonorbust2.DividendsTest do
       assert Decimal.eq?(dividend.value, Decimal.new("0.0185"))
       assert dividend.currency == "SGD"
     end
+
+    test "parses amounts with a space between currency and amount (current dividends.sg format)" do
+      html = """
+      <html>
+      <table class="table-striped">
+      <tbody>
+      <tr>
+        <td class="text-nowrap">SGD 0.81</td>
+        <td class='dividend-history-table__date'>2026-08-14</td>
+        <td class='dividend-history-table__date'>2026-08-25</td>
+        <td class="dividend-history-table__particulars">Rate: SGD 0.81 Per Security</td>
+      </tr>
+      </tbody>
+      </table>
+      </html>
+      """
+
+      {:ok, document} = Floki.parse_document(html)
+      {:ok, [dividend]} = Dividends.parse_dividends_sg_document(document)
+
+      assert Decimal.eq?(dividend.value, Decimal.new("0.81"))
+      assert dividend.currency == "SGD"
+    end
   end
 end

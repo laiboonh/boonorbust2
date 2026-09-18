@@ -41,8 +41,8 @@
           {@update_result}
         </div>
       <% end %>
-      
-<!-- Filter Form -->
+
+      <!-- Filter Form -->
       <form phx-submit="filter" class="mb-4">
         <div class="flex gap-2">
           <input
@@ -69,8 +69,8 @@
           <% end %>
         </div>
       </form>
-      
-<!-- Assets List -->
+
+      <!-- Assets List -->
       <div id="assets-list" phx-update="stream" class="space-y-4">
         <div
           :for={{dom_id, asset} <- @streams.assets}
@@ -182,8 +182,8 @@
         </div>
       </div>
     </div>
-    
-<!-- Asset Modal -->
+
+    <!-- Asset Modal -->
     <%= if @asset_in_progress do %>
       <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
         <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
@@ -407,8 +407,8 @@
         </div>
       </div>
     <% end %>
-    
-<!-- Dividends Modal -->
+
+    <!-- Dividends Modal -->
     <%= if @dividends_modal do %>
       <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
         <div class="relative top-20 mx-auto p-5 border max-w-2xl shadow-lg rounded-md bg-white">
@@ -489,8 +489,8 @@
         </div>
       </div>
     <% end %>
-    
-<!-- Tags Modal -->
+
+    <!-- Tags Modal -->
     <%= if @tags_modal do %>
       <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
         <div class="relative p-2 sm:p-4">
