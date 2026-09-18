@@ -442,7 +442,12 @@
               <% end %>
             <% end %>
 
-            <form phx-submit="import_csv" phx-change="validate_csv" class="space-y-4">
+            <form
+              id="import-csv-form"
+              phx-submit="import_csv"
+              phx-change="validate_csv"
+              class="space-y-4"
+            >
               <div>
                 <label for="csv_file" class="block text-sm font-medium text-gray-700 mb-2">
                   Select CSV File

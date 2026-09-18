@@ -36,7 +36,7 @@ defmodule Boonorbust2Web.DashboardLive do
         {:ok, %{irr: rate}}
 
       {:error, reason} = error ->
-        Logger.warning("IRR unavailable for user #{user_id}: #{inspect(reason)}")
+        log_irr_unavailable("IRR", user_id, reason)
         error
     end
   end
@@ -47,9 +47,21 @@ defmodule Boonorbust2Web.DashboardLive do
         {:ok, %{benchmark_irr: rate}}
 
       {:error, reason} = error ->
-        Logger.warning("Benchmark IRR unavailable for user #{user_id}: #{inspect(reason)}")
+        log_irr_unavailable("Benchmark IRR", user_id, reason)
         error
     end
+  end
+
+  # :no_sign_change and :no_time_variance are routine for new or single-day
+  # portfolios and are already surfaced to the user as "unavailable" in the
+  # UI, so they don't warrant a warning-level log.
+  defp log_irr_unavailable(label, user_id, reason)
+       when reason in [:no_sign_change, :no_time_variance] do
+    Logger.debug("#{label} unavailable for user #{user_id}: #{inspect(reason)}")
+  end
+
+  defp log_irr_unavailable(label, user_id, reason) do
+    Logger.warning("#{label} unavailable for user #{user_id}: #{inspect(reason)}")
   end
 
   defp format_irr_percentage(rate) do
