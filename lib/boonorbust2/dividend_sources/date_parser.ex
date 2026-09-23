@@ -20,6 +20,9 @@ defmodule Boonorbust2.DividendSources.DateParser do
       String.match?(date_string, ~r/^[A-Za-z]{3}\s+\d{1,2}\s+\d{4}$/) ->
         parse_month_day_year(date_string, false)
 
+      String.match?(date_string, ~r/^\d{1,2}\s+[A-Za-z]{3}\s+\d{4}$/) ->
+        parse_day_month_year(date_string)
+
       true ->
         {:error, "Invalid date format"}
     end
@@ -62,6 +65,20 @@ defmodule Boonorbust2.DividendSources.DateParser do
 
     case Regex.run(regex, date_string) do
       [_, month_str, day, year] ->
+        case Map.get(@month_map, month_str) do
+          nil -> {:error, "Invalid month name"}
+          month_int -> parse_date_parts(day, Integer.to_string(month_int), year)
+        end
+
+      _ ->
+        {:error, "Invalid date format"}
+    end
+  end
+
+  @spec parse_day_month_year(String.t()) :: {:ok, Date.t()} | {:error, String.t()}
+  def parse_day_month_year(date_string) do
+    case Regex.run(~r/^(\d{1,2})\s+([A-Za-z]{3})\s+(\d{4})$/, date_string) do
+      [_, day, month_str, year] ->
         case Map.get(@month_map, month_str) do
           nil -> {:error, "Invalid month name"}
           month_int -> parse_date_parts(day, Integer.to_string(month_int), year)
