@@ -73,7 +73,13 @@ defmodule Boonorbust2.PriceSources.DividendsSg do
   @spec parse_price(Floki.html_tree()) :: {:ok, String.t()} | {:error, :price_not_found}
   def parse_price(document) do
     result =
-      [".dividend-company-price", ".col-md-8 h4 span", "h4 span", "div.col-md-8 > h4 > span"]
+      [
+        ".company-quote-line strong",
+        ".dividend-company-price",
+        ".col-md-8 h4 span",
+        "h4 span",
+        "div.col-md-8 > h4 > span"
+      ]
       |> Enum.find_value(&extract_price_from_selector(document, &1))
 
     case result do

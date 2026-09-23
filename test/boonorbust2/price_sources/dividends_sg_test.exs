@@ -4,6 +4,19 @@ defmodule Boonorbust2.PriceSources.DividendsSgTest do
   alias Boonorbust2.PriceSources.DividendsSg
 
   describe "parse_price/1" do
+    test "parses price from the company-quote-line markup" do
+      html = """
+      <html>
+      <div class="company-quote-line"><span>SGD <strong>0.703</strong></span>
+      <span class="small">-1.71%</span></div>
+      </html>
+      """
+
+      {:ok, document} = Floki.parse_document(html)
+
+      assert DividendsSg.parse_price(document) == {:ok, "0.703"}
+    end
+
     test "parses price from the current dividend-company-price markup" do
       html = """
       <html>
