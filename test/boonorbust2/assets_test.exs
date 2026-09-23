@@ -1688,8 +1688,8 @@ defmodule Boonorbust2.AssetsTest do
     end
 
     test "spaces out consecutive Alpha Vantage requests by the configured interval" do
-      Application.put_env(:boonorbust2, :alpha_vantage_min_interval_ms, 150)
-      on_exit(fn -> Application.put_env(:boonorbust2, :alpha_vantage_min_interval_ms, 0) end)
+      Application.put_env(:boonorbust2, :rate_limited_min_interval_ms, 150)
+      on_exit(fn -> Application.put_env(:boonorbust2, :rate_limited_min_interval_ms, 0) end)
 
       {:ok, user} =
         Boonorbust2.Accounts.create_user(%{
@@ -1720,9 +1720,9 @@ defmodule Boonorbust2.AssetsTest do
       assert elapsed >= 150
     end
 
-    test "runs the non-Alpha-Vantage batch concurrently with the throttled Alpha Vantage batch" do
-      Application.put_env(:boonorbust2, :alpha_vantage_min_interval_ms, 100)
-      on_exit(fn -> Application.put_env(:boonorbust2, :alpha_vantage_min_interval_ms, 0) end)
+    test "runs the non-rate-limited batch concurrently with the rate-limited batch" do
+      Application.put_env(:boonorbust2, :rate_limited_min_interval_ms, 100)
+      on_exit(fn -> Application.put_env(:boonorbust2, :rate_limited_min_interval_ms, 0) end)
 
       {:ok, user} =
         Boonorbust2.Accounts.create_user(%{
@@ -1733,7 +1733,7 @@ defmodule Boonorbust2.AssetsTest do
           currency: "USD"
         })
 
-      # Three AV assets means two throttle waits of ~100ms each (~200ms total).
+      # Three rate-limited assets means two throttle waits of ~100ms each (~200ms total).
       create_alpha_vantage_asset("AV Concurrent Asset 1", user, "concurrent1")
       create_alpha_vantage_asset("AV Concurrent Asset 2", user, "concurrent2")
       create_alpha_vantage_asset("AV Concurrent Asset 3", user, "concurrent3")
@@ -1769,7 +1769,7 @@ defmodule Boonorbust2.AssetsTest do
       elapsed = System.monotonic_time(:millisecond) - start
 
       assert result.prices_success == 4
-      # Sequential would be ~250ms (non-AV) + ~200ms (AV throttle) = ~450ms+.
+      # Sequential would be ~250ms (non-rate-limited) + ~200ms (rate-limited throttle) = ~450ms+.
       # Concurrent should be close to max(250ms, 200ms) = ~250ms.
       assert elapsed < 400
     end

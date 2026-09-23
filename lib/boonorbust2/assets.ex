@@ -494,10 +494,11 @@ defmodule Boonorbust2.Assets do
   Only updates assets where ANY user currently has holdings (quantity > 0).
   Processes assets in parallel with a maximum concurrency of 5.
 
-  Alpha Vantage-priced assets are the exception: they are processed one at a time
-  (never concurrently with each other) to avoid tripping Alpha Vantage's rate limit.
-  As soon as one comes back rate-limited, the rest of the Alpha Vantage-priced assets
-  for this run are skipped rather than attempted — they'll be picked up on the next run.
+  Rate-limited assets (currently: Alpha Vantage-priced ones) are the exception: they
+  are processed one at a time (never concurrently with each other) to avoid tripping
+  the source's rate limit. As soon as one comes back rate-limited, the rest of the
+  rate-limited assets for this run are skipped rather than attempted — they'll be
+  picked up on the next run.
 
   Optimizes by making a single HTTP call when price_url == dividend_url.
 
@@ -525,15 +526,15 @@ defmodule Boonorbust2.Assets do
       "Found #{length(assets_with_holdings)} assets with holdings out of #{length(assets)} total assets"
     )
 
-    {alpha_vantage_assets, other_assets} =
-      Enum.split_with(assets_with_holdings, &alpha_vantage_price_asset?/1)
+    {rate_limited_assets, non_rate_limited_assets} =
+      Enum.split_with(assets_with_holdings, &rate_limited_price_asset?/1)
 
-    # Runs in its own process so the throttled Alpha Vantage requests overlap with
-    # the non-AV batch below instead of adding to its runtime.
-    alpha_vantage_task = Task.async(fn -> process_alpha_vantage_assets(alpha_vantage_assets) end)
+    # Runs in its own process so the throttled rate-limited requests overlap with
+    # the non-rate-limited batch below instead of adding to its runtime.
+    rate_limited_task = Task.async(fn -> process_rate_limited_assets(rate_limited_assets) end)
 
-    other_raw_results =
-      other_assets
+    non_rate_limited_raw_results =
+      non_rate_limited_assets
       |> Task.async_stream(&update_asset_data/1,
         max_concurrency: 5,
         timeout: 30_000,
@@ -541,23 +542,24 @@ defmodule Boonorbust2.Assets do
       )
       |> Enum.to_list()
 
-    other_timed_out_assets = extract_timed_out_assets(other_raw_results, other_assets)
+    non_rate_limited_timed_out_assets =
+      extract_timed_out_assets(non_rate_limited_raw_results, non_rate_limited_assets)
 
-    {alpha_vantage_results, alpha_vantage_timed_out_assets} =
-      Task.await(alpha_vantage_task, :infinity)
+    {rate_limited_results, rate_limited_timed_out_assets} =
+      Task.await(rate_limited_task, :infinity)
 
     log_timeout_warning(
-      other_timed_out_assets ++ alpha_vantage_timed_out_assets,
+      non_rate_limited_timed_out_assets ++ rate_limited_timed_out_assets,
       "update operations"
     )
 
-    other_results =
-      Enum.map(other_raw_results, fn
+    non_rate_limited_results =
+      Enum.map(non_rate_limited_raw_results, fn
         {:ok, result} -> result
         {:exit, :timeout} -> {:error, :error}
       end)
 
-    results = other_results ++ alpha_vantage_results
+    results = non_rate_limited_results ++ rate_limited_results
 
     result = %{
       prices_success: Enum.count(results, fn {p, _} -> p == :fetched end),
@@ -575,11 +577,11 @@ defmodule Boonorbust2.Assets do
     {:ok, result}
   end
 
-  @spec alpha_vantage_price_asset?(Asset.t()) :: boolean()
-  defp alpha_vantage_price_asset?(%Asset{price_url: "https://www.alphavantage.co/" <> _}),
+  @spec rate_limited_price_asset?(Asset.t()) :: boolean()
+  defp rate_limited_price_asset?(%Asset{price_url: "https://www.alphavantage.co/" <> _}),
     do: true
 
-  defp alpha_vantage_price_asset?(%Asset{}), do: false
+  defp rate_limited_price_asset?(%Asset{}), do: false
 
   @spec extract_timed_out_assets([{:ok, term()} | {:exit, term()}], [Asset.t()]) :: [Asset.t()]
   defp extract_timed_out_assets(raw_results, assets) do
@@ -601,37 +603,37 @@ defmodule Boonorbust2.Assets do
 
   # Alpha Vantage's free tier asks that requests be spaced out to no more than
   # one per second. Overridable via config for tests.
-  @spec alpha_vantage_min_interval_ms() :: non_neg_integer()
-  defp alpha_vantage_min_interval_ms do
-    Application.get_env(:boonorbust2, :alpha_vantage_min_interval_ms, 1_000)
+  @spec rate_limited_min_interval_ms() :: non_neg_integer()
+  defp rate_limited_min_interval_ms do
+    Application.get_env(:boonorbust2, :rate_limited_min_interval_ms, 1_000)
   end
 
-  # Processes Alpha Vantage-priced assets one at a time (never concurrently with each
-  # other), spaced at least alpha_vantage_min_interval_ms/0 apart, so a burst of due
-  # assets doesn't trip Alpha Vantage's rate limit. As soon as one comes back
+  # Processes rate-limited assets one at a time (never concurrently with each
+  # other), spaced at least rate_limited_min_interval_ms/0 apart, so a burst of due
+  # assets doesn't trip the source's rate limit. As soon as one comes back
   # rate-limited, the rest are skipped for this run instead of being attempted (and
   # burning quota on a request that's very likely to fail too).
-  @spec process_alpha_vantage_assets([Asset.t()]) ::
+  @spec process_rate_limited_assets([Asset.t()]) ::
           {[{:fetched | :skipped | :error, :synced | :skipped | :error}], [Asset.t()]}
-  defp process_alpha_vantage_assets(assets) do
+  defp process_rate_limited_assets(assets) do
     {results, timed_out, _rate_limited?, _last_request_at} =
-      Enum.reduce(assets, {[], [], false, nil}, &process_alpha_vantage_asset/2)
+      Enum.reduce(assets, {[], [], false, nil}, &process_rate_limited_asset/2)
 
     {Enum.reverse(results), Enum.reverse(timed_out)}
   end
 
-  defp process_alpha_vantage_asset(asset, {results, timed_out, true, last_request_at}) do
+  defp process_rate_limited_asset(asset, {results, timed_out, true, last_request_at}) do
     Logger.info(
-      "Skipping Alpha Vantage update for asset: #{asset.name} (ID: #{asset.id}) — rate limit hit earlier this run"
+      "Skipping rate-limited update for asset: #{asset.name} (ID: #{asset.id}) — rate limit hit earlier this run"
     )
 
     {[{:skipped, :skipped} | results], timed_out, true, last_request_at}
   end
 
-  defp process_alpha_vantage_asset(asset, {results, timed_out, false, last_request_at}) do
+  defp process_rate_limited_asset(asset, {results, timed_out, false, last_request_at}) do
     will_fetch_price? = should_update_price?(asset)
 
-    if will_fetch_price?, do: throttle_alpha_vantage_request(last_request_at)
+    if will_fetch_price?, do: throttle_rate_limited_request(last_request_at)
 
     task = Task.async(fn -> update_asset_data_with_price_reason(asset) end)
 
@@ -639,7 +641,7 @@ defmodule Boonorbust2.Assets do
       {:ok, {price_result, div_result, reason}} ->
         if rate_limited?(reason) do
           Logger.warning(
-            "Alpha Vantage rate limit hit on asset: #{asset.name} (ID: #{asset.id}) — skipping remaining Alpha Vantage assets for this run"
+            "Rate limit hit on asset: #{asset.name} (ID: #{asset.id}) — skipping remaining rate-limited assets for this run"
           )
         end
 
@@ -654,12 +656,12 @@ defmodule Boonorbust2.Assets do
     end
   end
 
-  @spec throttle_alpha_vantage_request(integer() | nil) :: :ok
-  defp throttle_alpha_vantage_request(nil), do: :ok
+  @spec throttle_rate_limited_request(integer() | nil) :: :ok
+  defp throttle_rate_limited_request(nil), do: :ok
 
-  defp throttle_alpha_vantage_request(last_request_at) do
+  defp throttle_rate_limited_request(last_request_at) do
     elapsed = System.monotonic_time(:millisecond) - last_request_at
-    remaining = alpha_vantage_min_interval_ms() - elapsed
+    remaining = rate_limited_min_interval_ms() - elapsed
 
     if remaining > 0, do: Process.sleep(remaining)
 
@@ -667,7 +669,7 @@ defmodule Boonorbust2.Assets do
   end
 
   # Same as update_asset_data/1 but also surfaces the price fetch failure reason, so
-  # the Alpha Vantage circuit breaker can detect a rate limit without re-fetching.
+  # the rate-limit circuit breaker can detect a rate limit without re-fetching.
   @spec update_asset_data_with_price_reason(Asset.t()) ::
           {:fetched | :skipped | :error, :synced | :skipped | :error, String.t() | nil}
   defp update_asset_data_with_price_reason(asset) do
@@ -722,7 +724,7 @@ defmodule Boonorbust2.Assets do
 
   # Same as run_price_update/1 but also surfaces the raw failure reason, so callers
   # can detect specific failure causes (e.g. an upstream API rate limit) without
-  # re-fetching. Used by the Alpha Vantage circuit breaker in process_alpha_vantage_asset/2.
+  # re-fetching. Used by the rate-limit circuit breaker in process_rate_limited_asset/2.
   @spec run_price_update_with_reason(Asset.t()) :: {:fetched | :error, String.t() | nil}
   defp run_price_update_with_reason(asset) do
     case fetch_price(asset) do
