@@ -39,5 +39,8 @@ config :phoenix_live_view,
 # Use mock HTTP client for testing
 config :boonorbust2, :http_client, Boonorbust2.HTTPClientMock
 
+# Don't throttle Alpha Vantage requests in tests
+config :boonorbust2, :alpha_vantage_min_interval_ms, 0
+
 # Configure admin users for testing
 config :boonorbust2, :admins, ["admin@example.com"]

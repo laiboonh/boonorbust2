@@ -1686,5 +1686,38 @@ defmodule Boonorbust2.AssetsTest do
       assert result.prices_success == 2
       assert result.prices_errors == 0
     end
+
+    test "spaces out consecutive Alpha Vantage requests by the configured interval" do
+      Application.put_env(:boonorbust2, :alpha_vantage_min_interval_ms, 150)
+      on_exit(fn -> Application.put_env(:boonorbust2, :alpha_vantage_min_interval_ms, 0) end)
+
+      {:ok, user} =
+        Boonorbust2.Accounts.create_user(%{
+          email: "user_av_throttle@example.com",
+          name: "User",
+          provider: "google",
+          uid: "uid_av_throttle",
+          currency: "USD"
+        })
+
+      create_alpha_vantage_asset("AV Throttle Asset 1", user, "throttle1")
+      create_alpha_vantage_asset("AV Throttle Asset 2", user, "throttle2")
+
+      HTTPClientMock
+      |> expect(:get, 2, fn _url, _opts ->
+        {:ok,
+         %{
+           status: 200,
+           body: %{"Time Series (Daily)" => %{"2024-01-01" => %{"4. close" => "12.34"}}}
+         }}
+      end)
+
+      start = System.monotonic_time(:millisecond)
+      {:ok, result} = Assets.update_all_asset_data()
+      elapsed = System.monotonic_time(:millisecond) - start
+
+      assert result.prices_success == 2
+      assert elapsed >= 150
+    end
   end
 end
