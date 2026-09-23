@@ -1719,5 +1719,59 @@ defmodule Boonorbust2.AssetsTest do
       assert result.prices_success == 2
       assert elapsed >= 150
     end
+
+    test "runs the non-Alpha-Vantage batch concurrently with the throttled Alpha Vantage batch" do
+      Application.put_env(:boonorbust2, :alpha_vantage_min_interval_ms, 100)
+      on_exit(fn -> Application.put_env(:boonorbust2, :alpha_vantage_min_interval_ms, 0) end)
+
+      {:ok, user} =
+        Boonorbust2.Accounts.create_user(%{
+          email: "user_av_concurrent@example.com",
+          name: "User",
+          provider: "google",
+          uid: "uid_av_concurrent",
+          currency: "USD"
+        })
+
+      # Three AV assets means two throttle waits of ~100ms each (~200ms total).
+      create_alpha_vantage_asset("AV Concurrent Asset 1", user, "concurrent1")
+      create_alpha_vantage_asset("AV Concurrent Asset 2", user, "concurrent2")
+      create_alpha_vantage_asset("AV Concurrent Asset 3", user, "concurrent3")
+
+      {:ok, other_asset} = Assets.create_asset(%{name: "Marketstack Asset", currency: "USD"})
+
+      other_asset =
+        other_asset
+        |> Ecto.Changeset.change(%{
+          price_url: "https://api.marketstack.com/concurrent",
+          prices_synced_at: nil
+        })
+        |> Repo.update!()
+
+      setup_asset_with_holdings(other_asset, user)
+
+      HTTPClientMock
+      |> expect(:get, 4, fn url, _opts ->
+        if String.contains?(url, "alphavantage") do
+          {:ok,
+           %{
+             status: 200,
+             body: %{"Time Series (Daily)" => %{"2024-01-01" => %{"4. close" => "12.34"}}}
+           }}
+        else
+          Process.sleep(250)
+          {:ok, %{status: 200, body: %{"data" => [%{"close" => 42.0}]}}}
+        end
+      end)
+
+      start = System.monotonic_time(:millisecond)
+      {:ok, result} = Assets.update_all_asset_data()
+      elapsed = System.monotonic_time(:millisecond) - start
+
+      assert result.prices_success == 4
+      # Sequential would be ~250ms (non-AV) + ~200ms (AV throttle) = ~450ms+.
+      # Concurrent should be close to max(250ms, 200ms) = ~250ms.
+      assert elapsed < 400
+    end
   end
 end

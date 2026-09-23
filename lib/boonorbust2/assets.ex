@@ -528,6 +528,10 @@ defmodule Boonorbust2.Assets do
     {alpha_vantage_assets, other_assets} =
       Enum.split_with(assets_with_holdings, &alpha_vantage_price_asset?/1)
 
+    # Runs in its own process so the throttled Alpha Vantage requests overlap with
+    # the non-AV batch below instead of adding to its runtime.
+    alpha_vantage_task = Task.async(fn -> process_alpha_vantage_assets(alpha_vantage_assets) end)
+
     other_raw_results =
       other_assets
       |> Task.async_stream(&update_asset_data/1,
@@ -540,7 +544,7 @@ defmodule Boonorbust2.Assets do
     other_timed_out_assets = extract_timed_out_assets(other_raw_results, other_assets)
 
     {alpha_vantage_results, alpha_vantage_timed_out_assets} =
-      process_alpha_vantage_assets(alpha_vantage_assets)
+      Task.await(alpha_vantage_task, :infinity)
 
     log_timeout_warning(
       other_timed_out_assets ++ alpha_vantage_timed_out_assets,
