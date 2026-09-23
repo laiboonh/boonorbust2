@@ -17,20 +17,24 @@ defmodule Boonorbust2.PriceSources.AlphaVantage do
   end
 
   @spec parse_response(map()) :: {:ok, any()} | {:error, String.t()}
+  def parse_response(%{"Time Series (Daily)" => time_series}) when map_size(time_series) == 0 do
+    {:error, "No data available"}
+  end
+
   def parse_response(body) do
     with %{"Time Series (Daily)" => time_series} <- body,
          [first_date | _] <- Map.keys(time_series) |> Enum.sort(:desc),
          %{"4. close" => close_value} <- time_series[first_date] do
       {:ok, close_value}
     else
-      %{"Time Series (Daily)" => _} ->
-        {:error, "No data available"}
-
       %{"Error Message" => error_msg} ->
         {:error, "API error: #{error_msg}"}
 
       %{"Note" => note} ->
         {:error, "API limit reached: #{note}"}
+
+      %{"Information" => info} ->
+        {:error, "API limit reached: #{info}"}
 
       _ ->
         Logger.error(

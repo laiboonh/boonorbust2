@@ -1568,4 +1568,123 @@ defmodule Boonorbust2.AssetsTest do
       assert updated.name == "Renamed"
     end
   end
+
+  describe "update_all_asset_data Alpha Vantage rate limiting" do
+    defp create_alpha_vantage_asset(name, user, url_suffix) do
+      {:ok, asset} = Assets.create_asset(%{name: name, currency: "USD"})
+
+      asset =
+        asset
+        |> Ecto.Changeset.change(%{
+          price_url: "https://www.alphavantage.co/query?symbol=#{url_suffix}",
+          prices_synced_at: nil
+        })
+        |> Repo.update!()
+
+      setup_asset_with_holdings(asset, user)
+      asset
+    end
+
+    @tag :capture_log
+    test "stops making further Alpha Vantage requests after a rate limit response" do
+      {:ok, user} =
+        Boonorbust2.Accounts.create_user(%{
+          email: "user_av_rate_limit@example.com",
+          name: "User",
+          provider: "google",
+          uid: "uid_av_rate_limit",
+          currency: "USD"
+        })
+
+      create_alpha_vantage_asset("AV Asset 1", user, "one")
+      create_alpha_vantage_asset("AV Asset 2", user, "two")
+
+      # Mox fails the test if a second call happens — proving the breaker
+      # stopped after the first rate-limited response.
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok,
+         %{
+           status: 200,
+           body: %{
+             "Information" => "Thank you for using Alpha Vantage! Rate limit reached."
+           }
+         }}
+      end)
+
+      {:ok, result} = Assets.update_all_asset_data()
+
+      assert result.prices_errors == 1
+      assert result.prices_success == 0
+    end
+
+    @tag :capture_log
+    test "a rate-limited Alpha Vantage asset does not affect other sources" do
+      {:ok, user} =
+        Boonorbust2.Accounts.create_user(%{
+          email: "user_av_mixed@example.com",
+          name: "User",
+          provider: "google",
+          uid: "uid_av_mixed",
+          currency: "USD"
+        })
+
+      create_alpha_vantage_asset("AV Mixed Asset", user, "mixed")
+
+      {:ok, other_asset} = Assets.create_asset(%{name: "Marketstack Asset", currency: "USD"})
+
+      other_asset =
+        other_asset
+        |> Ecto.Changeset.change(%{
+          price_url: "https://api.marketstack.com/mixed",
+          prices_synced_at: nil
+        })
+        |> Repo.update!()
+
+      setup_asset_with_holdings(other_asset, user)
+
+      HTTPClientMock
+      |> expect(:get, 2, fn url, _opts ->
+        if String.contains?(url, "alphavantage") do
+          {:ok, %{status: 200, body: %{"Information" => "Rate limit reached."}}}
+        else
+          {:ok, %{status: 200, body: %{"data" => [%{"close" => 42.0}]}}}
+        end
+      end)
+
+      {:ok, result} = Assets.update_all_asset_data()
+
+      assert result.prices_success == 1
+      assert result.prices_errors == 1
+    end
+
+    @tag :capture_log
+    test "processes multiple Alpha Vantage assets sequentially when none are rate limited" do
+      {:ok, user} =
+        Boonorbust2.Accounts.create_user(%{
+          email: "user_av_ok@example.com",
+          name: "User",
+          provider: "google",
+          uid: "uid_av_ok",
+          currency: "USD"
+        })
+
+      create_alpha_vantage_asset("AV OK Asset 1", user, "ok1")
+      create_alpha_vantage_asset("AV OK Asset 2", user, "ok2")
+
+      HTTPClientMock
+      |> expect(:get, 2, fn _url, _opts ->
+        {:ok,
+         %{
+           status: 200,
+           body: %{"Time Series (Daily)" => %{"2024-01-01" => %{"4. close" => "12.34"}}}
+         }}
+      end)
+
+      {:ok, result} = Assets.update_all_asset_data()
+
+      assert result.prices_success == 2
+      assert result.prices_errors == 0
+    end
+  end
 end
