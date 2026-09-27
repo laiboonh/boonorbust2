@@ -1,6 +1,8 @@
 defmodule Boonorbust2Web.AssetLive do
   use Boonorbust2Web, :live_view
 
+  require Logger
+
   alias Boonorbust2.Assets
   alias Boonorbust2.Assets.Asset
   alias Boonorbust2.Dividends
@@ -20,6 +22,7 @@ defmodule Boonorbust2Web.AssetLive do
       |> assign(:tags_modal, nil)
       |> assign(:asset_tags_map, %{})
       |> assign(:update_result, nil)
+      |> assign(:updating_prices, false)
 
     {:ok, socket}
   end
@@ -133,14 +136,18 @@ defmodule Boonorbust2Web.AssetLive do
     {:noreply, socket}
   end
 
-  def handle_event("update_all_prices", _params, socket) do
-    {:ok, result} = Assets.update_all_asset_data()
-    message = Assets.format_update_result_message(result)
+  def handle_event("update_all_prices", _params, %{assigns: %{updating_prices: true}} = socket) do
+    {:noreply, socket}
+  end
 
+  # Runs outside the LiveView process: a synchronous update can exceed the
+  # client's 30s push timeout, which makes the browser hard-reload the page and
+  # lose the result message.
+  def handle_event("update_all_prices", _params, socket) do
     socket =
       socket
-      |> assign(:update_result, message)
-      |> reload_assets()
+      |> assign(update_result: nil, updating_prices: true)
+      |> start_async(:update_all_prices, fn -> Assets.update_all_asset_data() end)
 
     {:noreply, socket}
   end
@@ -222,6 +229,29 @@ defmodule Boonorbust2Web.AssetLive do
       |> reload_assets()
 
     {:noreply, socket}
+  end
+
+  @impl true
+  def handle_async(:update_all_prices, {:ok, {:ok, result}}, socket) do
+    socket =
+      socket
+      |> assign(
+        update_result: {:ok, Assets.format_update_result_message(result)},
+        updating_prices: false
+      )
+      |> reload_assets()
+
+    {:noreply, socket}
+  end
+
+  def handle_async(:update_all_prices, {:exit, reason}, socket) do
+    Logger.error("update_all_asset_data failed: #{inspect(reason)}")
+
+    {:noreply,
+     assign(socket,
+       update_result: {:error, "Failed to update prices and dividends. Please try again."},
+       updating_prices: false
+     )}
   end
 
   defp reload_assets(socket) do

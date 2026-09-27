@@ -357,9 +357,72 @@ defmodule Boonorbust2Web.AssetLiveTest do
 
       view |> element(~s|button[phx-click="update_all_prices"]|) |> render_click()
 
-      html = render(view)
+      html = render_async(view)
       assert html =~ "Successfully updated"
+      refute html =~ "Updating..."
     end
+
+    @tag :capture_log
+    test "shows updating state while the update is in progress", %{
+      admin_conn: conn,
+      regular_user: regular_user
+    } do
+      test_pid = self()
+      asset = create_stale_held_asset(regular_user)
+
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        send(test_pid, {:fetch_started, self()})
+
+        receive do
+          :continue -> {:ok, %{status: 200, body: %{"data" => [%{"close" => 200.0}]}}}
+        end
+      end)
+
+      {:ok, view, _html} = live(conn, ~p"/assets")
+
+      html = view |> element(~s|button[phx-click="update_all_prices"]|) |> render_click()
+
+      assert html =~ "Updating..."
+      assert has_element?(view, ~s|button[phx-click="update_all_prices"][disabled]|)
+
+      assert_receive {:fetch_started, fetch_pid}, 5_000
+      send(fetch_pid, :continue)
+
+      html = render_async(view)
+      assert html =~ "Successfully updated"
+      refute has_element?(view, ~s|button[phx-click="update_all_prices"][disabled]|)
+      assert Assets.get_asset!(asset.id).price
+    end
+  end
+
+  defp create_stale_held_asset(user) do
+    asset =
+      %Boonorbust2.Assets.Asset{}
+      |> Ecto.Changeset.change(%{
+        name: "Stale Stock",
+        price_url: "https://api.marketstack.com/stale",
+        currency: "USD",
+        prices_synced_at:
+          DateTime.utc_now() |> DateTime.add(-90_000, :second) |> DateTime.truncate(:second)
+      })
+      |> Boonorbust2.Repo.insert!()
+
+    {:ok, _} =
+      Boonorbust2.PortfolioTransactions.create_portfolio_transaction(%{
+        "asset_id" => asset.id,
+        "user_id" => user.id,
+        "action" => "buy",
+        "quantity" => "10",
+        "price" => "100.0",
+        "currency" => "USD",
+        "commission" => "0",
+        "transaction_date" => DateTime.utc_now()
+      })
+
+    Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
+
+    asset
   end
 
   describe "dividends modal" do
