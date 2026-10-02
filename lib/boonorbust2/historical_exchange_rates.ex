@@ -21,7 +21,11 @@ defmodule Boonorbust2.HistoricalExchangeRates do
   Returns the persisted quotes map if already fetched, otherwise fetches
   from the Frankfurter API and persists the result forever.
 
-  Returns `{:ok, rates}` on success or `{:error, reason}` on failure.
+  Returns `{:ok, rates}` on success or `{:error, reason}` on failure. An
+  empty response (e.g. a date far enough in the future that Frankfurter has
+  no published rate yet) is never persisted, so it can be retried later
+  instead of being permanently cached as empty — this returns
+  `{:error, :no_rates_for_date}`.
   """
   @spec get_rates(Date.t(), String.t()) :: {:ok, map()} | {:error, term()}
   def get_rates(date, base_currency) when is_binary(base_currency) do
@@ -42,6 +46,9 @@ defmodule Boonorbust2.HistoricalExchangeRates do
 
   defp fetch_and_persist_rates(date, base_currency) do
     case fetch_from_api(date, base_currency) do
+      {:ok, rates} when map_size(rates) == 0 ->
+        {:error, :no_rates_for_date}
+
       {:ok, rates} ->
         persist_rates(date, base_currency, rates)
         {:ok, rates}

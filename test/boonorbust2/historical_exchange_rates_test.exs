@@ -103,6 +103,21 @@ defmodule Boonorbust2.HistoricalExchangeRatesTest do
 
       assert {:error, :invalid_response} = HistoricalExchangeRates.get_rates(@date, "USD")
     end
+
+    @tag :capture_log
+    test "does not persist an empty rates response and retries on next call" do
+      url = expected_url(@date, "USD")
+
+      HTTPClientMock
+      |> expect(:get, 2, fn ^url, _opts ->
+        {:ok, %{status: 200, body: []}}
+      end)
+
+      assert {:error, :no_rates_for_date} = HistoricalExchangeRates.get_rates(@date, "USD")
+
+      # Second call hits the API again — nothing was persisted
+      assert {:error, :no_rates_for_date} = HistoricalExchangeRates.get_rates(@date, "USD")
+    end
   end
 
   # Helper functions

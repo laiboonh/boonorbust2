@@ -72,4 +72,41 @@ defmodule Boonorbust2.PortfolioTransactionsTest do
       assert transaction.amount == Money.new(:USD, "595.00")
     end
   end
+
+  describe "create_portfolio_transaction/1 — transaction_date validation" do
+    test "rejects a transaction_date in the future", %{user: user, asset: asset} do
+      future_date = DateTime.utc_now() |> DateTime.add(1, :day) |> DateTime.to_iso8601()
+
+      attrs = %{
+        "user_id" => user.id,
+        "asset_id" => asset.id,
+        "action" => "buy",
+        "quantity" => "10",
+        "price" => "100.00",
+        "commission" => "5.00",
+        "currency" => "USD",
+        "transaction_date" => future_date
+      }
+
+      {:error, changeset} = PortfolioTransactions.create_portfolio_transaction(attrs)
+
+      assert %{transaction_date: ["cannot be in the future"]} =
+               Ecto.Changeset.traverse_errors(changeset, fn {msg, _opts} -> msg end)
+    end
+
+    test "accepts a transaction_date that is today or in the past", %{user: user, asset: asset} do
+      attrs = %{
+        "user_id" => user.id,
+        "asset_id" => asset.id,
+        "action" => "buy",
+        "quantity" => "10",
+        "price" => "100.00",
+        "commission" => "5.00",
+        "currency" => "USD",
+        "transaction_date" => DateTime.utc_now() |> DateTime.to_iso8601()
+      }
+
+      assert {:ok, _transaction} = PortfolioTransactions.create_portfolio_transaction(attrs)
+    end
+  end
 end

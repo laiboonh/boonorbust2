@@ -75,9 +75,20 @@ defmodule Boonorbust2.PortfolioTransactions.PortfolioTransaction do
     |> validate_money(:price)
     |> validate_money(:commission, greater_than_or_equal_to: 0)
     |> validate_currency_matches_asset()
+    |> validate_transaction_date_not_future()
     |> calculate_amount()
     |> foreign_key_constraint(:user_id)
     |> foreign_key_constraint(:asset_id)
+  end
+
+  defp validate_transaction_date_not_future(changeset) do
+    validate_change(changeset, :transaction_date, fn :transaction_date, transaction_date ->
+      if DateTime.compare(transaction_date, DateTime.utc_now()) == :gt do
+        [transaction_date: "cannot be in the future"]
+      else
+        []
+      end
+    end)
   end
 
   defp calculate_amount(changeset) do
