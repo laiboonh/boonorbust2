@@ -79,6 +79,22 @@ defmodule Boonorbust2.PortfolioTransactions do
     |> Repo.all()
   end
 
+  @doc """
+  Lists all portfolio transactions for a user and asset, ordered by transaction date ascending.
+
+  Unlike `list_portfolio_transactions/1`, this is unpaginated — used for per-asset
+  cash-flow assembly (e.g. `Boonorbust2.Irr.calculate_asset_irr/2`).
+  """
+  @spec list_all_for_user_and_asset(String.t(), integer()) :: [PortfolioTransaction.t()]
+  def list_all_for_user_and_asset(user_id, asset_id)
+      when is_binary(user_id) and is_integer(asset_id) do
+    from(pt in PortfolioTransaction,
+      where: pt.user_id == ^user_id and pt.asset_id == ^asset_id,
+      order_by: [asc: pt.transaction_date, asc: pt.id]
+    )
+    |> Repo.all()
+  end
+
   @spec get_portfolio_transaction!(integer(), String.t()) :: PortfolioTransaction.t()
   def get_portfolio_transaction!(id, user_id) when is_integer(id) and is_binary(user_id) do
     from(pt in PortfolioTransaction,

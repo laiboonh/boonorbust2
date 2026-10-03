@@ -84,6 +84,106 @@ defmodule Boonorbust2.IrrTest do
     end
   end
 
+  describe "calculate_asset_irr/2" do
+    test "computes XIRR for a simple buy-then-appreciate position, with no currency conversion" do
+      user = create_user("SGD")
+      asset = create_asset("USD", "150.00")
+
+      {:ok, _buy} =
+        create_transaction(user.id, asset.id, "buy", "10", "100.00", ~U[2024-01-01 00:00:00Z])
+
+      {:ok, _} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
+
+      expected_cash_flows = [
+        {~D[2024-01-01], Decimal.new("-1000.00")},
+        {Date.utc_today(), Decimal.new("1500.00")}
+      ]
+
+      assert {:ok, expected_rate} = Irr.xirr(expected_cash_flows)
+      assert {:ok, actual_rate} = Irr.calculate_asset_irr(user.id, asset.id)
+      assert_in_delta actual_rate, expected_rate, 0.0001
+    end
+
+    test "includes a partial sell and dividend income, valuing the remaining quantity at today's price" do
+      user = create_user("SGD")
+      asset = create_asset("USD", "120.00")
+
+      {:ok, _buy} =
+        create_transaction(user.id, asset.id, "buy", "10", "100.00", ~U[2024-01-01 00:00:00Z])
+
+      {:ok, _sell} =
+        create_transaction(user.id, asset.id, "sell", "5", "150.00", ~U[2024-06-01 00:00:00Z])
+
+      {:ok, _} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
+
+      dividend = create_dividend(asset.id, ~D[2024-03-15], ~D[2024-04-01])
+
+      {:ok, _} =
+        RealizedProfits.upsert_dividend_income(%{
+          user_id: user.id,
+          asset_id: asset.id,
+          dividend_id: dividend.id,
+          amount: Money.new(:USD, "15.00")
+        })
+
+      expected_cash_flows = [
+        {~D[2024-01-01], Decimal.new("-1000.00")},
+        {~D[2024-04-01], Decimal.new("15.00")},
+        {~D[2024-06-01], Decimal.new("750.00")},
+        {Date.utc_today(), Decimal.new("600.00")}
+      ]
+
+      assert {:ok, expected_rate} = Irr.xirr(expected_cash_flows)
+      assert {:ok, actual_rate} = Irr.calculate_asset_irr(user.id, asset.id)
+      assert_in_delta actual_rate, expected_rate, 0.0001
+    end
+
+    test "returns an error when the user holds no position in the asset" do
+      user = create_user("USD")
+      asset = create_asset("USD", "100.00")
+
+      assert Irr.calculate_asset_irr(user.id, asset.id) == {:error, :no_position}
+    end
+
+    test "returns an error when the asset has no live price" do
+      user = create_user("USD")
+      asset = create_asset("USD", nil)
+
+      {:ok, _buy} =
+        create_transaction(user.id, asset.id, "buy", "10", "100.00", ~U[2024-01-01 00:00:00Z])
+
+      {:ok, _} = PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
+
+      assert Irr.calculate_asset_irr(user.id, asset.id) == {:error, :no_price}
+    end
+  end
+
+  describe "calculate_asset_irrs/2" do
+    test "returns a map of asset_id to each asset's own result" do
+      user = create_user("USD")
+      held_asset = create_asset("USD", "150.00")
+      unheld_asset = create_asset("USD", "100.00")
+
+      {:ok, _buy} =
+        create_transaction(
+          user.id,
+          held_asset.id,
+          "buy",
+          "10",
+          "100.00",
+          ~U[2024-01-01 00:00:00Z]
+        )
+
+      {:ok, _} =
+        PortfolioPositions.calculate_and_upsert_positions_for_asset(held_asset.id, user.id)
+
+      result = Irr.calculate_asset_irrs(user.id, [held_asset.id, unheld_asset.id])
+
+      assert {:ok, _rate} = Map.fetch!(result, held_asset.id)
+      assert Map.fetch!(result, unheld_asset.id) == {:error, :no_position}
+    end
+  end
+
   describe "calculate_portfolio_irr/1" do
     @tag :capture_log
     test "converts each historical flow at its own date's rate, includes dividend income, and contributes $0 for a fully-divested asset" do
@@ -232,13 +332,16 @@ defmodule Boonorbust2.IrrTest do
     user
   end
 
-  defp create_asset(currency) do
-    {:ok, asset} =
-      Assets.create_asset(%{
-        code: "ASSET#{System.unique_integer([:positive])}",
-        name: "Test Asset",
-        currency: currency
-      })
+  defp create_asset(currency, price \\ nil) do
+    attrs = %{
+      code: "ASSET#{System.unique_integer([:positive])}",
+      name: "Test Asset",
+      currency: currency
+    }
+
+    attrs = if price, do: Map.put(attrs, :price, price), else: attrs
+
+    {:ok, asset} = Assets.create_asset(attrs)
 
     asset
   end

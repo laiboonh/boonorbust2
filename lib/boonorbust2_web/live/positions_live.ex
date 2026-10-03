@@ -3,6 +3,7 @@ defmodule Boonorbust2Web.PositionsLive do
 
   alias Boonorbust2.Assets
   alias Boonorbust2.Dashboard
+  alias Boonorbust2.Irr
   alias Boonorbust2.PortfolioPositions
   alias Boonorbust2.RealizedProfits
 
@@ -239,6 +240,34 @@ defmodule Boonorbust2Web.PositionsLive do
             </div>
           </div>
         <% end %>
+        <.async_result :let={asset_irrs} assign={@asset_irrs}>
+          <:loading>
+            <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
+              <p class="text-xs text-gray-500">Annualized Return</p>
+              <p class="text-xs text-gray-400">Calculating...</p>
+            </div>
+          </:loading>
+          <:failed :let={_reason}>
+            <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
+              <p class="text-xs text-gray-500">Annualized Return</p>
+              <p class="text-xs text-gray-400">N/A</p>
+            </div>
+          </:failed>
+          <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
+            <p class="text-xs text-gray-500">Annualized Return</p>
+            <%= case Map.get(asset_irrs, @position.asset.id) do %>
+              <% {:ok, rate} -> %>
+                <p class={[
+                  "text-base font-bold",
+                  if(rate >= 0, do: "text-emerald-600", else: "text-red-600")
+                ]}>
+                  {format_irr_percentage(rate)}
+                </p>
+              <% _ -> %>
+                <p class="text-xs text-gray-400">N/A</p>
+            <% end %>
+          </div>
+        </.async_result>
       </div>
 
       <p class="text-xs text-gray-400 mt-3">
@@ -253,6 +282,15 @@ defmodule Boonorbust2Web.PositionsLive do
 
   defp reload_data(socket) do
     %{user_id: user_id, user_currency: user_currency, filter: filter} = socket.assigns
-    assign(socket, Dashboard.load_positions_data(user_id, user_currency, filter))
+    data = Dashboard.load_positions_data(user_id, user_currency, filter)
+    asset_ids = Enum.map(data.positions, & &1.asset_id)
+
+    socket
+    |> assign(data)
+    |> assign_async(:asset_irrs, fn ->
+      {:ok, %{asset_irrs: Irr.calculate_asset_irrs(user_id, asset_ids)}}
+    end)
   end
+
+  defp format_irr_percentage(rate), do: "#{Float.round(rate * 100, 2)}%"
 end

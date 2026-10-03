@@ -114,6 +114,82 @@ defmodule Boonorbust2.Irr do
     end
   end
 
+  @doc """
+  Computes the XIRR of a single asset's position for a user.
+
+  Unlike `calculate_portfolio_irr/1`, no currency conversion is needed: every
+  `PortfolioTransaction` and dividend-income `RealizedProfit` for a given asset is already
+  recorded in that asset's own currency, so flows are used as-is.
+
+  Assembles cash flows from the asset's buy/sell transactions (dated at `transaction_date`),
+  its dividend-income records (dated at the dividend's `pay_date`), and today's position value
+  (quantity on hand times the asset's live price) as a final terminal inflow.
+
+  Returns `{:ok, rate}` or `{:error, reason}` from `xirr/2` unchanged, or `{:error, :no_position}`
+  if the user holds no position in the asset, or `{:error, :no_price}` if the asset has no live
+  price to value the terminal flow with.
+  """
+  @spec calculate_asset_irr(String.t(), integer()) :: {:ok, float()} | {:error, term()}
+  def calculate_asset_irr(user_id, asset_id) when is_binary(user_id) and is_integer(asset_id) do
+    with {:ok, terminal_flow} <- asset_terminal_cash_flow(user_id, asset_id) do
+      transaction_flows = asset_transaction_cash_flows(user_id, asset_id)
+      dividend_flows = asset_dividend_cash_flows(user_id, asset_id)
+
+      xirr(transaction_flows ++ dividend_flows ++ [terminal_flow])
+    end
+  end
+
+  @doc """
+  Computes `calculate_asset_irr/2` for each of a user's asset IDs.
+
+  Returns a map of `asset_id => {:ok, rate} | {:error, reason}`, letting callers (e.g. the
+  Positions page) fetch every card's annualized return in a single batch.
+  """
+  @spec calculate_asset_irrs(String.t(), [integer()]) :: %{
+          integer() => {:ok, float()} | {:error, term()}
+        }
+  def calculate_asset_irrs(user_id, asset_ids) when is_binary(user_id) and is_list(asset_ids) do
+    asset_ids
+    |> Enum.map(fn asset_id -> {asset_id, calculate_asset_irr(user_id, asset_id)} end)
+    |> Map.new()
+  end
+
+  defp asset_transaction_cash_flows(user_id, asset_id) do
+    user_id
+    |> PortfolioTransactions.list_all_for_user_and_asset(asset_id)
+    |> Enum.map(fn transaction ->
+      date = DateTime.to_date(transaction.transaction_date)
+      {date, signed_amount(transaction.action, transaction.amount)}
+    end)
+  end
+
+  defp asset_dividend_cash_flows(user_id, asset_id) do
+    user_id
+    |> RealizedProfits.list_dividend_income_by_user_and_asset(asset_id)
+    |> Enum.map(fn realized_profit ->
+      {realized_profit.dividend.pay_date, realized_profit.amount.amount}
+    end)
+  end
+
+  defp asset_terminal_cash_flow(user_id, asset_id) do
+    case PortfolioPositions.get_latest_position_for_asset(asset_id, user_id) do
+      nil ->
+        {:error, :no_position}
+
+      %{asset: %{price: nil}} ->
+        {:error, :no_price}
+
+      position ->
+        total_value =
+          Money.new!(
+            Decimal.mult(position.quantity_on_hand, position.asset.price),
+            position.amount_on_hand.currency
+          )
+
+        {:ok, {Date.utc_today(), total_value.amount}}
+    end
+  end
+
   defp benchmark_net_units(flows, user_currency) do
     flows
     |> Enum.reduce_while({:ok, Decimal.new(0)}, fn {date, amount}, {:ok, net_units} ->

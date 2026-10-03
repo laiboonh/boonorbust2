@@ -253,6 +253,72 @@ defmodule Boonorbust2Web.PositionsLiveTest do
     end
   end
 
+  describe "annualized return" do
+    test "shows the computed XIRR once the async calculation resolves", %{conn: conn, user: user} do
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: %{"data" => [%{"close" => 150.00}]}}}
+      end)
+
+      {:ok, asset} =
+        Boonorbust2.Assets.create_asset(%{
+          name: "Returning Asset",
+          price_url: "https://api.marketstack.com/test",
+          currency: "USD"
+        })
+
+      {:ok, _transaction} =
+        Boonorbust2.PortfolioTransactions.create_portfolio_transaction(%{
+          "asset_id" => asset.id,
+          "user_id" => user.id,
+          "action" => "buy",
+          "quantity" => "10",
+          "price" => "100.00",
+          "currency" => "USD",
+          "commission" => "0",
+          "transaction_date" => ~U[2024-01-01 00:00:00Z]
+        })
+
+      Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
+
+      {:ok, view, _html} = live(conn, ~p"/positions")
+
+      html = render_async(view)
+
+      assert html =~ "Annualized Return"
+      assert html =~ ~r/\d+(\.\d+)?%/
+      refute html =~ "Calculating..."
+    end
+
+    test "shows N/A when the asset has no live price to value the position with", %{
+      conn: conn,
+      user: user
+    } do
+      {:ok, asset} = Boonorbust2.Assets.create_asset(%{name: "No Price Asset", currency: "USD"})
+
+      {:ok, _transaction} =
+        Boonorbust2.PortfolioTransactions.create_portfolio_transaction(%{
+          "asset_id" => asset.id,
+          "user_id" => user.id,
+          "action" => "buy",
+          "quantity" => "10",
+          "price" => "100.00",
+          "currency" => "USD",
+          "commission" => "0",
+          "transaction_date" => ~U[2024-01-01 00:00:00Z]
+        })
+
+      Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
+
+      {:ok, view, _html} = live(conn, ~p"/positions")
+
+      html = render_async(view)
+
+      assert html =~ "Annualized Return"
+      assert html =~ "N/A"
+    end
+  end
+
   describe "sorting" do
     test "positions sorted by converted total value descending", %{conn: conn, user: user} do
       HTTPClientMock

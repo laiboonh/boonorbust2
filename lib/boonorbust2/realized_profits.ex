@@ -141,6 +141,31 @@ defmodule Boonorbust2.RealizedProfits do
     |> Repo.all()
   end
 
+  @doc """
+  Lists dividend income realized profits for a user and asset, with the dividend preloaded.
+
+  Same purpose and `pay_date` filtering as `list_dividend_income_by_user/1`, scoped to a
+  single asset — used for per-asset cash-flow assembly (e.g.
+  `Boonorbust2.Irr.calculate_asset_irr/2`).
+  """
+  @spec list_dividend_income_by_user_and_asset(String.t(), integer()) :: [RealizedProfit.t()]
+  def list_dividend_income_by_user_and_asset(user_id, asset_id)
+      when is_binary(user_id) and is_integer(asset_id) do
+    today = Date.utc_today()
+
+    from(rp in RealizedProfit,
+      join: d in assoc(rp, :dividend),
+      where:
+        rp.user_id == ^user_id and
+          rp.asset_id == ^asset_id and
+          not is_nil(rp.dividend_id) and
+          not is_nil(d.pay_date) and
+          d.pay_date <= ^today,
+      preload: [dividend: d]
+    )
+    |> Repo.all()
+  end
+
   @spec delete_realized_profit(RealizedProfit.t()) ::
           {:ok, RealizedProfit.t()} | {:error, Ecto.Changeset.t()}
   def delete_realized_profit(%RealizedProfit{} = realized_profit) do
