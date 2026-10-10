@@ -9,6 +9,8 @@ defmodule Boonorbust2.Assets do
   alias Boonorbust2.Assets.Asset
   alias Boonorbust2.Repo
 
+  @type asset_failure :: %{asset_name: String.t(), type: :price | :dividend, reason: String.t()}
+
   @spec list_assets(keyword()) :: [Asset.t()]
   def list_assets(opts \\ []) when is_list(opts) do
     filter = Keyword.get(opts, :filter, nil)
@@ -478,6 +480,13 @@ defmodule Boonorbust2.Assets do
     end)
   end
 
+  @spec format_failure_reason(Ecto.Changeset.t() | String.t() | term()) :: String.t()
+  defp format_failure_reason(%Ecto.Changeset{} = changeset),
+    do: format_changeset_errors(changeset)
+
+  defp format_failure_reason(reason) when is_binary(reason), do: reason
+  defp format_failure_reason(reason), do: inspect(reason)
+
   @spec log_timeout_warning(list(Asset.t()), String.t()) :: :ok
   defp log_timeout_warning([], _operation_type), do: :ok
 
@@ -511,7 +520,8 @@ defmodule Boonorbust2.Assets do
              prices_success: non_neg_integer(),
              prices_errors: non_neg_integer(),
              dividends_success: non_neg_integer(),
-             dividends_errors: non_neg_integer()
+             dividends_errors: non_neg_integer(),
+             failures: [asset_failure()]
            }}
   def update_all_asset_data do
     Logger.info("Starting update_all_asset_data")
@@ -554,18 +564,25 @@ defmodule Boonorbust2.Assets do
     )
 
     non_rate_limited_results =
-      Enum.map(non_rate_limited_raw_results, fn
-        {:ok, result} -> result
-        {:exit, :timeout} -> {:error, :error}
+      non_rate_limited_raw_results
+      |> Enum.zip(non_rate_limited_assets)
+      |> Enum.map(fn
+        {{:ok, result}, _asset} ->
+          result
+
+        {{:exit, :timeout}, asset} ->
+          {:error, :error,
+           [%{asset_name: asset.name, type: :price, reason: "Operation timed out"}]}
       end)
 
     results = non_rate_limited_results ++ rate_limited_results
 
     result = %{
-      prices_success: Enum.count(results, fn {p, _} -> p == :fetched end),
-      prices_errors: Enum.count(results, fn {p, _} -> p == :error end),
-      dividends_success: Enum.count(results, fn {_, d} -> d == :synced end),
-      dividends_errors: Enum.count(results, fn {_, d} -> d == :error end)
+      prices_success: Enum.count(results, fn {p, _, _} -> p == :fetched end),
+      prices_errors: Enum.count(results, fn {p, _, _} -> p == :error end),
+      dividends_success: Enum.count(results, fn {_, d, _} -> d == :synced end),
+      dividends_errors: Enum.count(results, fn {_, d, _} -> d == :error end),
+      failures: Enum.flat_map(results, fn {_, _, f} -> f end)
     }
 
     Logger.info(
@@ -614,7 +631,8 @@ defmodule Boonorbust2.Assets do
   # rate-limited, the rest are skipped for this run instead of being attempted (and
   # burning quota on a request that's very likely to fail too).
   @spec process_rate_limited_assets([Asset.t()]) ::
-          {[{:fetched | :skipped | :error, :synced | :skipped | :error}], [Asset.t()]}
+          {[{:fetched | :skipped | :error, :synced | :skipped | :error, [asset_failure()]}],
+           [Asset.t()]}
   defp process_rate_limited_assets(assets) do
     {results, timed_out, _rate_limited?, _last_request_at} =
       Enum.reduce(assets, {[], [], false, nil}, &process_rate_limited_asset/2)
@@ -627,7 +645,7 @@ defmodule Boonorbust2.Assets do
       "Skipping rate-limited update for asset: #{asset.name} (ID: #{asset.id}) — rate limit hit earlier this run"
     )
 
-    {[{:skipped, :skipped} | results], timed_out, true, last_request_at}
+    {[{:skipped, :skipped, []} | results], timed_out, true, last_request_at}
   end
 
   defp process_rate_limited_asset(asset, {results, timed_out, false, last_request_at}) do
@@ -638,8 +656,8 @@ defmodule Boonorbust2.Assets do
     task = Task.async(fn -> update_asset_data_with_price_reason(asset) end)
 
     case Task.yield(task, 30_000) || Task.shutdown(task, :brutal_kill) do
-      {:ok, {price_result, div_result, reason}} ->
-        if rate_limited?(reason) do
+      {:ok, {price_result, div_result, price_reason, failures}} ->
+        if rate_limited?(price_reason) do
           Logger.warning(
             "Rate limit hit on asset: #{asset.name} (ID: #{asset.id}) — skipping remaining rate-limited assets for this run"
           )
@@ -648,11 +666,15 @@ defmodule Boonorbust2.Assets do
         new_last_request_at =
           if will_fetch_price?, do: System.monotonic_time(:millisecond), else: last_request_at
 
-        {[{price_result, div_result} | results], timed_out, rate_limited?(reason),
+        {[{price_result, div_result, failures} | results], timed_out, rate_limited?(price_reason),
          new_last_request_at}
 
       nil ->
-        {[{:error, :error} | results], [asset | timed_out], false, last_request_at}
+        {[
+           {:error, :error,
+            [%{asset_name: asset.name, type: :price, reason: "Operation timed out"}]}
+           | results
+         ], [asset | timed_out], false, last_request_at}
     end
   end
 
@@ -671,24 +693,41 @@ defmodule Boonorbust2.Assets do
   # Same as update_asset_data/1 but also surfaces the price fetch failure reason, so
   # the rate-limit circuit breaker can detect a rate limit without re-fetching.
   @spec update_asset_data_with_price_reason(Asset.t()) ::
-          {:fetched | :skipped | :error, :synced | :skipped | :error, String.t() | nil}
+          {:fetched | :skipped | :error, :synced | :skipped | :error, String.t() | nil,
+           [asset_failure()]}
   defp update_asset_data_with_price_reason(asset) do
     needs_price? = should_update_price?(asset)
     needs_dividends? = should_update_dividends?(asset)
 
-    {price_result, reason} =
+    {price_result, price_reason} =
       if needs_price?, do: run_price_update_with_reason(asset), else: {:skipped, nil}
 
-    div_result = if needs_dividends?, do: run_dividend_sync(asset), else: :skipped
+    {div_result, div_reason} =
+      if needs_dividends?, do: run_dividend_sync(asset), else: {:skipped, nil}
 
-    {price_result, div_result, reason}
+    failures =
+      []
+      |> maybe_add_failure(price_result == :error, asset, :price, price_reason)
+      |> maybe_add_failure(div_result == :error, asset, :dividend, div_reason)
+
+    {price_result, div_result, price_reason, failures}
+  end
+
+  @spec maybe_add_failure([asset_failure()], boolean(), Asset.t(), :price | :dividend, term()) ::
+          [asset_failure()]
+  defp maybe_add_failure(failures, false, _asset, _type, _reason), do: failures
+
+  defp maybe_add_failure(failures, true, asset, type, reason) do
+    reason_text = if reason, do: format_failure_reason(reason), else: "Unknown error"
+    [%{asset_name: asset.name, type: type, reason: reason_text} | failures]
   end
 
   # Per-asset update function run by the scheduled job.
-  # Returns {price_result, dividend_result} where each is :fetched/:synced/:skipped/:error.
+  # Returns {price_result, dividend_result, failures} where price_result/dividend_result
+  # are :fetched|:synced/:skipped/:error, and failures lists any per-asset error details.
   # Uses a single HTTP call when both are due and the URL supports combined fetch.
   @spec update_asset_data(Asset.t()) ::
-          {:fetched | :skipped | :error, :synced | :skipped | :error}
+          {:fetched | :skipped | :error, :synced | :skipped | :error, [asset_failure()]}
   defp update_asset_data(asset) do
     needs_price? = should_update_price?(asset)
     needs_dividends? = should_update_dividends?(asset)
@@ -700,26 +739,35 @@ defmodule Boonorbust2.Assets do
             "Successfully updated price and dividends for asset: #{asset.name} (ID: #{asset.id})"
           )
 
-          {:fetched, :synced}
+          {:fetched, :synced, []}
 
         {:error, reason} ->
+          reason_text = format_failure_reason(reason)
+
           Logger.error(
-            "Failed combined update for asset: #{asset.name} (ID: #{asset.id}). Reason: #{inspect(reason)}"
+            "Failed combined update for asset: #{asset.name} (ID: #{asset.id}). Reason: #{reason_text}"
           )
 
-          {:error, :error}
+          {:error, :error,
+           [
+             %{asset_name: asset.name, type: :price, reason: reason_text},
+             %{asset_name: asset.name, type: :dividend, reason: reason_text}
+           ]}
       end
     else
-      price_result = if needs_price?, do: run_price_update(asset), else: :skipped
-      div_result = if needs_dividends?, do: run_dividend_sync(asset), else: :skipped
-      {price_result, div_result}
-    end
-  end
+      {price_result, price_reason} =
+        if needs_price?, do: run_price_update_with_reason(asset), else: {:skipped, nil}
 
-  @spec run_price_update(Asset.t()) :: :fetched | :error
-  defp run_price_update(asset) do
-    {result, _reason} = run_price_update_with_reason(asset)
-    result
+      {div_result, div_reason} =
+        if needs_dividends?, do: run_dividend_sync(asset), else: {:skipped, nil}
+
+      failures =
+        []
+        |> maybe_add_failure(price_result == :error, asset, :price, price_reason)
+        |> maybe_add_failure(div_result == :error, asset, :dividend, div_reason)
+
+      {price_result, div_result, failures}
+    end
   end
 
   # Same as run_price_update/1 but also surfaces the raw failure reason, so callers
@@ -737,11 +785,13 @@ defmodule Boonorbust2.Assets do
             {:fetched, nil}
 
           {:error, changeset} ->
+            reason_text = format_failure_reason(changeset)
+
             Logger.error(
-              "Failed to fetch price for asset: #{asset.name} (ID: #{asset.id}). Errors: #{format_changeset_errors(changeset)}"
+              "Failed to fetch price for asset: #{asset.name} (ID: #{asset.id}). Errors: #{reason_text}"
             )
 
-            {:error, nil}
+            {:error, reason_text}
         end
 
       {:error, reason} ->
@@ -753,19 +803,21 @@ defmodule Boonorbust2.Assets do
     end
   end
 
-  @spec run_dividend_sync(Asset.t()) :: :synced | :error
+  @spec run_dividend_sync(Asset.t()) :: {:synced | :error, String.t() | nil}
   defp run_dividend_sync(asset) do
     case sync_and_save_dividends(asset) do
       {:ok, _} ->
         Logger.info("Successfully synced dividends for asset: #{asset.name} (ID: #{asset.id})")
-        :synced
+        {:synced, nil}
 
       {:error, reason} ->
+        reason_text = format_failure_reason(reason)
+
         Logger.error(
-          "Failed to sync dividends for asset: #{asset.name} (ID: #{asset.id}). Reason: #{inspect(reason)}"
+          "Failed to sync dividends for asset: #{asset.name} (ID: #{asset.id}). Reason: #{reason_text}"
         )
 
-        :error
+        {:error, reason_text}
     end
   end
 
@@ -811,5 +863,15 @@ defmodule Boonorbust2.Assets do
     else
       "Successfully updated #{prices_success} prices and #{dividends_success} dividends"
     end
+  end
+
+  @doc """
+  Formats the per-asset failures from update_all_asset_data/0 into human-readable strings.
+  """
+  @spec format_failure_list([asset_failure()]) :: [String.t()]
+  def format_failure_list(failures) do
+    Enum.map(failures, fn %{asset_name: name, type: type, reason: reason} ->
+      "#{name} (#{type}): #{reason}"
+    end)
   end
 end

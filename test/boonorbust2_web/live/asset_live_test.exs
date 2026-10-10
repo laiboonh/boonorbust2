@@ -394,6 +394,25 @@ defmodule Boonorbust2Web.AssetLiveTest do
       refute has_element?(view, ~s|button[phx-click="update_all_prices"][disabled]|)
       assert Assets.get_asset!(asset.id).price
     end
+
+    @tag :capture_log
+    test "shows which asset failed when a price update fails", %{
+      admin_conn: conn,
+      regular_user: regular_user
+    } do
+      create_stale_held_asset(regular_user)
+
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts -> {:ok, %{status: 500}} end)
+
+      {:ok, view, _html} = live(conn, ~p"/assets")
+
+      view |> element(~s|button[phx-click="update_all_prices"]|) |> render_click()
+
+      html = render_async(view)
+      assert html =~ "Failed items:"
+      assert html =~ "Stale Stock (price)"
+    end
   end
 
   defp create_stale_held_asset(user) do

@@ -53,6 +53,17 @@
         <% nil -> %>
       <% end %>
 
+      <%= if @update_failures != [] do %>
+        <div class="mb-4 p-3 bg-yellow-50 border border-yellow-300 text-yellow-800 rounded text-sm">
+          <p class="font-semibold mb-1">Failed items:</p>
+          <ul class="list-disc list-inside">
+            <%= for failure <- @update_failures do %>
+              <li>{failure}</li>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+
       <!-- Filter Form -->
       <form phx-submit="filter" class="mb-4">
         <div class="flex gap-2">

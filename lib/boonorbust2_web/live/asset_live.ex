@@ -22,6 +22,7 @@ defmodule Boonorbust2Web.AssetLive do
       |> assign(:tags_modal, nil)
       |> assign(:asset_tags_map, %{})
       |> assign(:update_result, nil)
+      |> assign(:update_failures, [])
       |> assign(:updating_prices, false)
 
     {:ok, socket}
@@ -46,7 +47,8 @@ defmodule Boonorbust2Web.AssetLive do
          dividend_withholding_tax: nil
        },
        form_errors: nil,
-       update_result: nil
+       update_result: nil,
+       update_failures: []
      )}
   end
 
@@ -69,7 +71,8 @@ defmodule Boonorbust2Web.AssetLive do
            )
        },
        form_errors: nil,
-       update_result: nil
+       update_result: nil,
+       update_failures: []
      )}
   end
 
@@ -146,7 +149,7 @@ defmodule Boonorbust2Web.AssetLive do
   def handle_event("update_all_prices", _params, socket) do
     socket =
       socket
-      |> assign(update_result: nil, updating_prices: true)
+      |> assign(update_result: nil, update_failures: [], updating_prices: true)
       |> start_async(:update_all_prices, fn -> Assets.update_all_asset_data() end)
 
     {:noreply, socket}
@@ -237,6 +240,7 @@ defmodule Boonorbust2Web.AssetLive do
       socket
       |> assign(
         update_result: {:ok, Assets.format_update_result_message(result)},
+        update_failures: Assets.format_failure_list(result.failures),
         updating_prices: false
       )
       |> reload_assets()
@@ -250,6 +254,7 @@ defmodule Boonorbust2Web.AssetLive do
     {:noreply,
      assign(socket,
        update_result: {:error, "Failed to update prices and dividends. Please try again."},
+       update_failures: [],
        updating_prices: false
      )}
   end

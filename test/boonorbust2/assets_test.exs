@@ -1148,6 +1148,8 @@ defmodule Boonorbust2.AssetsTest do
 
       assert result.prices_errors == 1
       assert result.prices_success == 0
+      assert [%{asset_name: "Price Fail Asset", type: :price, reason: reason}] = result.failures
+      assert reason =~ "500"
     end
 
     @tag :capture_log
@@ -1242,6 +1244,10 @@ defmodule Boonorbust2.AssetsTest do
       assert result.dividends_errors == 1
       assert result.dividends_success == 0
       assert result.prices_success == 0
+      assert [%{asset_name: "Div Error Asset", type: :dividend, reason: reason}] = result.failures
+      assert reason != ""
+
+      refute reason =~ "#Ecto.Changeset"
     end
 
     @tag :capture_log
@@ -1282,6 +1288,60 @@ defmodule Boonorbust2.AssetsTest do
       assert result.dividends_errors == 1
       assert result.prices_success == 0
       assert result.dividends_success == 0
+
+      assert [dividend_failure, price_failure] =
+               Enum.sort_by(result.failures, & &1.type)
+
+      assert %{asset_name: "Combined Error Asset", type: :dividend} = dividend_failure
+      assert %{asset_name: "Combined Error Asset", type: :price} = price_failure
+    end
+
+    @tag :capture_log
+    test "failures list identifies each distinct failing asset correctly under concurrency" do
+      {:ok, user} =
+        Boonorbust2.Accounts.create_user(%{
+          email: "user_multi_fail@example.com",
+          name: "User",
+          provider: "google",
+          uid: "uid_multi_fail",
+          currency: "USD"
+        })
+
+      {:ok, asset_a} = Assets.create_asset(%{name: "Multi Fail A", currency: "USD"})
+
+      asset_a =
+        asset_a
+        |> Ecto.Changeset.change(%{
+          price_url: "https://api.marketstack.com/multifaila",
+          prices_synced_at: nil
+        })
+        |> Repo.update!()
+
+      setup_asset_with_holdings(asset_a, user)
+
+      {:ok, asset_b} = Assets.create_asset(%{name: "Multi Fail B", currency: "USD"})
+
+      asset_b =
+        asset_b
+        |> Ecto.Changeset.change(%{
+          price_url: "https://api.marketstack.com/multifailb",
+          prices_synced_at: nil
+        })
+        |> Repo.update!()
+
+      setup_asset_with_holdings(asset_b, user)
+
+      HTTPClientMock
+      |> expect(:get, 2, fn _url, _opts -> {:ok, %{status: 500}} end)
+
+      {:ok, result} = Assets.update_all_asset_data()
+
+      assert result.prices_errors == 2
+
+      assert Enum.map(result.failures, & &1.asset_name) |> Enum.sort() == [
+               "Multi Fail A",
+               "Multi Fail B"
+             ]
     end
 
     @tag :capture_log
@@ -1616,6 +1676,10 @@ defmodule Boonorbust2.AssetsTest do
 
       assert result.prices_errors == 1
       assert result.prices_success == 0
+
+      assert [%{type: :price, asset_name: asset_name, reason: reason}] = result.failures
+      assert asset_name in ["AV Asset 1", "AV Asset 2"]
+      assert reason =~ "Rate limit reached"
     end
 
     @tag :capture_log
@@ -1772,6 +1836,24 @@ defmodule Boonorbust2.AssetsTest do
       # Sequential would be ~250ms (non-rate-limited) + ~200ms (rate-limited throttle) = ~450ms+.
       # Concurrent should be close to max(250ms, 200ms) = ~250ms.
       assert elapsed < 400
+    end
+  end
+
+  describe "format_failure_list/1" do
+    test "formats each failure as an asset name, type, and reason" do
+      failures = [
+        %{asset_name: "Asset A", type: :price, reason: "HTTP 500"},
+        %{asset_name: "Asset B", type: :dividend, reason: "timeout"}
+      ]
+
+      assert Assets.format_failure_list(failures) == [
+               "Asset A (price): HTTP 500",
+               "Asset B (dividend): timeout"
+             ]
+    end
+
+    test "returns an empty list when there are no failures" do
+      assert Assets.format_failure_list([]) == []
     end
   end
 end
