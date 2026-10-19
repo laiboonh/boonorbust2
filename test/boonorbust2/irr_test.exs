@@ -5,6 +5,7 @@ defmodule Boonorbust2.IrrTest do
 
   alias Boonorbust2.Accounts
   alias Boonorbust2.Assets
+  alias Boonorbust2.Currency
   alias Boonorbust2.Dividends
   alias Boonorbust2.HTTPClientMock
   alias Boonorbust2.Irr
@@ -373,8 +374,7 @@ defmodule Boonorbust2.IrrTest do
   end
 
   defp expect_historical_rate(date, base_currency, rates) do
-    url =
-      "https://api.frankfurter.dev/v2/rates?date=#{Date.to_iso8601(date)}&base=#{base_currency}"
+    url = historical_rate_url(date, base_currency)
 
     response_body =
       Enum.map(rates, fn {quote_currency, rate} ->
@@ -391,11 +391,16 @@ defmodule Boonorbust2.IrrTest do
   end
 
   defp expect_historical_rate_error(date, base_currency) do
-    url =
-      "https://api.frankfurter.dev/v2/rates?date=#{Date.to_iso8601(date)}&base=#{base_currency}"
+    url = historical_rate_url(date, base_currency)
 
     HTTPClientMock
     |> expect(:get, fn ^url, _opts -> {:error, :network_error} end)
+  end
+
+  defp historical_rate_url(date, base_currency) do
+    quotes = Currency.supported_currencies() |> List.delete(base_currency) |> Enum.join(",")
+
+    "https://api.frankfurter.dev/v2/rates?date=#{Date.to_iso8601(date)}&base=#{base_currency}&quotes=#{quotes}"
   end
 
   defp seed_live_usd_rate(rate) do

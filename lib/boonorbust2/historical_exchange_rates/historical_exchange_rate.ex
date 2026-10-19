@@ -2,7 +2,7 @@ defmodule Boonorbust2.HistoricalExchangeRates.HistoricalExchangeRate do
   @moduledoc """
   Schema and changeset functions for historical exchange rates.
 
-  Stores the full quotes map fetched from Frankfurter for a given date and
+  Stores the quotes map (supported currencies only) fetched from Frankfurter for a given date and
   base currency. The combination of date and base_currency is unique.
   """
 

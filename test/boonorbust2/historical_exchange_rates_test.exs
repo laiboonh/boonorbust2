@@ -3,8 +3,11 @@ defmodule Boonorbust2.HistoricalExchangeRatesTest do
 
   import Mox
 
+  alias Boonorbust2.Currency
   alias Boonorbust2.HistoricalExchangeRates
+  alias Boonorbust2.HistoricalExchangeRates.HistoricalExchangeRate
   alias Boonorbust2.HTTPClientMock
+  alias Boonorbust2.Repo
 
   @date ~D[2024-01-15]
   @other_date ~D[2024-01-16]
@@ -12,13 +15,17 @@ defmodule Boonorbust2.HistoricalExchangeRatesTest do
     "SGD" => 1.35,
     "EUR" => 0.92,
     "GBP" => 0.79,
-    "HKD" => 7.85
+    "JPY" => 148.2,
+    "HKD" => 7.85,
+    "THB" => 35.1
   }
   @sgd_rates %{
     "USD" => 0.74,
     "EUR" => 0.68,
     "GBP" => 0.58,
-    "HKD" => 5.81
+    "JPY" => 109.8,
+    "HKD" => 5.81,
+    "THB" => 26.0
   }
 
   setup :verify_on_exit!
@@ -79,6 +86,31 @@ defmodule Boonorbust2.HistoricalExchangeRatesTest do
     end
 
     @tag :capture_log
+    test "refetches and overwrites a persisted row missing a supported currency" do
+      incomplete_rates = Map.delete(@usd_rates, "THB")
+      persist_rates(@date, "USD", incomplete_rates)
+
+      expect_api_call(@date, "USD", @usd_rates)
+      assert {:ok, rates} = HistoricalExchangeRates.get_rates(@date, "USD")
+      assert rates == @usd_rates
+
+      assert %HistoricalExchangeRate{rates: ^rates} =
+               Repo.get_by(HistoricalExchangeRate, date: @date, base_currency: "USD")
+
+      # Row is now complete — no further API calls
+      assert {:ok, ^rates} = HistoricalExchangeRates.get_rates(@date, "USD")
+    end
+
+    @tag :capture_log
+    test "uses a persisted row with extra unsupported currencies without refetching" do
+      legacy_rates = Map.put(@usd_rates, "AUD", 1.52)
+      persist_rates(@date, "USD", legacy_rates)
+
+      assert {:ok, rates} = HistoricalExchangeRates.get_rates(@date, "USD")
+      assert rates == legacy_rates
+    end
+
+    @tag :capture_log
     test "handles API errors" do
       mock_api_error(@date, "USD", 400)
 
@@ -123,7 +155,15 @@ defmodule Boonorbust2.HistoricalExchangeRatesTest do
   # Helper functions
 
   defp expected_url(date, currency) do
-    "https://api.frankfurter.dev/v2/rates?date=#{Date.to_iso8601(date)}&base=#{currency}"
+    quotes = Currency.supported_currencies() |> List.delete(currency) |> Enum.join(",")
+
+    "https://api.frankfurter.dev/v2/rates?date=#{Date.to_iso8601(date)}&base=#{currency}&quotes=#{quotes}"
+  end
+
+  defp persist_rates(date, currency, rates) do
+    %HistoricalExchangeRate{}
+    |> HistoricalExchangeRate.changeset(%{date: date, base_currency: currency, rates: rates})
+    |> Repo.insert!()
   end
 
   defp expect_api_call(date, currency, rates) do

@@ -5,13 +5,15 @@ defmodule Boonorbust2.HistoricalExchangeRates do
   Unlike `Boonorbust2.ExchangeRates` (which caches the current rate with a
   1-hour TTL), historical rates never change once published, so they are
   persisted forever in the `historical_exchange_rates` table, keyed on
-  `(date, base_currency)`.
+  `(date, base_currency)`. Only the app's supported currencies are fetched
+  and stored.
   """
 
   require Logger
 
   import Ecto.Query, warn: false
 
+  alias Boonorbust2.Currency
   alias Boonorbust2.HistoricalExchangeRates.HistoricalExchangeRate
   alias Boonorbust2.Repo
 
@@ -19,7 +21,9 @@ defmodule Boonorbust2.HistoricalExchangeRates do
   Gets historical exchange rates for the given date and base currency.
 
   Returns the persisted quotes map if already fetched, otherwise fetches
-  from the Frankfurter API and persists the result forever.
+  from the Frankfurter API and persists the result forever. A persisted row
+  missing any currently supported currency (e.g. one added to the app after
+  the row was stored) is refetched and overwritten.
 
   Returns `{:ok, rates}` on success or `{:error, reason}` on failure. An
   empty response (e.g. a date far enough in the future that Frankfurter has
@@ -29,16 +33,25 @@ defmodule Boonorbust2.HistoricalExchangeRates do
   """
   @spec get_rates(Date.t(), String.t()) :: {:ok, map()} | {:error, term()}
   def get_rates(date, base_currency) when is_binary(base_currency) do
-    case get_persisted_rates(date, base_currency) do
-      %HistoricalExchangeRate{rates: rates} ->
-        {:ok, rates}
-
-      nil ->
-        fetch_and_persist_rates(date, base_currency)
+    with %HistoricalExchangeRate{rates: rates} <- get_persisted_rates(date, base_currency),
+         true <- covers_supported_currencies?(rates, base_currency) do
+      {:ok, rates}
+    else
+      _missing_or_incomplete -> fetch_and_persist_rates(date, base_currency)
     end
   end
 
   # Private Functions
+
+  defp covers_supported_currencies?(rates, base_currency) do
+    base_currency
+    |> quote_currencies()
+    |> Enum.all?(&Map.has_key?(rates, &1))
+  end
+
+  defp quote_currencies(base_currency) do
+    List.delete(Currency.supported_currencies(), base_currency)
+  end
 
   defp get_persisted_rates(date, base_currency) do
     Repo.get_by(HistoricalExchangeRate, date: date, base_currency: base_currency)
@@ -108,10 +121,15 @@ defmodule Boonorbust2.HistoricalExchangeRates do
 
     %HistoricalExchangeRate{}
     |> HistoricalExchangeRate.changeset(attrs)
-    |> Repo.insert(on_conflict: :nothing, conflict_target: [:date, :base_currency])
+    |> Repo.insert(
+      on_conflict: {:replace, [:rates, :updated_at]},
+      conflict_target: [:date, :base_currency]
+    )
   end
 
   defp get_api_url(date, base_currency) do
-    "https://api.frankfurter.dev/v2/rates?date=#{Date.to_iso8601(date)}&base=#{base_currency}"
+    quotes = base_currency |> quote_currencies() |> Enum.join(",")
+
+    "https://api.frankfurter.dev/v2/rates?date=#{Date.to_iso8601(date)}&base=#{base_currency}&quotes=#{quotes}"
   end
 end
