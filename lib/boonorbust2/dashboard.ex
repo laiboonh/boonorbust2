@@ -102,14 +102,19 @@ defmodule Boonorbust2.Dashboard do
   @doc """
   Loads all data needed to render the positions page in a single call.
 
-  Supports filtering positions by asset name or Tag name.
+  Supports filtering positions by asset name or Tag name. Positions with
+  zero quantity on hand (fully sold out) are excluded.
 
   Returns a map of assigns ready to be spread onto the LiveView socket.
   """
   @spec load_positions_data(String.t(), String.t(), String.t() | nil) :: positions_data()
   def load_positions_data(user_id, user_currency, filter \\ nil)
       when is_binary(user_id) and is_binary(user_currency) do
-    positions = PortfolioPositions.list_latest_positions(user_id, filter)
+    positions =
+      user_id
+      |> PortfolioPositions.list_latest_positions(filter)
+      |> Enum.reject(&Decimal.equal?(&1.quantity_on_hand, 0))
+
     realized_profits_by_asset = RealizedProfits.get_totals_by_asset(user_id)
     realized_profits_by_type = RealizedProfits.get_totals_by_asset_and_type(user_id)
 
