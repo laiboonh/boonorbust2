@@ -320,6 +320,7 @@ Hooks.ChartInit = {
         indexAxis: 'y',
         responsive: true,
         maintainAspectRatio: false,
+        interaction: { mode: 'y', intersect: false },
         plugins: {
           legend: { display: false },
           tooltip: {
