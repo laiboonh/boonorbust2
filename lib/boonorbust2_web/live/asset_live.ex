@@ -29,8 +29,13 @@ defmodule Boonorbust2Web.AssetLive do
   end
 
   @impl true
-  def handle_params(_params, _uri, socket) do
-    {:noreply, reload_assets(socket)}
+  def handle_params(params, _uri, socket) do
+    socket =
+      socket
+      |> assign(:filter, Map.get(params, "filter", socket.assigns.filter))
+      |> reload_assets()
+
+    {:noreply, socket}
   end
 
   @impl true

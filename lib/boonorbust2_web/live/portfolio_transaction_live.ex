@@ -28,12 +28,13 @@ defmodule Boonorbust2Web.PortfolioTransactionLive do
   end
 
   @impl true
-  def handle_params(_params, _uri, socket) do
-    %{user_id: user_id, filter: filter, page: page} = socket.assigns
+  def handle_params(params, _uri, socket) do
+    filter = Map.get(params, "filter", socket.assigns.filter)
+    %{user_id: user_id} = socket.assigns
 
     pagination =
       PortfolioTransactions.list_portfolio_transactions(
-        page: page,
+        page: 1,
         page_size: 10,
         filter: filter,
         user_id: user_id
@@ -41,6 +42,8 @@ defmodule Boonorbust2Web.PortfolioTransactionLive do
 
     socket =
       socket
+      |> assign(:filter, filter)
+      |> assign(:page, 1)
       |> assign(:assets, Assets.list_assets(sort: :name))
       |> assign(:page_number, pagination.page_number)
       |> assign(:total_pages, pagination.total_pages)
