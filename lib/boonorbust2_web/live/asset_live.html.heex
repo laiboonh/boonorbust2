@@ -105,7 +105,7 @@
                 <h3 class="font-semibold text-gray-900">{asset.name}</h3>
               </div>
               <%= if asset.price do %>
-                <p class="text-xl font-bold text-emerald-600">
+                <p class="text-xl font-bold text-gray-900">
                   {asset.currency} {Decimal.to_string(asset.price)}
                 </p>
               <% else %>
