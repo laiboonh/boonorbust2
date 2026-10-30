@@ -11,6 +11,10 @@ defmodule Boonorbust2.Assets do
 
   @type asset_failure :: %{asset_name: String.t(), type: :price | :dividend, reason: String.t()}
 
+  # How long a price/dividend sync stays fresh before should_update_price?/1 and
+  # should_update_dividends?/1 consider it due for another refresh.
+  @sync_interval_seconds 21_600
+
   @spec list_assets(keyword()) :: [Asset.t()]
   def list_assets(opts \\ []) when is_list(opts) do
     filter = Keyword.get(opts, :filter, nil)
@@ -416,7 +420,7 @@ defmodule Boonorbust2.Assets do
   defp should_update_price?(%Asset{prices_synced_at: nil}), do: true
 
   defp should_update_price?(%Asset{prices_synced_at: prices_synced_at}) do
-    DateTime.diff(DateTime.utc_now(), prices_synced_at, :second) >= 21_600
+    DateTime.diff(DateTime.utc_now(), prices_synced_at, :second) >= @sync_interval_seconds
   end
 
   @spec should_update_dividends?(Asset.t()) :: boolean()
@@ -425,7 +429,7 @@ defmodule Boonorbust2.Assets do
   defp should_update_dividends?(%Asset{dividends_synced_at: nil}), do: true
 
   defp should_update_dividends?(%Asset{dividends_synced_at: dividends_synced_at}) do
-    DateTime.diff(DateTime.utc_now(), dividends_synced_at, :second) >= 43_200
+    DateTime.diff(DateTime.utc_now(), dividends_synced_at, :second) >= @sync_interval_seconds
   end
 
   # Fetches price from URL, saves price + prices_synced_at. Used in both transaction and
@@ -496,6 +500,19 @@ defmodule Boonorbust2.Assets do
     Logger.warning(
       "#{length(timed_out_assets)} #{operation_type} timed out for assets: #{asset_names}"
     )
+  end
+
+  @doc """
+  Returns true if at least one held asset is due for a price or dividend
+  refresh, i.e. calling update_all_asset_data/0 would actually fetch something.
+  """
+  @spec any_asset_due_for_update?() :: boolean()
+  def any_asset_due_for_update? do
+    asset_ids_with_holdings = Boonorbust2.PortfolioPositions.get_asset_ids_with_holdings()
+
+    list_assets()
+    |> Enum.filter(fn asset -> asset.id in asset_ids_with_holdings end)
+    |> Enum.any?(fn asset -> should_update_price?(asset) or should_update_dividends?(asset) end)
   end
 
   @doc """

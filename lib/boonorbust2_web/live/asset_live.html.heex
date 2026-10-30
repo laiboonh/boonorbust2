@@ -20,7 +20,7 @@
 
           <button
             phx-click="update_all_prices"
-            disabled={@updating_prices}
+            disabled={@updating_prices or not @prices_due_for_update}
             class="flex-1 inline-flex justify-center items-center px-4 py-3 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
           >
             <svg

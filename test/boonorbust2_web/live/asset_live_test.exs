@@ -391,7 +391,7 @@ defmodule Boonorbust2Web.AssetLiveTest do
 
       html = render_async(view)
       assert html =~ "Successfully updated"
-      refute has_element?(view, ~s|button[phx-click="update_all_prices"][disabled]|)
+      assert has_element?(view, ~s|button[phx-click="update_all_prices"][disabled]|)
       assert Assets.get_asset!(asset.id).price
     end
 

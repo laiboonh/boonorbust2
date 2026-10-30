@@ -148,6 +148,14 @@ defmodule Boonorbust2Web.AssetLive do
     {:noreply, socket}
   end
 
+  def handle_event(
+        "update_all_prices",
+        _params,
+        %{assigns: %{prices_due_for_update: false}} = socket
+      ) do
+    {:noreply, socket}
+  end
+
   # Runs outside the LiveView process: a synchronous update can exceed the
   # client's 30s push timeout, which makes the browser hard-reload the page and
   # lose the result message.
@@ -272,6 +280,7 @@ defmodule Boonorbust2Web.AssetLive do
 
     socket
     |> assign(:asset_tags_map, asset_tags_map)
+    |> assign(:prices_due_for_update, Assets.any_asset_due_for_update?())
     |> stream(:assets, assets, reset: true)
   end
 
