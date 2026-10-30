@@ -142,6 +142,7 @@ defmodule Boonorbust2.Dashboard do
     - List of enriched position maps with added fields:
       - :total_value
       - :unrealized_profit
+      - :unrealized_profit_percent
       - :converted_total_value
       - :converted_total_cost
       - :converted_unrealized_profit
@@ -161,6 +162,31 @@ defmodule Boonorbust2.Dashboard do
       end,
       :desc
     )
+  end
+
+  @doc """
+  Calculates unrealized profit as a percentage of the amount on hand (cost basis).
+
+  ## Parameters
+    - unrealized_profit: Money struct representing the unrealized profit, or nil
+    - amount_on_hand: Money struct representing the cost basis
+
+  ## Returns
+    - Decimal percentage, or nil if unrealized_profit is nil or amount_on_hand is zero
+  """
+  @spec calculate_unrealized_profit_percent(Money.t() | nil, Money.t()) :: Decimal.t() | nil
+  def calculate_unrealized_profit_percent(unrealized_profit, amount_on_hand)
+
+  def calculate_unrealized_profit_percent(nil, _amount_on_hand), do: nil
+
+  def calculate_unrealized_profit_percent(unrealized_profit, amount_on_hand) do
+    if Decimal.equal?(amount_on_hand.amount, 0) do
+      nil
+    else
+      unrealized_profit.amount
+      |> Decimal.div(amount_on_hand.amount)
+      |> Decimal.mult(100)
+    end
   end
 
   @doc """
@@ -394,6 +420,9 @@ defmodule Boonorbust2.Dashboard do
         nil
       end
 
+    unrealized_profit_percent =
+      calculate_unrealized_profit_percent(unrealized_profit, position.amount_on_hand)
+
     tags = Map.get(tags_by_asset, position.asset_id, [])
 
     # Pre-compute "show native alongside converted" flags so the template doesn't
@@ -415,6 +444,7 @@ defmodule Boonorbust2.Dashboard do
     position
     |> Map.put(:total_value, total_value)
     |> Map.put(:unrealized_profit, unrealized_profit)
+    |> Map.put(:unrealized_profit_percent, unrealized_profit_percent)
     |> Map.put(:converted_total_value, converted_total_value)
     |> Map.put(:converted_total_cost, converted_total_cost)
     |> Map.put(:converted_unrealized_profit, converted_unrealized_profit)

@@ -119,13 +119,10 @@ defmodule Boonorbust2Web.PositionsLive do
               </path>
             </svg>
           </button>
-          <span class="bg-emerald-100 text-emerald-800 text-xs font-medium px-2.5 py-0.5 rounded">
-            {String.upcase(@position.portfolio_transaction.action)}
-          </span>
         </div>
       </div>
 
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-3 gap-3">
         <div>
           <p class="text-xs text-gray-500">Quantity</p>
           <p class="text-lg font-bold text-gray-900">
@@ -136,6 +133,19 @@ defmodule Boonorbust2Web.PositionsLive do
           <p class="text-xs text-gray-500">Avg Price</p>
           <p class="text-lg font-bold text-emerald-600">
             {Money.to_string!(@position.average_price, fractional_digits: 4)}
+          </p>
+        </div>
+        <div>
+          <p class="text-xs text-gray-500">Current Price</p>
+          <p class="text-lg font-bold text-gray-900">
+            <%= if @position.asset.price do %>
+              {Money.to_string!(
+                Money.new!(@position.asset.price, @position.average_price.currency),
+                fractional_digits: 4
+              )}
+            <% else %>
+              —
+            <% end %>
           </p>
         </div>
       </div>
@@ -187,6 +197,7 @@ defmodule Boonorbust2Web.PositionsLive do
           <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
             <p class="text-xs text-gray-500">Unrealized Profit</p>
             <div class="text-right">
+              <% unrealized_profit_percent = Map.get(@position, :unrealized_profit_percent) %>
               <%= if show_converted_unrealized do %>
                 <p class={[
                   "text-base font-bold",
@@ -196,6 +207,11 @@ defmodule Boonorbust2Web.PositionsLive do
                   )
                 ]}>
                   {Money.to_string!(converted_unrealized_profit)}
+                  <%= if unrealized_profit_percent do %>
+                    <span class="text-xs font-medium">
+                      ({Decimal.round(unrealized_profit_percent, 2)}%)
+                    </span>
+                  <% end %>
                 </p>
                 <p class="text-xs text-gray-400">
                   ({Money.to_string!(unrealized_profit)})
@@ -209,6 +225,11 @@ defmodule Boonorbust2Web.PositionsLive do
                   )
                 ]}>
                   {Money.to_string!(unrealized_profit)}
+                  <%= if unrealized_profit_percent do %>
+                    <span class="text-xs font-medium">
+                      ({Decimal.round(unrealized_profit_percent, 2)}%)
+                    </span>
+                  <% end %>
                 </p>
               <% end %>
             </div>
