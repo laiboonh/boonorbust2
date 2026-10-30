@@ -298,6 +298,7 @@ Hooks.ChartInit = {
     const labels = chartData.map(item => item.label);
     const percentages = chartData.map(item => item.percentage);
     const format = currencyFormatter(currency);
+    const allocationTapState = { index: null, time: 0 };
 
     // Set dynamic height based on number of items
     const container = this.el.parentElement;
@@ -323,9 +324,19 @@ Hooks.ChartInit = {
         interaction: { mode: 'y', intersect: false },
         onClick: (event, _elements, chart) => {
           const points = chart.getElementsAtEventForMode(event, 'y', { intersect: false }, true);
-          if (points.length) {
-            const label = labels[points[0].index];
-            window.location.href = '/positions?filter=' + encodeURIComponent(label);
+          if (!points.length) return;
+
+          const index = points[0].index;
+          const hasHover = window.matchMedia('(hover: hover)').matches;
+          const now = Date.now();
+          const isConfirmingTap =
+            allocationTapState.index === index && now - allocationTapState.time < 3000;
+
+          if (hasHover || isConfirmingTap) {
+            window.location.href = '/positions?filter=' + encodeURIComponent(labels[index]);
+          } else {
+            allocationTapState.index = index;
+            allocationTapState.time = now;
           }
         },
         onHover: (event, _elements, chart) => {
