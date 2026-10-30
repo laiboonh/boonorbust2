@@ -139,7 +139,7 @@ defmodule Boonorbust2Web.PositionsLive do
             "text-lg font-bold",
             cond do
               is_nil(current_price) -> "text-gray-900"
-              Money.compare!(@position.average_price, current_price) == :gt -> "text-emerald-600"
+              Money.compare!(@position.average_price, current_price) == :lt -> "text-emerald-600"
               true -> "text-red-600"
             end
           ]}>
