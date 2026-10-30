@@ -148,6 +148,9 @@
                       Type
                     </th>
                     <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Price
+                    </th>
+                    <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Avg Price
                     </th>
                     <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -193,6 +196,11 @@
                         }>
                           {String.upcase(position.portfolio_transaction.action)}
                         </span>
+                      </td>
+                      <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right text-gray-900">
+                        {Money.to_string!(position.portfolio_transaction.price,
+                          fractional_digits: 4
+                        )}
                       </td>
                       <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-medium text-gray-900">
                         {Money.to_string!(position.average_price, fractional_digits: 4)}
