@@ -23,8 +23,13 @@ defmodule Boonorbust2Web.PositionsLive do
   end
 
   @impl true
-  def handle_params(_params, _uri, socket) do
-    {:noreply, reload_data(socket)}
+  def handle_params(params, _uri, socket) do
+    socket =
+      socket
+      |> assign(:filter, Map.get(params, "filter", socket.assigns.filter))
+      |> reload_data()
+
+    {:noreply, socket}
   end
 
   @impl true

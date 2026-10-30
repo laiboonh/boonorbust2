@@ -321,6 +321,17 @@ Hooks.ChartInit = {
         responsive: true,
         maintainAspectRatio: false,
         interaction: { mode: 'y', intersect: false },
+        onClick: (event, _elements, chart) => {
+          const points = chart.getElementsAtEventForMode(event, 'y', { intersect: false }, true);
+          if (points.length) {
+            const label = labels[points[0].index];
+            window.location.href = '/positions?filter=' + encodeURIComponent(label);
+          }
+        },
+        onHover: (event, _elements, chart) => {
+          const points = chart.getElementsAtEventForMode(event, 'y', { intersect: false }, true);
+          event.native.target.style.cursor = points.length ? 'pointer' : 'default';
+        },
         plugins: {
           legend: { display: false },
           tooltip: {
