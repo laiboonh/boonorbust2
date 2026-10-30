@@ -187,7 +187,7 @@ end
 - **Dashboard** - Displays latest portfolio positions with real-time calculations
 - **Assets** - CRUD operations with modal-based UI
   - Asset price tracking via external API
-  - Automatic price updates (24-hour rate limiting)
+  - Manual price updates via button click (6-hour rate limiting prevents re-fetching too often)
   - Price validation with URL format checking
   - Inline editing with loading overlays
 - **Portfolio Transactions** - Buy/sell transaction tracking

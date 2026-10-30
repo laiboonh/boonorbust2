@@ -416,7 +416,7 @@ defmodule Boonorbust2.Assets do
   defp should_update_price?(%Asset{prices_synced_at: nil}), do: true
 
   defp should_update_price?(%Asset{prices_synced_at: prices_synced_at}) do
-    DateTime.diff(DateTime.utc_now(), prices_synced_at, :second) >= 43_200
+    DateTime.diff(DateTime.utc_now(), prices_synced_at, :second) >= 21_600
   end
 
   @spec should_update_dividends?(Asset.t()) :: boolean()
