@@ -122,6 +122,10 @@ defmodule Boonorbust2Web.PositionsLive do
         </div>
       </div>
 
+      <% current_price =
+        if @position.asset.price do
+          Money.new!(@position.asset.price, @position.average_price.currency)
+        end %>
       <div class="grid grid-cols-3 gap-3">
         <div>
           <p class="text-xs text-gray-500">Quantity</p>
@@ -131,18 +135,22 @@ defmodule Boonorbust2Web.PositionsLive do
         </div>
         <div>
           <p class="text-xs text-gray-500">Avg Price</p>
-          <p class="text-lg font-bold text-emerald-600">
+          <p class={[
+            "text-lg font-bold",
+            cond do
+              is_nil(current_price) -> "text-gray-900"
+              Money.compare!(@position.average_price, current_price) == :gt -> "text-emerald-600"
+              true -> "text-red-600"
+            end
+          ]}>
             {Money.to_string!(@position.average_price, fractional_digits: 4)}
           </p>
         </div>
         <div>
           <p class="text-xs text-gray-500">Current Price</p>
           <p class="text-lg font-bold text-gray-900">
-            <%= if @position.asset.price do %>
-              {Money.to_string!(
-                Money.new!(@position.asset.price, @position.average_price.currency),
-                fractional_digits: 4
-              )}
+            <%= if current_price do %>
+              {Money.to_string!(current_price, fractional_digits: 4)}
             <% else %>
               —
             <% end %>
