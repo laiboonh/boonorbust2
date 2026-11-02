@@ -97,6 +97,7 @@ Hooks.ChartInit = {
     const format = currencyFormatter(currency);
     const total = values.reduce((a, b) => a + b, 0);
     const percentageOf = (value) => ((value / total) * 100).toFixed(1) + '%';
+    const pieTapState = { index: null, time: 0 };
 
     this._chart = new Chart(this.el, {
       type: 'pie',
@@ -113,6 +114,27 @@ Hooks.ChartInit = {
         responsive: true,
         maintainAspectRatio: false,
         layout: { padding: { top: 20, bottom: 20, left: 20, right: 20 } },
+        onClick: (event, _elements, chart) => {
+          const points = chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
+          if (!points.length) return;
+
+          const index = points[0].index;
+          const hasHover = window.matchMedia('(hover: hover)').matches;
+          const now = Date.now();
+          const isConfirmingTap =
+            pieTapState.index === index && now - pieTapState.time < 3000;
+
+          if (hasHover || isConfirmingTap) {
+            window.location.href = '/positions?filter=' + encodeURIComponent(labels[index]);
+          } else {
+            pieTapState.index = index;
+            pieTapState.time = now;
+          }
+        },
+        onHover: (event, _elements, chart) => {
+          const points = chart.getElementsAtEventForMode(event, 'nearest', { intersect: true }, true);
+          event.native.target.style.cursor = points.length ? 'pointer' : 'default';
+        },
         plugins: {
           legend: { display: false },
           tooltip: {
