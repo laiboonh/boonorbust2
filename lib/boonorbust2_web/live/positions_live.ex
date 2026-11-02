@@ -148,14 +148,14 @@ defmodule Boonorbust2Web.PositionsLive do
               true -> "text-red-600"
             end
           ]}>
-            {Money.to_string!(@position.average_price, fractional_digits: 4)}
+            {Money.to_string!(@position.average_price, fractional_digits: 2)}
           </p>
         </div>
         <div>
           <p class="text-xs text-gray-500">Current Price</p>
           <p class="text-lg font-bold text-gray-900">
             <%= if current_price do %>
-              {Money.to_string!(current_price, fractional_digits: 4)}
+              {Money.to_string!(current_price, fractional_digits: 2)}
             <% else %>
               —
             <% end %>
