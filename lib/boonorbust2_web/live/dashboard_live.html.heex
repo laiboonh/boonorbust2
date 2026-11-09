@@ -7,7 +7,7 @@
         </div>
       <% else %>
         <div class="grid grid-cols-2 gap-4 mb-6">
-          <div class="bg-white rounded-lg shadow p-4 sm:p-6">
+          <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
             <h2 class="text-base sm:text-lg font-semibold text-gray-900 mb-2">
               Portfolio IRR
             </h2>
@@ -25,7 +25,7 @@
             </.async_result>
           </div>
 
-          <div class="bg-white rounded-lg shadow p-4 sm:p-6">
+          <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6">
             <h2 class="text-base sm:text-lg font-semibold text-gray-900 mb-2">
               vs Global Index (VWRA)
             </h2>
@@ -60,7 +60,7 @@
         </div>
 
         <%= if !Enum.empty?(@upcoming_dividends) do %>
-          <div class="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+          <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6">
             <h2 class="text-base sm:text-lg font-semibold text-gray-900 mb-4">
               Upcoming Dividends (Next 2 Weeks)
             </h2>
@@ -105,7 +105,7 @@
         <% end %>
 
         <%= if !Enum.empty?(@recent_dividends) do %>
-          <div class="bg-white rounded-lg shadow p-4 sm:p-6 mb-6">
+          <div class="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-6">
             <h2 class="text-base sm:text-lg font-semibold text-gray-900 mb-4">
               Recent Dividends (Past 2 Weeks)
             </h2>
@@ -150,7 +150,7 @@
         <% end %>
 
         <%= if Enum.empty?(@portfolios) do %>
-          <div class="bg-white rounded-lg shadow p-8 text-center">
+          <div class="bg-white rounded-lg shadow-sm p-8 text-center">
             <p class="text-gray-500 mb-4">No portfolios yet.</p>
             <p class="text-sm text-gray-400">
               Create a portfolio and tag your assets to see your portfolio breakdown here.
@@ -160,7 +160,7 @@
           <div class="space-y-6">
             <%= for {portfolio, index} <- Enum.with_index(@portfolios) do %>
               <%= if !Enum.empty?(portfolio.chart_data) do %>
-                <div class="bg-white rounded-lg shadow p-6">
+                <div class="bg-white rounded-lg shadow-sm p-6">
                   <div class="mb-4">
                     <h2 class="text-lg font-semibold text-gray-900">{portfolio.name}</h2>
                     <%= if portfolio.description do %>
@@ -184,7 +184,7 @@
         <% end %>
         <!-- Portfolio Value Line Chart -->
         <%= if !Enum.empty?(@portfolio_snapshots) do %>
-          <div class="bg-white rounded-lg shadow p-6 mt-6">
+          <div class="bg-white rounded-lg shadow-sm p-6 mt-6">
             <div class="mb-4">
               <h2 class="text-lg font-semibold text-gray-900">Portfolio Value Over Time</h2>
               <p class="text-sm text-gray-600 mt-1">Last 90 days</p>
@@ -202,7 +202,7 @@
         <% end %>
         <!-- Dividend Realized Profits Stacked Bar Chart -->
         <%= if !Enum.empty?(@dividend_chart_data.datasets) do %>
-          <div class="bg-white rounded-lg shadow p-6 mt-6">
+          <div class="bg-white rounded-lg shadow-sm p-6 mt-6">
             <div class="mb-4">
               <h2 class="text-lg font-semibold text-gray-900">Dividend Income by Asset</h2>
               <p class="text-sm text-gray-600 mt-1">Last 24 months</p>
@@ -220,7 +220,7 @@
         <% end %>
         <!-- Investment Allocation Horizontal Bar Chart -->
         <%= if !Enum.empty?(@investment_allocation_chart_data) do %>
-          <div class="bg-white rounded-lg shadow p-6 mt-6">
+          <div class="bg-white rounded-lg shadow-sm p-6 mt-6">
             <div class="mb-4">
               <h2 class="text-lg font-semibold text-gray-900">Investment Allocation</h2>
               <p class="text-sm text-gray-600 mt-1">Percentage of total portfolio value</p>

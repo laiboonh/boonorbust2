@@ -86,7 +86,7 @@ defmodule Boonorbust2Web.PositionsLive do
 
   def position_card(assigns) do
     ~H"""
-    <div class="bg-white rounded-lg shadow p-4">
+    <div class="bg-white rounded-lg shadow-sm p-4">
       <div class="flex justify-between items-start mb-3">
         <div class="flex-1">
           <h3 class="text-base font-semibold text-gray-900">{@position.asset.name}</h3>
