@@ -30,7 +30,7 @@
       </form>
 
       <%= if Enum.empty?(@positions) do %>
-        <div class="bg-white rounded-lg shadow p-8 text-center">
+        <div class="bg-white rounded-lg shadow-sm p-8 text-center">
           <%= if @filter != "" do %>
             <p class="text-gray-500 mb-4">No positions found matching "{@filter}".</p>
             <button

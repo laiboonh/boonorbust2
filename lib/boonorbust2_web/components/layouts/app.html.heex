@@ -94,7 +94,7 @@
               name="user[name]"
               value={@user_edit_changeset.changes[:name] || @current_user.name}
               required
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
             />
           </div>
 
@@ -106,7 +106,7 @@
               id="user_currency"
               name="user[currency]"
               required
-              class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
+              class="mt-1 block w-full rounded-md border-gray-300 shadow-xs focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm"
             >
               <%= for {label, value} <- @currency_options do %>
                 <option
