@@ -305,6 +305,11 @@ defmodule Boonorbust2.Dashboard do
   already has. This function stays consistent with that existing
   behavior rather than attempting to fix it.
 
+  A tag with no stored `target_allocation_percent` (e.g. a portfolio tag
+  association created before this feature existed) is excluded from the
+  basis entirely — it has no defined target, so no suggestion can be
+  computed for it.
+
   ## Parameters
     - tags: tags with `:target_allocation_percent` for the portfolio
       (see `Portfolios.list_portfolio_tags_with_targets/1`)
@@ -321,7 +326,9 @@ defmodule Boonorbust2.Dashboard do
   def calculate_rebalance_suggestions(tags, enriched_positions, user_currency)
       when is_binary(user_currency) do
     tag_current_values =
-      Enum.map(tags, fn tag ->
+      tags
+      |> Enum.filter(&(&1.target_allocation_percent != nil))
+      |> Enum.map(fn tag ->
         current_value =
           enriched_positions
           |> filter_positions_by_tag(tag.id)

@@ -118,6 +118,24 @@ defmodule Boonorbust2.DashboardTest do
       assert Dashboard.calculate_rebalance_suggestions(tags, [], "SGD") == []
     end
 
+    test "tag with no target allocation set is skipped instead of crashing" do
+      tags = [
+        rebalance_tag(1, "Equity", "70"),
+        rebalance_tag(2, "Bonds", "30"),
+        %{id: 3, name: "Legacy", target_allocation_percent: nil}
+      ]
+
+      positions = [
+        rebalance_position([1], "50.00"),
+        rebalance_position([2], "50.00"),
+        rebalance_position([3], "25.00")
+      ]
+
+      result = Dashboard.calculate_rebalance_suggestions(tags, positions, "SGD")
+
+      assert Enum.map(result, & &1.label) |> Enum.sort() == ["Bonds", "Equity"]
+    end
+
     test "orders all buys before all sells, each sorted descending by amount" do
       tags = [
         rebalance_tag(1, "A", "40"),
