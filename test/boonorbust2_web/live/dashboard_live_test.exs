@@ -127,6 +127,54 @@ defmodule Boonorbust2Web.DashboardLiveTest do
       render_async(view)
     end
 
+    test "renders rebalance suggestions for an imbalanced portfolio", %{conn: conn, user: user} do
+      HTTPClientMock
+      |> expect(:get, 1, fn _url, _opts ->
+        {:ok, %{status: 200, body: %{"data" => [%{"close" => 100.00}]}}}
+      end)
+
+      expect_latest_vwra_price(100.0)
+
+      {:ok, asset} =
+        Boonorbust2.Assets.create_asset(%{
+          name: "Equity Asset",
+          price_url: "https://api.marketstack.com/equity",
+          currency: "USD"
+        })
+
+      {:ok, equity_tag} = Boonorbust2.Tags.create_tag(%{name: "Equity", user_id: user.id})
+      {:ok, bonds_tag} = Boonorbust2.Tags.create_tag(%{name: "Bonds", user_id: user.id})
+
+      Boonorbust2.Tags.add_tag_to_asset(asset.id, equity_tag.id)
+
+      {:ok, _portfolio} =
+        Boonorbust2.Portfolios.create_portfolio_with_tags(
+          %{name: "Main", user_id: user.id},
+          %{equity_tag.id => "50", bonds_tag.id => "50"}
+        )
+
+      {:ok, _transaction} =
+        Boonorbust2.PortfolioTransactions.create_portfolio_transaction(%{
+          "asset_id" => asset.id,
+          "user_id" => user.id,
+          "action" => "buy",
+          "quantity" => "10",
+          "price" => "100.00",
+          "currency" => "USD",
+          "commission" => "0",
+          "transaction_date" => DateTime.utc_now()
+        })
+
+      Boonorbust2.PortfolioPositions.calculate_and_upsert_positions_for_asset(asset.id, user.id)
+
+      {:ok, view, html} = live(conn, ~p"/dashboard")
+
+      assert html =~ "Rebalancing Suggestions"
+      assert html =~ "Bonds"
+
+      render_async(view)
+    end
+
     test "renders investment allocation chart data", %{conn: conn, user: user} do
       HTTPClientMock
       |> expect(:get, 2, fn url, _opts ->

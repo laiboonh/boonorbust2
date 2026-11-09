@@ -77,7 +77,81 @@ defmodule Boonorbust2.DashboardTest do
     end
   end
 
+  describe "calculate_rebalance_suggestions/3" do
+    test "underweight tag produces a buy, overweight tag produces a sell" do
+      tags = [rebalance_tag(1, "Equity", "70"), rebalance_tag(2, "Bonds", "30")]
+      positions = [rebalance_position([1], "50.00"), rebalance_position([2], "50.00")]
+
+      result = Dashboard.calculate_rebalance_suggestions(tags, positions, "SGD")
+
+      assert [
+               %{label: "Equity", action: :buy, amount: buy},
+               %{label: "Bonds", action: :sell, amount: sell}
+             ] = result
+
+      assert Decimal.equal?(buy.amount, Decimal.new("20.00"))
+      assert Decimal.equal?(sell.amount, Decimal.new("20.00"))
+    end
+
+    test "tag exactly at target is omitted" do
+      tags = [rebalance_tag(1, "Equity", "70"), rebalance_tag(2, "Bonds", "30")]
+      positions = [rebalance_position([1], "70.00"), rebalance_position([2], "30.00")]
+
+      assert Dashboard.calculate_rebalance_suggestions(tags, positions, "SGD") == []
+    end
+
+    test "zero-value tag with nonzero target produces a full-amount buy, not dropped" do
+      tags = [rebalance_tag(1, "Equity", "70"), rebalance_tag(2, "Bonds", "30")]
+      positions = [rebalance_position([1], "100.00")]
+
+      result = Dashboard.calculate_rebalance_suggestions(tags, positions, "SGD")
+
+      assert Enum.any?(result, fn suggestion ->
+               suggestion.label == "Bonds" and suggestion.action == :buy and
+                 Decimal.equal?(suggestion.amount.amount, Decimal.new("30.00"))
+             end)
+    end
+
+    test "all-zero current values returns empty list" do
+      tags = [rebalance_tag(1, "Equity", "70"), rebalance_tag(2, "Bonds", "30")]
+
+      assert Dashboard.calculate_rebalance_suggestions(tags, [], "SGD") == []
+    end
+
+    test "orders all buys before all sells, each sorted descending by amount" do
+      tags = [
+        rebalance_tag(1, "A", "40"),
+        rebalance_tag(2, "B", "30"),
+        rebalance_tag(3, "C", "20"),
+        rebalance_tag(4, "D", "10")
+      ]
+
+      positions = [
+        rebalance_position([1], "10.00"),
+        rebalance_position([2], "25.00"),
+        rebalance_position([3], "40.00"),
+        rebalance_position([4], "45.00")
+      ]
+
+      result = Dashboard.calculate_rebalance_suggestions(tags, positions, "SGD")
+
+      assert Enum.map(result, & &1.label) == ["A", "B", "D", "C"]
+      assert Enum.map(result, & &1.action) == [:buy, :buy, :sell, :sell]
+    end
+  end
+
   # Helper functions
+
+  defp rebalance_tag(id, name, percent) do
+    %{id: id, name: name, target_allocation_percent: Decimal.new(percent)}
+  end
+
+  defp rebalance_position(tag_ids, amount) do
+    %{
+      tags: Enum.map(tag_ids, &%{id: &1}),
+      converted_total_value: Money.new!(Decimal.new(amount), "SGD")
+    }
+  end
 
   defp create_asset(code, name, currency) do
     {:ok, asset} = Assets.create_asset(%{code: code, name: name, currency: currency})

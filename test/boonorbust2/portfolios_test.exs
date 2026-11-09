@@ -239,4 +239,31 @@ defmodule Boonorbust2.PortfoliosTest do
       assert Decimal.equal?(percentages["Income"], Decimal.new("60"))
     end
   end
+
+  describe "list_portfolio_tags_with_targets/1" do
+    test "returns tags with their stored target_allocation_percent", %{user: user} do
+      {:ok, tag1} = Tags.create_tag(%{name: "Equity", user_id: user.id})
+      {:ok, tag2} = Tags.create_tag(%{name: "Bonds", user_id: user.id})
+
+      {:ok, portfolio} =
+        Portfolios.create_portfolio_with_tags(
+          %{name: "Main", user_id: user.id},
+          %{tag1.id => "60", tag2.id => "40"}
+        )
+
+      tags = Portfolios.list_portfolio_tags_with_targets(portfolio.id)
+
+      percentages = tags |> Enum.map(&{&1.name, &1.target_allocation_percent}) |> Map.new()
+
+      assert Decimal.equal?(percentages["Equity"], Decimal.new("60"))
+      assert Decimal.equal?(percentages["Bonds"], Decimal.new("40"))
+    end
+
+    test "returns empty list when portfolio has no tags", %{user: user} do
+      {:ok, portfolio} =
+        Portfolios.create_portfolio_with_tags(%{name: "Empty", user_id: user.id})
+
+      assert Portfolios.list_portfolio_tags_with_targets(portfolio.id) == []
+    end
+  end
 end

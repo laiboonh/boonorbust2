@@ -26,6 +26,7 @@ defmodule Boonorbust2.Dashboard do
           all_tags: [map()],
           tag_chart_data: [%{label: String.t(), value: float()}],
           portfolios: [map()],
+          # each portfolio map also carries :rebalance_suggestions (see calculate_rebalance_suggestions/3)
           user_currency: String.t(),
           portfolio_snapshots: [map()],
           dividend_chart_data: %{
@@ -88,7 +89,8 @@ defmodule Boonorbust2.Dashboard do
       converted_realized_profits_by_asset: converted_realized_profits,
       all_tags: all_tags,
       tag_chart_data: calculate_tag_chart_data(enriched_positions),
-      portfolios: enrich_portfolios_with_chart_data(portfolios, enriched_positions),
+      portfolios:
+        enrich_portfolios_with_chart_data(portfolios, enriched_positions, user_currency),
       user_currency: user_currency,
       portfolio_snapshots: portfolio_snapshots,
       dividend_chart_data: prepare_dividend_chart_data(user_id, user_currency),
@@ -288,6 +290,62 @@ defmodule Boonorbust2.Dashboard do
   end
 
   @doc """
+  Calculates buy/sell rebalancing suggestions for a portfolio's tags.
+
+  Compares each tag's current value (sum of tagged positions' converted
+  total value) against its target share of the portfolio's own tagged
+  value pool, not the user's whole net worth — the same basis the
+  per-portfolio pie chart (`calculate_portfolio_chart_data/2`) already uses.
+  Unlike that chart, a tag at zero current value is NOT dropped: a
+  zero-value tag with a nonzero target is a full-amount buy suggestion.
+
+  Note: because an asset can carry more than one tag, a position tagged
+  with two of this portfolio's tags is counted into both tags' current
+  values — the same double-counting `calculate_portfolio_chart_data/2`
+  already has. This function stays consistent with that existing
+  behavior rather than attempting to fix it.
+
+  ## Parameters
+    - tags: tags with `:target_allocation_percent` for the portfolio
+      (see `Portfolios.list_portfolio_tags_with_targets/1`)
+    - enriched_positions: positions with `:converted_total_value` and `:tags`
+    - user_currency: currency code to build suggestion `Money.t()` amounts in
+
+  ## Returns
+    - List of `%{label: tag_name, action: :buy | :sell, amount: Money.t()}`,
+      buy suggestions first, each group sorted by amount descending.
+      Returns `[]` if the portfolio has no positive current value to
+      rebalance against, or every tag is already at target.
+  """
+  @spec calculate_rebalance_suggestions([map()], [map()], String.t()) :: [map()]
+  def calculate_rebalance_suggestions(tags, enriched_positions, user_currency)
+      when is_binary(user_currency) do
+    tag_current_values =
+      Enum.map(tags, fn tag ->
+        current_value =
+          enriched_positions
+          |> filter_positions_by_tag(tag.id)
+          |> sum_position_values_decimal()
+
+        {tag, current_value}
+      end)
+
+    total_value =
+      Enum.reduce(tag_current_values, Decimal.new(0), fn {_tag, value}, acc ->
+        Decimal.add(acc, value)
+      end)
+
+    if Decimal.compare(total_value, 0) != :gt do
+      []
+    else
+      tag_current_values
+      |> Enum.map(&build_rebalance_suggestion(&1, total_value, user_currency))
+      |> Enum.reject(&is_nil/1)
+      |> Enum.sort(&rebalance_suggestion_order/2)
+    end
+  end
+
+  @doc """
   Prepares dividend chart data for the last 24 months.
 
   Gets dividend data from RealizedProfits, converts to user currency,
@@ -366,24 +424,29 @@ defmodule Boonorbust2.Dashboard do
   end
 
   @doc """
-  Enriches portfolios with their respective chart data.
+  Enriches portfolios with their respective chart data and rebalance suggestions.
 
   ## Parameters
     - portfolios: List of portfolio structs
     - enriched_positions: List of enriched positions
+    - user_currency: Currency code for rebalance suggestion amounts
 
   ## Returns
-    - List of portfolios with :tags and :chart_data fields added
+    - List of portfolios with :tags, :chart_data, and :rebalance_suggestions fields added
   """
-  @spec enrich_portfolios_with_chart_data([map()], [map()]) :: [map()]
-  def enrich_portfolios_with_chart_data(portfolios, enriched_positions) do
+  @spec enrich_portfolios_with_chart_data([map()], [map()], String.t()) :: [map()]
+  def enrich_portfolios_with_chart_data(portfolios, enriched_positions, user_currency) do
     Enum.map(portfolios, fn portfolio ->
-      tags = Portfolios.list_tags_for_portfolio(portfolio.id)
+      tags = Portfolios.list_portfolio_tags_with_targets(portfolio.id)
       chart_data = calculate_portfolio_chart_data(tags, enriched_positions)
+
+      rebalance_suggestions =
+        calculate_rebalance_suggestions(tags, enriched_positions, user_currency)
 
       portfolio
       |> Map.put(:tags, tags)
       |> Map.put(:chart_data, chart_data)
+      |> Map.put(:rebalance_suggestions, rebalance_suggestions)
     end)
   end
 
@@ -502,13 +565,48 @@ defmodule Boonorbust2.Dashboard do
     end)
   end
 
-  # Sums the converted total values of positions
-  defp sum_position_values(positions) do
-    positions
-    |> Enum.reduce(Decimal.new(0), fn position, acc ->
+  # Sums the converted total values of positions as a Decimal
+  defp sum_position_values_decimal(positions) do
+    Enum.reduce(positions, Decimal.new(0), fn position, acc ->
       Decimal.add(acc, position.converted_total_value.amount)
     end)
+  end
+
+  # Sums the converted total values of positions (float, for Chart.js feeds)
+  defp sum_position_values(positions) do
+    positions
+    |> sum_position_values_decimal()
     |> Decimal.to_float()
+  end
+
+  # Builds a single buy/sell suggestion for a tag, or nil if already at target
+  defp build_rebalance_suggestion({tag, current_value}, total_value, user_currency) do
+    target_value =
+      total_value
+      |> Decimal.mult(tag.target_allocation_percent)
+      |> Decimal.div(100)
+
+    diff = Decimal.round(Decimal.sub(target_value, current_value), 2)
+
+    case Decimal.compare(diff, 0) do
+      :gt ->
+        %{label: tag.name, action: :buy, amount: Money.new!(diff, user_currency)}
+
+      :lt ->
+        %{label: tag.name, action: :sell, amount: Money.new!(Decimal.negate(diff), user_currency)}
+
+      :eq ->
+        nil
+    end
+  end
+
+  # Orders suggestions: all buys before all sells, each group largest-amount-first
+  defp rebalance_suggestion_order(a, b) do
+    if a.action != b.action do
+      a.action == :buy
+    else
+      Decimal.compare(a.amount.amount, b.amount.amount) != :lt
+    end
   end
 
   # Converts dividend data to user currency

@@ -204,6 +204,22 @@ defmodule Boonorbust2.Portfolios do
     )
   end
 
+  @doc """
+  Lists a portfolio's tags along with each tag's stored target_allocation_percent.
+  """
+  @spec list_portfolio_tags_with_targets(integer()) :: [Tag.t()]
+  def list_portfolio_tags_with_targets(portfolio_id) when is_integer(portfolio_id) do
+    from(t in Tag,
+      join: pt in PortfolioTag,
+      on: pt.tag_id == t.id,
+      where: pt.portfolio_id == ^portfolio_id,
+      order_by: t.name,
+      select: {t, pt.target_allocation_percent}
+    )
+    |> Repo.all()
+    |> Enum.map(fn {tag, percent} -> annotate_tag(tag, percent) end)
+  end
+
   # Private helpers
 
   defp annotate_tag(nil, _percent), do: nil
