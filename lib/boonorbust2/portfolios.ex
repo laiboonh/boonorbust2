@@ -37,6 +37,7 @@ defmodule Boonorbust2.Portfolios do
 
   @doc """
   Lists all portfolios for a user with their associated tags in a single query.
+  Each tag carries its stored `target_allocation_percent` for that portfolio.
   """
   @spec list_portfolios_with_tags(Ecto.UUID.t()) :: [map()]
   def list_portfolios_with_tags(user_id) when is_binary(user_id) do
@@ -48,11 +49,14 @@ defmodule Boonorbust2.Portfolios do
         on: t.id == pt.tag_id,
         where: p.user_id == ^user_id,
         order_by: [asc: p.name, asc: t.name],
-        select: {p, t}
+        select: {p, t, pt.target_allocation_percent}
 
     query
     |> Repo.all()
-    |> Enum.group_by(fn {portfolio, _tag} -> portfolio end, fn {_portfolio, tag} -> tag end)
+    |> Enum.group_by(fn {portfolio, _tag, _percent} -> portfolio end, fn {_portfolio, tag,
+                                                                          percent} ->
+      annotate_tag(tag, percent)
+    end)
     |> Enum.map(fn {portfolio, tags} ->
       Map.put(portfolio, :tags, Enum.filter(tags, & &1))
     end)
@@ -61,6 +65,7 @@ defmodule Boonorbust2.Portfolios do
 
   @doc """
   Loads a single portfolio with its tags preloaded.
+  Each tag carries its stored `target_allocation_percent` for that portfolio.
   """
   @spec load_portfolio_with_tags(integer()) :: %{:tags => [any()], optional(any()) => any()}
   def load_portfolio_with_tags(portfolio_id) when is_integer(portfolio_id) do
@@ -72,7 +77,7 @@ defmodule Boonorbust2.Portfolios do
         on: t.id == pt.tag_id,
         where: p.id == ^portfolio_id,
         order_by: [asc: t.name],
-        select: {p, t}
+        select: {p, t, pt.target_allocation_percent}
 
     query
     |> Repo.all()
@@ -81,63 +86,108 @@ defmodule Boonorbust2.Portfolios do
         get_portfolio(portfolio_id) |> Map.put(:tags, [])
 
       results ->
-        {portfolio, _} = hd(results)
-        tags = results |> Enum.map(fn {_, tag} -> tag end) |> Enum.filter(& &1)
+        {portfolio, _, _} = hd(results)
+
+        tags =
+          results
+          |> Enum.map(fn {_, tag, percent} -> annotate_tag(tag, percent) end)
+          |> Enum.filter(& &1)
+
         Map.put(portfolio, :tags, tags)
     end
   end
 
   @doc """
-  Creates a portfolio with associated tags in an atomic transaction.
-  Returns the portfolio with tags preloaded.
+  Validates that target allocation percentages for a portfolio's selected tags
+  are all present and sum to exactly 100.00. An empty map (no tags selected)
+  is valid, since tags remain optional on a portfolio.
   """
-  @spec create_portfolio_with_tags(map(), [String.t()] | [integer()]) ::
-          {:ok, Portfolio.t()} | {:error, Ecto.Changeset.t()}
-  def create_portfolio_with_tags(attrs, tag_ids \\ []) when is_map(attrs) and is_list(tag_ids) do
-    Ecto.Multi.new()
-    |> Ecto.Multi.insert(:portfolio, Portfolio.changeset(%Portfolio{}, attrs))
-    |> Ecto.Multi.run(:tags, fn repo, %{portfolio: portfolio} ->
-      insert_portfolio_tags(repo, portfolio.id, tag_ids)
-    end)
-    |> Repo.transaction()
-    |> case do
-      {:ok, %{portfolio: portfolio}} ->
-        {:ok, portfolio}
+  @spec validate_tag_allocations(%{
+          (String.t() | integer()) => String.t() | number() | Decimal.t() | nil
+        }) :: :ok | {:error, String.t()}
+  def validate_tag_allocations(tag_allocations) when tag_allocations == %{}, do: :ok
 
-      {:error, :portfolio, changeset, _} ->
-        {:error, changeset}
+  def validate_tag_allocations(tag_allocations) when is_map(tag_allocations) do
+    case parse_percentages(tag_allocations) do
+      {:ok, percentages} -> validate_percentages_sum(percentages)
+      :error -> {:error, "is required for every selected tag"}
     end
   end
 
   @doc """
-  Updates a portfolio and synchronizes its tags in an atomic transaction.
-  Removes all existing tags and replaces with the provided tag_ids.
+  Creates a portfolio with associated tag allocations in an atomic transaction.
+  Returns the portfolio with tags preloaded. `tag_allocations` maps each
+  selected tag id to its target allocation percentage.
   """
-  @spec update_portfolio_with_tags(Portfolio.t(), map(), [String.t()] | [integer()]) ::
-          {:ok, Portfolio.t()} | {:error, Ecto.Changeset.t()}
-  def update_portfolio_with_tags(%Portfolio{} = portfolio, attrs, tag_ids \\ [])
-      when is_map(attrs) and is_list(tag_ids) do
-    Ecto.Multi.new()
-    |> Ecto.Multi.update(:portfolio, Portfolio.changeset(portfolio, attrs))
-    |> Ecto.Multi.run(:remove_tags, fn repo, %{portfolio: updated_portfolio} ->
-      {_count, _} =
-        repo.delete_all(
-          from pt in PortfolioTag,
-            where: pt.portfolio_id == ^updated_portfolio.id
-        )
+  @spec create_portfolio_with_tags(map(), %{
+          (String.t() | integer()) => String.t() | number() | Decimal.t() | nil
+        }) :: {:ok, Portfolio.t()} | {:error, Ecto.Changeset.t()}
+  def create_portfolio_with_tags(attrs, tag_allocations \\ %{})
+      when is_map(attrs) and is_map(tag_allocations) do
+    case validate_tag_allocations(tag_allocations) do
+      :ok ->
+        Ecto.Multi.new()
+        |> Ecto.Multi.insert(:portfolio, Portfolio.changeset(%Portfolio{}, attrs))
+        |> Ecto.Multi.run(:tags, fn repo, %{portfolio: portfolio} ->
+          insert_portfolio_tags(repo, portfolio.id, tag_allocations)
+        end)
+        |> Repo.transaction()
+        |> case do
+          {:ok, %{portfolio: portfolio}} ->
+            {:ok, portfolio}
 
-      {:ok, true}
-    end)
-    |> Ecto.Multi.run(:add_tags, fn repo, %{portfolio: updated_portfolio} ->
-      insert_portfolio_tags(repo, updated_portfolio.id, tag_ids)
-    end)
-    |> Repo.transaction()
-    |> case do
-      {:ok, %{portfolio: portfolio}} ->
-        {:ok, portfolio}
+          {:error, :portfolio, changeset, _} ->
+            {:error, changeset}
 
-      {:error, :portfolio, changeset, _} ->
-        {:error, changeset}
+          {:error, :tags, _tag_changeset, _} ->
+            {:error, allocation_error_changeset(%Portfolio{}, attrs)}
+        end
+
+      {:error, message} ->
+        {:error, allocation_error_changeset(%Portfolio{}, attrs, message)}
+    end
+  end
+
+  @doc """
+  Updates a portfolio and synchronizes its tag allocations in an atomic
+  transaction. Removes all existing tags and replaces with the provided
+  `tag_allocations` (a map of selected tag id to target allocation percentage).
+  """
+  @spec update_portfolio_with_tags(Portfolio.t(), map(), %{
+          (String.t() | integer()) => String.t() | number() | Decimal.t() | nil
+        }) :: {:ok, Portfolio.t()} | {:error, Ecto.Changeset.t()}
+  def update_portfolio_with_tags(%Portfolio{} = portfolio, attrs, tag_allocations \\ %{})
+      when is_map(attrs) and is_map(tag_allocations) do
+    case validate_tag_allocations(tag_allocations) do
+      :ok ->
+        Ecto.Multi.new()
+        |> Ecto.Multi.update(:portfolio, Portfolio.changeset(portfolio, attrs))
+        |> Ecto.Multi.run(:remove_tags, fn repo, %{portfolio: updated_portfolio} ->
+          {_count, _} =
+            repo.delete_all(
+              from pt in PortfolioTag,
+                where: pt.portfolio_id == ^updated_portfolio.id
+            )
+
+          {:ok, true}
+        end)
+        |> Ecto.Multi.run(:add_tags, fn repo, %{portfolio: updated_portfolio} ->
+          insert_portfolio_tags(repo, updated_portfolio.id, tag_allocations)
+        end)
+        |> Repo.transaction()
+        |> case do
+          {:ok, %{portfolio: portfolio}} ->
+            {:ok, portfolio}
+
+          {:error, :portfolio, changeset, _} ->
+            {:error, changeset}
+
+          {:error, :add_tags, _tag_changeset, _} ->
+            {:error, allocation_error_changeset(portfolio, attrs)}
+        end
+
+      {:error, message} ->
+        {:error, allocation_error_changeset(portfolio, attrs, message)}
     end
   end
 
@@ -156,39 +206,66 @@ defmodule Boonorbust2.Portfolios do
 
   # Private helpers
 
-  # Helper for string/integer normalization
-  defp normalize_tag_ids(tag_ids) do
-    Enum.map(tag_ids, fn
-      id when is_binary(id) -> String.to_integer(id)
-      id when is_integer(id) -> id
-    end)
+  defp annotate_tag(nil, _percent), do: nil
+  defp annotate_tag(tag, percent), do: Map.put(tag, :target_allocation_percent, percent)
+
+  defp allocation_error_changeset(portfolio, attrs, message \\ "each must be between 0 and 100") do
+    Portfolio.changeset(portfolio, attrs)
+    |> Ecto.Changeset.add_error(:tag_allocations, message)
   end
 
-  # Helper to insert portfolio tags in bulk
-  defp insert_portfolio_tags(repo, portfolio_id, tag_ids) do
-    normalized_tag_ids = normalize_tag_ids(tag_ids)
+  defp validate_percentages_sum(percentages) do
+    total = Enum.reduce(percentages, Decimal.new(0), &Decimal.add/2)
 
-    if normalized_tag_ids == [] do
-      {:ok, []}
+    if Decimal.equal?(Decimal.round(total, 2), Decimal.new("100.00")) do
+      :ok
     else
-      do_insert_portfolio_tags(repo, portfolio_id, normalized_tag_ids)
+      {:error, "must sum to 100 for the selected tags (currently #{total})"}
     end
   end
 
-  defp do_insert_portfolio_tags(repo, portfolio_id, normalized_tag_ids) do
-    now = DateTime.utc_now() |> DateTime.truncate(:second)
+  defp parse_percentages(tag_allocations) do
+    Enum.reduce_while(tag_allocations, {:ok, []}, fn {_tag_id, value}, {:ok, acc} ->
+      case parse_decimal(value) do
+        {:ok, decimal} -> {:cont, {:ok, [decimal | acc]}}
+        :error -> {:halt, :error}
+      end
+    end)
+  end
 
-    portfolio_tags =
-      Enum.map(normalized_tag_ids, fn tag_id ->
-        %{
-          portfolio_id: portfolio_id,
-          tag_id: tag_id,
-          inserted_at: now,
-          updated_at: now
-        }
-      end)
+  defp parse_decimal(nil), do: :error
+  defp parse_decimal(""), do: :error
+  defp parse_decimal(%Decimal{} = decimal), do: {:ok, decimal}
 
-    {_count, _} = repo.insert_all(PortfolioTag, portfolio_tags)
-    {:ok, true}
+  defp parse_decimal(value) when is_binary(value) do
+    case Decimal.parse(value) do
+      {decimal, ""} -> {:ok, decimal}
+      _ -> :error
+    end
+  end
+
+  defp parse_decimal(value) when is_number(value), do: {:ok, Decimal.from_float(value * 1.0)}
+
+  # Helper for string/integer normalization
+  defp normalize_tag_id(id) when is_binary(id), do: String.to_integer(id)
+  defp normalize_tag_id(id) when is_integer(id), do: id
+
+  # Helper to insert portfolio tags, validating each row's allocation
+  defp insert_portfolio_tags(repo, portfolio_id, tag_allocations) do
+    Enum.reduce_while(tag_allocations, {:ok, []}, fn {tag_id, percent}, {:ok, acc} ->
+      attrs = %{
+        portfolio_id: portfolio_id,
+        tag_id: normalize_tag_id(tag_id),
+        target_allocation_percent: percent
+      }
+
+      %PortfolioTag{}
+      |> PortfolioTag.changeset(attrs)
+      |> repo.insert()
+      |> case do
+        {:ok, portfolio_tag} -> {:cont, {:ok, [portfolio_tag | acc]}}
+        {:error, changeset} -> {:halt, {:error, changeset}}
+      end
+    end)
   end
 end

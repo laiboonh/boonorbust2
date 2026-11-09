@@ -79,7 +79,7 @@
             <div class="mt-4 flex flex-wrap gap-2">
               <%= for tag <- Map.get(portfolio, :tags, []) do %>
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                  {tag.name}
+                  {tag.name}: {percent_input_value(tag.target_allocation_percent)}%
                 </span>
               <% end %>
             </div>
@@ -183,28 +183,45 @@
               </div>
 
               <div>
-                <label for="portfolio_tags" class="block text-sm font-medium text-gray-700">
+                <label class="block text-sm font-medium text-gray-700">
                   Tags (optional)
                 </label>
-                <select
-                  id="portfolio_tags"
-                  name="tag_ids[]"
-                  multiple
-                  class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500"
-                  size="5"
-                >
+                <div class="mt-1 space-y-2 max-h-56 overflow-y-auto border border-gray-200 rounded-md p-2">
                   <%= for tag <- @all_tags do %>
-                    <option
-                      value={tag.id}
-                      selected={
-                        tag.id in Enum.map(Map.get(@portfolio_in_progress, :tags, []), & &1.id)
-                      }
-                    >
-                      {tag.name}
-                    </option>
+                    <% selected_tag =
+                      Enum.find(Map.get(@portfolio_in_progress, :tags, []), &(&1.id == tag.id)) %>
+                    <div class="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        id={"portfolio_tag_#{tag.id}"}
+                        name="tag_ids[]"
+                        value={tag.id}
+                        checked={!!selected_tag}
+                        class="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                      />
+                      <label for={"portfolio_tag_#{tag.id}"} class="flex-1 text-sm text-gray-700">
+                        {tag.name}
+                      </label>
+                      <input
+                        type="number"
+                        name={"tag_allocations[#{tag.id}]"}
+                        value={
+                          selected_tag &&
+                            percent_input_value(selected_tag.target_allocation_percent)
+                        }
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        placeholder="%"
+                        class="w-20 rounded-md border-gray-300 shadow-sm text-sm focus:border-emerald-500 focus:ring-emerald-500"
+                      />
+                      <span class="text-sm text-gray-500">%</span>
+                    </div>
                   <% end %>
-                </select>
-                <p class="mt-1 text-sm text-gray-500">Hold Ctrl/Cmd to select multiple tags</p>
+                </div>
+                <p class="mt-1 text-sm text-gray-500">
+                  Selected tags' target percentages must sum to 100.
+                </p>
               </div>
 
               <div class="flex gap-3 pt-4">

@@ -52,8 +52,9 @@ defmodule Boonorbust2Web.PortfolioLive do
     %{user_id: user_id} = socket.assigns
     portfolio_params = Map.put(portfolio_params, "user_id", user_id)
     tag_ids = Map.get(params, "tag_ids", [])
+    tag_allocations = params |> Map.get("tag_allocations", %{}) |> Map.take(tag_ids)
 
-    case Portfolios.create_portfolio_with_tags(portfolio_params, tag_ids) do
+    case Portfolios.create_portfolio_with_tags(portfolio_params, tag_allocations) do
       {:ok, portfolio} ->
         socket =
           socket
@@ -64,7 +65,8 @@ defmodule Boonorbust2Web.PortfolioLive do
         {:noreply, socket}
 
       {:error, changeset} ->
-        updated_editing = preserve_user_input(tag_ids, socket.assigns, changeset)
+        updated_editing =
+          preserve_user_input(tag_ids, tag_allocations, socket.assigns, changeset)
 
         {:noreply, assign(socket, portfolio_in_progress: updated_editing, form_errors: changeset)}
     end
@@ -77,8 +79,9 @@ defmodule Boonorbust2Web.PortfolioLive do
       ) do
     portfolio = Portfolios.get_portfolio(String.to_integer(id))
     tag_ids = Map.get(params, "tag_ids", [])
+    tag_allocations = params |> Map.get("tag_allocations", %{}) |> Map.take(tag_ids)
 
-    case Portfolios.update_portfolio_with_tags(portfolio, portfolio_params, tag_ids) do
+    case Portfolios.update_portfolio_with_tags(portfolio, portfolio_params, tag_allocations) do
       {:ok, _updated_portfolio} ->
         socket =
           socket
@@ -89,7 +92,8 @@ defmodule Boonorbust2Web.PortfolioLive do
         {:noreply, socket}
 
       {:error, changeset} ->
-        updated_editing = preserve_user_input(tag_ids, socket.assigns, changeset)
+        updated_editing =
+          preserve_user_input(tag_ids, tag_allocations, socket.assigns, changeset)
 
         {:noreply, assign(socket, portfolio_in_progress: updated_editing, form_errors: changeset)}
     end
@@ -122,13 +126,28 @@ defmodule Boonorbust2Web.PortfolioLive do
 
   # Preserve user's submitted values so the form doesn't reset on error.
   # changeset.changes has the submitted field values; tags are managed
-  # separately via tag_ids so we rebuild them from all_tags.
-  defp preserve_user_input(tag_ids, assigns, changeset) do
+  # separately via tag_ids/tag_allocations so we rebuild them from all_tags.
+  defp preserve_user_input(tag_ids, tag_allocations, assigns, changeset) do
     selected_tags =
-      Enum.filter(assigns.all_tags, &(to_string(&1.id) in tag_ids))
+      assigns.all_tags
+      |> Enum.filter(&(to_string(&1.id) in tag_ids))
+      |> Enum.map(fn tag ->
+        Map.put(tag, :target_allocation_percent, Map.get(tag_allocations, to_string(tag.id)))
+      end)
 
     assigns.portfolio_in_progress
     |> Map.merge(changeset.changes)
     |> Map.put(:tags, selected_tags)
   end
+
+  defp percent_input_value(nil), do: nil
+
+  defp percent_input_value(%Decimal{} = decimal) do
+    decimal
+    |> Decimal.to_string(:normal)
+    |> String.trim_trailing("0")
+    |> String.trim_trailing(".")
+  end
+
+  defp percent_input_value(value) when is_binary(value), do: value
 end

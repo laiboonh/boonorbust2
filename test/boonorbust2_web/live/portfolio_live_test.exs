@@ -38,7 +38,7 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
       {:ok, _portfolio} =
         Boonorbust2.Portfolios.create_portfolio_with_tags(
           %{name: "Growth Portfolio", user_id: user.id},
-          [tag1.id, tag2.id]
+          %{tag1.id => "50", tag2.id => "50"}
         )
 
       {:ok, _view, html} = live(conn, ~p"/portfolios")
@@ -79,7 +79,11 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
       view
       |> form(~s|form[phx-submit="save"]|, %{
         "portfolio" => %{"name" => "Test Portfolio"},
-        "tag_ids" => [to_string(tag1.id), to_string(tag2.id)]
+        "tag_ids" => [to_string(tag1.id), to_string(tag2.id)],
+        "tag_allocations" => %{
+          to_string(tag1.id) => "40",
+          to_string(tag2.id) => "60"
+        }
       })
       |> render_submit()
 
@@ -93,6 +97,122 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
       created_portfolio = hd(portfolios)
       tags = Boonorbust2.Portfolios.list_tags_for_portfolio(created_portfolio.id)
       assert length(tags) == 2
+    end
+
+    test "creates portfolio with tag allocations summing to 100", %{conn: conn, user: user} do
+      {:ok, tag1} =
+        Boonorbust2.Tags.create_tag(%{
+          name: "Stocks",
+          user_id: user.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/portfolios")
+
+      view |> element("button", "Add Portfolio") |> render_click()
+
+      view
+      |> form(~s|form[phx-submit="save"]|, %{
+        "portfolio" => %{"name" => "Allocated Portfolio"},
+        "tag_ids" => [to_string(tag1.id)],
+        "tag_allocations" => %{to_string(tag1.id) => "100"}
+      })
+      |> render_submit()
+
+      html = render(view)
+      assert html =~ "Stocks: 100%"
+    end
+
+    test "shows error when tag allocations do not sum to 100", %{conn: conn, user: user} do
+      {:ok, tag1} =
+        Boonorbust2.Tags.create_tag(%{
+          name: "Stocks",
+          user_id: user.id
+        })
+
+      {:ok, tag2} =
+        Boonorbust2.Tags.create_tag(%{
+          name: "Growth",
+          user_id: user.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/portfolios")
+
+      view |> element("button", "Add Portfolio") |> render_click()
+
+      view
+      |> form(~s|form[phx-submit="save"]|, %{
+        "portfolio" => %{"name" => "Bad Split Portfolio"},
+        "tag_ids" => [to_string(tag1.id), to_string(tag2.id)],
+        "tag_allocations" => %{
+          to_string(tag1.id) => "40",
+          to_string(tag2.id) => "50"
+        }
+      })
+      |> render_submit()
+
+      html = render(view)
+      assert html =~ "Tag allocations"
+      assert html =~ "Add New Portfolio"
+
+      refute Boonorbust2.Portfolios.list_portfolios(user.id)
+             |> Enum.any?(&(&1.name == "Bad Split Portfolio"))
+    end
+
+    test "shows error when a selected tag is missing its percentage", %{conn: conn, user: user} do
+      {:ok, tag1} =
+        Boonorbust2.Tags.create_tag(%{
+          name: "Stocks",
+          user_id: user.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/portfolios")
+
+      view |> element("button", "Add Portfolio") |> render_click()
+
+      view
+      |> form(~s|form[phx-submit="save"]|, %{
+        "portfolio" => %{"name" => "Missing Percent Portfolio"},
+        "tag_ids" => [to_string(tag1.id)],
+        "tag_allocations" => %{to_string(tag1.id) => ""}
+      })
+      |> render_submit()
+
+      html = render(view)
+      assert html =~ "Tag allocations"
+      assert html =~ "Add New Portfolio"
+    end
+
+    test "preserves entered percentages on validation error", %{conn: conn, user: user} do
+      {:ok, tag1} =
+        Boonorbust2.Tags.create_tag(%{
+          name: "Stocks",
+          user_id: user.id
+        })
+
+      {:ok, tag2} =
+        Boonorbust2.Tags.create_tag(%{
+          name: "Growth",
+          user_id: user.id
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/portfolios")
+
+      view |> element("button", "Add Portfolio") |> render_click()
+
+      view
+      |> form(~s|form[phx-submit="save"]|, %{
+        "portfolio" => %{"name" => "Bad Split Portfolio"},
+        "tag_ids" => [to_string(tag1.id), to_string(tag2.id)],
+        "tag_allocations" => %{
+          to_string(tag1.id) => "40",
+          to_string(tag2.id) => "50"
+        }
+      })
+      |> render_submit()
+
+      html = render(view)
+      assert html =~ ~s|value="40"|
+      assert html =~ ~s|value="50"|
     end
 
     test "creates portfolio without tags", %{conn: conn, user: user} do
@@ -212,13 +332,14 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
       view
       |> form(~s|form[phx-submit="save"]|, %{
         "portfolio" => %{"name" => "Existing"},
-        "tag_ids" => [to_string(tag.id)]
+        "tag_ids" => [to_string(tag.id)],
+        "tag_allocations" => %{to_string(tag.id) => "100"}
       })
       |> render_submit()
 
       html = render(view)
       assert html =~ "Name has already been taken"
-      assert html =~ ~s|selected|
+      assert html =~ "checked"
       assert html =~ "Keep This Tag"
     end
   end
@@ -240,7 +361,7 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
       {:ok, portfolio} =
         Boonorbust2.Portfolios.create_portfolio_with_tags(
           %{name: "Original Name", user_id: user.id},
-          [tag1.id]
+          %{tag1.id => "100"}
         )
 
       {:ok, view, _html} = live(conn, ~p"/portfolios")
@@ -256,7 +377,8 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
       |> form(~s|form[phx-submit="update"]|, %{
         "portfolio_id" => to_string(portfolio.id),
         "portfolio" => %{"name" => "Updated Name"},
-        "tag_ids" => [to_string(tag2.id)]
+        "tag_ids" => [to_string(tag2.id)],
+        "tag_allocations" => %{to_string(tag2.id) => "100"}
       })
       |> render_submit()
 
@@ -282,7 +404,7 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
       {:ok, portfolio} =
         Boonorbust2.Portfolios.create_portfolio_with_tags(
           %{name: "Portfolio", user_id: user.id},
-          [tag.id]
+          %{tag.id => "100"}
         )
 
       {:ok, view, _html} = live(conn, ~p"/portfolios")
@@ -439,13 +561,14 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
       |> form(~s|form[phx-submit="update"]|, %{
         "portfolio_id" => to_string(portfolio.id),
         "portfolio" => %{"name" => "Existing"},
-        "tag_ids" => [to_string(tag.id)]
+        "tag_ids" => [to_string(tag.id)],
+        "tag_allocations" => %{to_string(tag.id) => "100"}
       })
       |> render_submit()
 
       html = render(view)
       assert html =~ "Name has already been taken"
-      assert html =~ ~s|selected|
+      assert html =~ "checked"
       assert html =~ "Keep This Tag"
     end
   end
@@ -480,7 +603,7 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
       {:ok, portfolio} =
         Boonorbust2.Portfolios.create_portfolio_with_tags(
           %{name: "Portfolio with Tags", user_id: user.id},
-          [tag.id]
+          %{tag.id => "100"}
         )
 
       assert length(Boonorbust2.Portfolios.list_tags_for_portfolio(portfolio.id)) == 1
