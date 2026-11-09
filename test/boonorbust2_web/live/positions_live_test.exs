@@ -198,7 +198,7 @@ defmodule Boonorbust2Web.PositionsLiveTest do
       # Close positions modal
       html =
         view
-        |> element(~s|button[phx-click="close_positions_modal"]|)
+        |> element(~s|button[aria-label="Close"][phx-click="close_positions_modal"]|)
         |> render_click()
 
       refute html =~ "Portfolio Positions - Modal Asset"
@@ -246,7 +246,7 @@ defmodule Boonorbust2Web.PositionsLiveTest do
       # Close modal
       html =
         view
-        |> element(~s|button[phx-click="close_realized_profits_modal"]|)
+        |> element(~s|button[aria-label="Close"][phx-click="close_realized_profits_modal"]|)
         |> render_click()
 
       refute html =~ "Realized Profits - Profits Asset"

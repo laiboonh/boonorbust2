@@ -2,17 +2,39 @@
 @plugin "@tailwindcss/forms";
 @config "../tailwind.config.js";
 
-/* This file is for your main application CSS */
-
-/* HTMX indicator - hidden by default, shown during requests */
-.htmx-indicator {
-  display: none;
+@plugin "../vendor/daisyui" {
+  themes: false;
 }
-
-.htmx-request .htmx-indicator {
-  display: inline-block;
-}
-
-.htmx-request.htmx-indicator {
-  display: inline-block;
+@plugin "../vendor/daisyui-theme" {
+  name: "boonorbust";
+  default: true;
+  color-scheme: "light";
+  --color-base-100: #ffffff;
+  --color-base-200: #f9fafb;
+  --color-base-300: #e5e7eb;
+  --color-base-content: #111827;
+  --color-primary: #059669;
+  --color-primary-content: #ffffff;
+  --color-secondary: #4b5563;
+  --color-secondary-content: #ffffff;
+  --color-accent: #2563eb;
+  --color-accent-content: #ffffff;
+  --color-neutral: #374151;
+  --color-neutral-content: #ffffff;
+  --color-info: #2563eb;
+  --color-info-content: #ffffff;
+  --color-success: #16a34a;
+  --color-success-content: #ffffff;
+  --color-warning: #eab308;
+  --color-warning-content: #713f12;
+  --color-error: #dc2626;
+  --color-error-content: #ffffff;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
 }

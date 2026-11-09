@@ -191,7 +191,7 @@ defmodule Boonorbust2Web.AssetLiveTest do
       view |> element("button", "Add Asset") |> render_click()
       assert render(view) =~ "Add New Asset"
 
-      view |> element(~s|button.text-gray-400[phx-click="close_modal"]|) |> render_click()
+      view |> element(~s|button[aria-label="Close"][phx-click="close_modal"]|) |> render_click()
       refute render(view) =~ "Add New Asset"
     end
   end
@@ -468,7 +468,10 @@ defmodule Boonorbust2Web.AssetLiveTest do
       assert html =~ "Dividends for Dividend Stock"
       assert html =~ "No dividends recorded"
 
-      view |> element(~s|button[phx-click="close_dividends_modal"]|) |> render_click()
+      view
+      |> element(~s|button[aria-label="Close"][phx-click="close_dividends_modal"]|)
+      |> render_click()
+
       refute render(view) =~ "Dividends for Dividend Stock"
     end
   end
@@ -507,7 +510,9 @@ defmodule Boonorbust2Web.AssetLiveTest do
 
       assert render(view) =~ "Manage Tags - Some Asset"
 
-      view |> element(~s|button[phx-click="close_tags_modal"]|) |> render_click()
+      view
+      |> element(~s|button[aria-label="Close"][phx-click="close_tags_modal"]|)
+      |> render_click()
 
       refute render(view) =~ "Manage Tags - Some Asset"
     end
@@ -601,7 +606,9 @@ defmodule Boonorbust2Web.AssetLiveTest do
       |> form(~s|form[phx-submit="add_tag"]|, %{"tag_name" => "BadgeTag"})
       |> render_submit()
 
-      view |> element(~s|button[phx-click="close_tags_modal"]|) |> render_click()
+      view
+      |> element(~s|button[aria-label="Close"][phx-click="close_tags_modal"]|)
+      |> render_click()
 
       assert render(view) =~ "BadgeTag"
     end

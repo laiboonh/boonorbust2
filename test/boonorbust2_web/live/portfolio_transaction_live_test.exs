@@ -179,7 +179,7 @@ defmodule Boonorbust2Web.PortfolioTransactionLiveTest do
       view |> element("button", "Add Transaction") |> render_click()
       assert render(view) =~ "Add New Transaction"
 
-      view |> element(~s|button.text-gray-400[phx-click="close_modal"]|) |> render_click()
+      view |> element(~s|button[aria-label="Close"][phx-click="close_modal"]|) |> render_click()
       refute render(view) =~ "Add New Transaction"
     end
 

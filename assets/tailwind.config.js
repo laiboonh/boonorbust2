@@ -13,9 +13,6 @@ module.exports = {
   ],
   theme: {
     extend: {
-      colors: {
-        brand: "#FD4F00",
-      },
       spacing: {
         'safe-area-inset-bottom': 'env(safe-area-inset-bottom)',
       }

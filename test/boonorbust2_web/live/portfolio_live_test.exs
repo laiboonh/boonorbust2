@@ -288,7 +288,7 @@ defmodule Boonorbust2Web.PortfolioLiveTest do
       view |> element("button", "Add Portfolio") |> render_click()
       assert render(view) =~ "Add New Portfolio"
 
-      view |> element(~s|button.text-gray-400[phx-click="close_modal"]|) |> render_click()
+      view |> element(~s|button[aria-label="Close"][phx-click="close_modal"]|) |> render_click()
       refute render(view) =~ "Add New Portfolio"
     end
 

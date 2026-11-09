@@ -86,230 +86,232 @@ defmodule Boonorbust2Web.PositionsLive do
 
   def position_card(assigns) do
     ~H"""
-    <div class="bg-white rounded-lg shadow-sm p-4">
-      <div class="flex justify-between items-start mb-3">
-        <div class="flex-1">
-          <h3 class="text-base font-semibold text-gray-900">{@position.asset.name}</h3>
-        </div>
-        <div class="flex items-center gap-1.5">
-          <button
-            phx-click="show_positions"
-            phx-value-id={@position.asset.id}
-            class="text-blue-600 hover:text-blue-800"
-            title="View positions"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-              >
-              </path>
-            </svg>
-          </button>
-          <button
-            phx-click="show_realized_profits"
-            phx-value-id={@position.asset.id}
-            class="text-emerald-600 hover:text-emerald-800"
-            title="View realized profits"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              >
-              </path>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <% current_price =
-        if @position.asset.price do
-          Money.new!(@position.asset.price, @position.average_price.currency)
-        end %>
-      <div class="grid grid-cols-3 gap-3">
-        <div>
-          <p class="text-xs text-gray-500">Quantity</p>
-          <p class="text-lg font-bold text-gray-900">
-            {Decimal.to_string(@position.quantity_on_hand)}
-          </p>
-        </div>
-        <div>
-          <p class="text-xs text-gray-500">Avg Price</p>
-          <p class={[
-            "text-lg font-bold",
-            cond do
-              is_nil(current_price) -> "text-gray-900"
-              Money.compare!(@position.average_price, current_price) == :lt -> "text-emerald-600"
-              true -> "text-red-600"
-            end
-          ]}>
-            {Money.to_string!(@position.average_price, fractional_digits: 2)}
-          </p>
-        </div>
-        <div>
-          <p class="text-xs text-gray-500">Current Price</p>
-          <p class="text-lg font-bold text-gray-900">
-            <%= if current_price do %>
-              {Money.to_string!(current_price, fractional_digits: 2)}
-            <% else %>
-              —
-            <% end %>
-          </p>
-        </div>
-      </div>
-
-      <div class="mt-3 pt-3 border-t border-gray-200">
-        <% converted_cost = Map.get(@position, :converted_total_cost)
-        show_converted_cost = Map.get(@position, :show_converted_cost, false) %>
-        <div class="flex justify-between items-center mb-2">
-          <p class="text-xs text-gray-500">Total Cost</p>
-          <div class="text-right">
-            <%= if show_converted_cost do %>
-              <p class="text-lg font-bold text-gray-900">
-                {Money.to_string!(converted_cost)}
-              </p>
-              <p class="text-xs text-gray-400">
-                ({Money.to_string!(@position.amount_on_hand)})
-              </p>
-            <% else %>
-              <p class="text-lg font-bold text-gray-900">
-                {Money.to_string!(@position.amount_on_hand)}
-              </p>
-            <% end %>
+    <div class="card bg-base-100 shadow-sm">
+      <div class="card-body p-4">
+        <div class="flex justify-between items-start mb-3">
+          <div class="flex-1">
+            <h3 class="text-base font-semibold text-base-content">{@position.asset.name}</h3>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button
+              phx-click="show_positions"
+              phx-value-id={@position.asset.id}
+              class="text-info hover:text-info/70"
+              title="View positions"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                >
+                </path>
+              </svg>
+            </button>
+            <button
+              phx-click="show_realized_profits"
+              phx-value-id={@position.asset.id}
+              class="text-primary hover:text-primary/70"
+              title="View realized profits"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                >
+                </path>
+              </svg>
+            </button>
           </div>
         </div>
-        <%= if @position.asset.price do %>
-          <% total_value = @position.total_value
-          unrealized_profit = @position.unrealized_profit
-          converted_value = Map.get(@position, :converted_total_value)
-          show_converted = Map.get(@position, :show_converted_value, false) %>
-          <div class="flex justify-between items-center">
-            <p class="text-xs text-gray-500">Total Value</p>
+
+        <% current_price =
+          if @position.asset.price do
+            Money.new!(@position.asset.price, @position.average_price.currency)
+          end %>
+        <div class="grid grid-cols-3 gap-3">
+          <div>
+            <p class="text-xs text-base-content/60">Quantity</p>
+            <p class="text-lg font-bold text-base-content">
+              {Decimal.to_string(@position.quantity_on_hand)}
+            </p>
+          </div>
+          <div>
+            <p class="text-xs text-base-content/60">Avg Price</p>
+            <p class={[
+              "text-lg font-bold",
+              cond do
+                is_nil(current_price) -> "text-base-content"
+                Money.compare!(@position.average_price, current_price) == :lt -> "text-primary"
+                true -> "text-error"
+              end
+            ]}>
+              {Money.to_string!(@position.average_price, fractional_digits: 2)}
+            </p>
+          </div>
+          <div>
+            <p class="text-xs text-base-content/60">Current Price</p>
+            <p class="text-lg font-bold text-base-content">
+              <%= if current_price do %>
+                {Money.to_string!(current_price, fractional_digits: 2)}
+              <% else %>
+                —
+              <% end %>
+            </p>
+          </div>
+        </div>
+
+        <div class="mt-3 pt-3 border-t border-base-300">
+          <% converted_cost = Map.get(@position, :converted_total_cost)
+          show_converted_cost = Map.get(@position, :show_converted_cost, false) %>
+          <div class="flex justify-between items-center mb-2">
+            <p class="text-xs text-base-content/60">Total Cost</p>
             <div class="text-right">
-              <%= if show_converted do %>
-                <p class="text-xl font-bold text-emerald-600">
-                  {Money.to_string!(converted_value)}
+              <%= if show_converted_cost do %>
+                <p class="text-lg font-bold text-base-content">
+                  {Money.to_string!(converted_cost)}
                 </p>
-                <p class="text-xs text-gray-400">
-                  ({Money.to_string!(total_value)})
+                <p class="text-xs text-base-content/40">
+                  ({Money.to_string!(@position.amount_on_hand)})
                 </p>
               <% else %>
-                <p class="text-xl font-bold text-emerald-600">
-                  {Money.to_string!(total_value)}
+                <p class="text-lg font-bold text-base-content">
+                  {Money.to_string!(@position.amount_on_hand)}
                 </p>
               <% end %>
             </div>
           </div>
-          <% converted_unrealized_profit = Map.get(@position, :converted_unrealized_profit)
-          show_converted_unrealized = Map.get(@position, :show_converted_unrealized, false) %>
-          <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
-            <p class="text-xs text-gray-500">Unrealized Profit</p>
-            <div class="text-right">
-              <% unrealized_profit_percent = Map.get(@position, :unrealized_profit_percent) %>
-              <%= if show_converted_unrealized do %>
+          <%= if @position.asset.price do %>
+            <% total_value = @position.total_value
+            unrealized_profit = @position.unrealized_profit
+            converted_value = Map.get(@position, :converted_total_value)
+            show_converted = Map.get(@position, :show_converted_value, false) %>
+            <div class="flex justify-between items-center">
+              <p class="text-xs text-base-content/60">Total Value</p>
+              <div class="text-right">
+                <%= if show_converted do %>
+                  <p class="text-xl font-bold text-primary">
+                    {Money.to_string!(converted_value)}
+                  </p>
+                  <p class="text-xs text-base-content/40">
+                    ({Money.to_string!(total_value)})
+                  </p>
+                <% else %>
+                  <p class="text-xl font-bold text-primary">
+                    {Money.to_string!(total_value)}
+                  </p>
+                <% end %>
+              </div>
+            </div>
+            <% converted_unrealized_profit = Map.get(@position, :converted_unrealized_profit)
+            show_converted_unrealized = Map.get(@position, :show_converted_unrealized, false) %>
+            <div class="flex justify-between items-center mt-2 pt-2 border-t border-base-200">
+              <p class="text-xs text-base-content/60">Unrealized Profit</p>
+              <div class="text-right">
+                <% unrealized_profit_percent = Map.get(@position, :unrealized_profit_percent) %>
+                <%= if show_converted_unrealized do %>
+                  <p class={[
+                    "text-base font-bold",
+                    if(Decimal.positive?(converted_unrealized_profit.amount),
+                      do: "text-primary",
+                      else: "text-error"
+                    )
+                  ]}>
+                    {Money.to_string!(converted_unrealized_profit)}
+                    <%= if unrealized_profit_percent do %>
+                      <span class="text-xs font-medium">
+                        ({Decimal.round(unrealized_profit_percent, 2)}%)
+                      </span>
+                    <% end %>
+                  </p>
+                  <p class="text-xs text-base-content/40">
+                    ({Money.to_string!(unrealized_profit)})
+                  </p>
+                <% else %>
+                  <p class={[
+                    "text-base font-bold",
+                    if(Decimal.positive?(unrealized_profit.amount),
+                      do: "text-primary",
+                      else: "text-error"
+                    )
+                  ]}>
+                    {Money.to_string!(unrealized_profit)}
+                    <%= if unrealized_profit_percent do %>
+                      <span class="text-xs font-medium">
+                        ({Decimal.round(unrealized_profit_percent, 2)}%)
+                      </span>
+                    <% end %>
+                  </p>
+                <% end %>
+              </div>
+            </div>
+          <% end %>
+          <%= if !Decimal.equal?(@capital_gains.amount, 0) do %>
+            <div class="flex justify-between items-center mt-2 pt-2 border-t border-base-200">
+              <p class="text-xs text-base-content/60">Capital Gains</p>
+              <div class="text-right">
                 <p class={[
                   "text-base font-bold",
-                  if(Decimal.positive?(converted_unrealized_profit.amount),
-                    do: "text-emerald-600",
-                    else: "text-red-600"
+                  if(Decimal.positive?(@capital_gains.amount),
+                    do: "text-primary",
+                    else: "text-error"
                   )
                 ]}>
-                  {Money.to_string!(converted_unrealized_profit)}
-                  <%= if unrealized_profit_percent do %>
-                    <span class="text-xs font-medium">
-                      ({Decimal.round(unrealized_profit_percent, 2)}%)
-                    </span>
-                  <% end %>
+                  {Money.to_string!(@capital_gains)}
                 </p>
-                <p class="text-xs text-gray-400">
-                  ({Money.to_string!(unrealized_profit)})
+              </div>
+            </div>
+          <% end %>
+          <%= if !Decimal.equal?(@dividend_income.amount, 0) do %>
+            <div class="flex justify-between items-center mt-2 pt-2 border-t border-base-200">
+              <p class="text-xs text-base-content/60">Dividend Income</p>
+              <div class="text-right">
+                <p class="text-base font-bold text-primary">
+                  {Money.to_string!(@dividend_income)}
                 </p>
-              <% else %>
-                <p class={[
-                  "text-base font-bold",
-                  if(Decimal.positive?(unrealized_profit.amount),
-                    do: "text-emerald-600",
-                    else: "text-red-600"
-                  )
-                ]}>
-                  {Money.to_string!(unrealized_profit)}
-                  <%= if unrealized_profit_percent do %>
-                    <span class="text-xs font-medium">
-                      ({Decimal.round(unrealized_profit_percent, 2)}%)
-                    </span>
-                  <% end %>
-                </p>
+              </div>
+            </div>
+          <% end %>
+          <.async_result :let={asset_irrs} assign={@asset_irrs}>
+            <:loading>
+              <div class="flex justify-between items-center mt-2 pt-2 border-t border-base-200">
+                <p class="text-xs text-base-content/60">Annualized Return</p>
+                <p class="text-xs text-base-content/40">Calculating...</p>
+              </div>
+            </:loading>
+            <:failed :let={_reason}>
+              <div class="flex justify-between items-center mt-2 pt-2 border-t border-base-200">
+                <p class="text-xs text-base-content/60">Annualized Return</p>
+                <p class="text-xs text-base-content/40">N/A</p>
+              </div>
+            </:failed>
+            <div class="flex justify-between items-center mt-2 pt-2 border-t border-base-200">
+              <p class="text-xs text-base-content/60">Annualized Return</p>
+              <%= case Map.get(asset_irrs, @position.asset.id) do %>
+                <% {:ok, rate} -> %>
+                  <p class={[
+                    "text-base font-bold",
+                    if(rate >= 0, do: "text-primary", else: "text-error")
+                  ]}>
+                    {format_irr_percentage(rate)}
+                  </p>
+                <% _ -> %>
+                  <p class="text-xs text-base-content/40">N/A</p>
               <% end %>
             </div>
-          </div>
-        <% end %>
-        <%= if !Decimal.equal?(@capital_gains.amount, 0) do %>
-          <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
-            <p class="text-xs text-gray-500">Capital Gains</p>
-            <div class="text-right">
-              <p class={[
-                "text-base font-bold",
-                if(Decimal.positive?(@capital_gains.amount),
-                  do: "text-emerald-600",
-                  else: "text-red-600"
-                )
-              ]}>
-                {Money.to_string!(@capital_gains)}
-              </p>
-            </div>
-          </div>
-        <% end %>
-        <%= if !Decimal.equal?(@dividend_income.amount, 0) do %>
-          <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
-            <p class="text-xs text-gray-500">Dividend Income</p>
-            <div class="text-right">
-              <p class="text-base font-bold text-emerald-600">
-                {Money.to_string!(@dividend_income)}
-              </p>
-            </div>
-          </div>
-        <% end %>
-        <.async_result :let={asset_irrs} assign={@asset_irrs}>
-          <:loading>
-            <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
-              <p class="text-xs text-gray-500">Annualized Return</p>
-              <p class="text-xs text-gray-400">Calculating...</p>
-            </div>
-          </:loading>
-          <:failed :let={_reason}>
-            <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
-              <p class="text-xs text-gray-500">Annualized Return</p>
-              <p class="text-xs text-gray-400">N/A</p>
-            </div>
-          </:failed>
-          <div class="flex justify-between items-center mt-2 pt-2 border-t border-gray-100">
-            <p class="text-xs text-gray-500">Annualized Return</p>
-            <%= case Map.get(asset_irrs, @position.asset.id) do %>
-              <% {:ok, rate} -> %>
-                <p class={[
-                  "text-base font-bold",
-                  if(rate >= 0, do: "text-emerald-600", else: "text-red-600")
-                ]}>
-                  {format_irr_percentage(rate)}
-                </p>
-              <% _ -> %>
-                <p class="text-xs text-gray-400">N/A</p>
-            <% end %>
-          </div>
-        </.async_result>
-      </div>
+          </.async_result>
+        </div>
 
-      <p class="text-xs text-gray-400 mt-3">
-        Last updated: {Calendar.strftime(
-          @position.portfolio_transaction.transaction_date,
-          "%B %d, %Y"
-        )}
-      </p>
+        <p class="text-xs text-base-content/40 mt-3">
+          Last updated: {Calendar.strftime(
+            @position.portfolio_transaction.transaction_date,
+            "%B %d, %Y"
+          )}
+        </p>
+      </div>
     </div>
     """
   end

@@ -85,7 +85,10 @@ defmodule Boonorbust2Web.UserEditTest do
       view |> element(~s|a[phx-click="open_user_edit"]|) |> render_click()
       assert render(view) =~ "Edit Profile"
 
-      view |> element(~s|button.text-gray-400[phx-click="close_user_edit"]|) |> render_click()
+      view
+      |> element(~s|button[aria-label="Close"][phx-click="close_user_edit"]|)
+      |> render_click()
+
       refute render(view) =~ "Edit Profile"
 
       render_async(view)

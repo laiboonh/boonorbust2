@@ -1,4 +1,4 @@
-<.tab_content class="min-h-screen bg-gray-50">
+<.tab_content class="min-h-screen bg-base-200">
   <div class="px-4 py-4">
     <div class="max-w-lg mx-auto">
       <!-- Filter Form -->
@@ -9,20 +9,13 @@
             name="filter"
             value={@filter}
             placeholder="Search by asset name or tag..."
-            class="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+            class="flex-1 input input-primary input-sm"
           />
-          <button
-            type="submit"
-            class="px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500"
-          >
+          <button type="submit" class="btn btn-primary btn-sm">
             Filter
           </button>
           <%= if @filter != "" do %>
-            <button
-              type="button"
-              phx-click="clear_filter"
-              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
-            >
+            <button type="button" phx-click="clear_filter" class="btn btn-sm btn-outline">
               Clear
             </button>
           <% end %>
@@ -30,21 +23,20 @@
       </form>
 
       <%= if Enum.empty?(@positions) do %>
-        <div class="bg-white rounded-lg shadow-sm p-8 text-center">
-          <%= if @filter != "" do %>
-            <p class="text-gray-500 mb-4">No positions found matching "{@filter}".</p>
-            <button
-              phx-click="clear_filter"
-              class="text-sm text-emerald-600 hover:text-emerald-800"
-            >
-              Clear filter to see all positions
-            </button>
-          <% else %>
-            <p class="text-gray-500 mb-4">No portfolio positions yet.</p>
-            <p class="text-sm text-gray-400">
-              Add transactions to see your portfolio positions here.
-            </p>
-          <% end %>
+        <div class="card bg-base-100 shadow-sm">
+          <div class="card-body p-8 text-center items-center">
+            <%= if @filter != "" do %>
+              <p class="text-base-content/60 mb-4">No positions found matching "{@filter}".</p>
+              <button phx-click="clear_filter" class="text-sm text-primary hover:text-primary/70">
+                Clear filter to see all positions
+              </button>
+            <% else %>
+              <p class="text-base-content/60 mb-4">No portfolio positions yet.</p>
+              <p class="text-sm text-base-content/40">
+                Add transactions to see your portfolio positions here.
+              </p>
+            <% end %>
+          </div>
         </div>
       <% else %>
         <div class="space-y-3">
@@ -107,320 +99,292 @@
 </.tab_content>
 <!-- Positions Modal -->
 <%= if @positions_modal do %>
-  <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative p-2 sm:p-4">
-      <div class="bg-white rounded-lg shadow-xl max-w-full sm:max-w-4xl mx-auto mt-4 sm:mt-20">
-        <div class="flex justify-between items-center p-3 sm:p-6 border-b">
-          <h2 class="text-lg sm:text-2xl font-bold text-gray-900">
-            Portfolio Positions - {@positions_modal.asset.name}
-          </h2>
-          <button
-            phx-click="close_positions_modal"
-            class="text-gray-400 hover:text-gray-600 ml-2"
+  <div class="modal modal-open">
+    <div class="modal-box max-w-full sm:max-w-4xl p-0">
+      <div class="flex justify-between items-center p-3 sm:p-6 border-b border-base-200">
+        <h2 class="text-lg sm:text-2xl font-bold text-base-content">
+          Portfolio Positions - {@positions_modal.asset.name}
+        </h2>
+        <button
+          phx-click="close_positions_modal"
+          aria-label="Close"
+          class="text-base-content/40 hover:text-base-content/70 ml-2"
+        >
+          <svg
+            class="w-5 h-5 sm:w-6 sm:h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg
-              class="w-5 h-5 sm:w-6 sm:h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              >
-              </path>
-            </svg>
-          </button>
-        </div>
+            </path>
+          </svg>
+        </button>
+      </div>
 
-        <div class="p-3 sm:p-6">
-          <%= if Enum.empty?(@positions_modal.positions) do %>
-            <p class="text-gray-500 text-center py-8">
-              No positions found for this asset.
-            </p>
-          <% else %>
-            <div class="overflow-x-auto -mx-3 sm:mx-0">
-              <table class="min-w-full divide-y divide-gray-200">
-                <thead class="bg-gray-50">
+      <div class="p-3 sm:p-6">
+        <%= if Enum.empty?(@positions_modal.positions) do %>
+          <p class="text-base-content/60 text-center py-8">
+            No positions found for this asset.
+          </p>
+        <% else %>
+          <div class="overflow-x-auto -mx-3 sm:mx-0">
+            <table class="table table-sm sm:table-md">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th class="text-right">Price</th>
+                  <th class="text-right">Avg Price</th>
+                  <th class="text-right">Qty</th>
+                  <th class="text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <%= for position <- @positions_modal.positions do %>
                   <tr>
-                    <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Type
-                    </th>
-                    <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Price
-                    </th>
-                    <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Avg Price
-                    </th>
-                    <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Qty
-                    </th>
-                    <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Amount
-                    </th>
-                  </tr>
-                </thead>
-                <tbody class="bg-white divide-y divide-gray-200">
-                  <%= for position <- @positions_modal.positions do %>
-                    <tr>
-                      <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                        <span
-                          class="hidden sm:inline local-time"
-                          data-utc-time={
-                            DateTime.to_iso8601(position.portfolio_transaction.transaction_date)
-                          }
-                        >
-                          {Calendar.strftime(
-                            position.portfolio_transaction.transaction_date,
-                            "%B %d, %Y"
-                          )}
-                        </span>
-                        <span
-                          class="sm:hidden local-time"
-                          data-utc-time={
-                            DateTime.to_iso8601(position.portfolio_transaction.transaction_date)
-                          }
-                        >
-                          {Calendar.strftime(
-                            position.portfolio_transaction.transaction_date,
-                            "%b %d, %Y"
-                          )}
-                        </span>
-                      </td>
-                      <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm">
-                        <span class={
-                          if position.portfolio_transaction.action == "buy",
-                            do: "text-emerald-600 font-medium",
-                            else: "text-red-600 font-medium"
-                        }>
-                          {String.upcase(position.portfolio_transaction.action)}
-                        </span>
-                      </td>
-                      <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right text-gray-900">
-                        {Money.to_string!(position.portfolio_transaction.price,
-                          fractional_digits: 4
+                    <td>
+                      <span
+                        class="hidden sm:inline local-time"
+                        data-utc-time={
+                          DateTime.to_iso8601(position.portfolio_transaction.transaction_date)
+                        }
+                      >
+                        {Calendar.strftime(
+                          position.portfolio_transaction.transaction_date,
+                          "%B %d, %Y"
                         )}
-                      </td>
-                      <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-medium text-gray-900">
-                        {Money.to_string!(position.average_price, fractional_digits: 4)}
-                      </td>
-                      <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right text-gray-900">
-                        {Decimal.to_string(position.quantity_on_hand)}
-                      </td>
-                      <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-semibold text-emerald-600">
-                        {Money.to_string!(position.amount_on_hand)}
-                      </td>
-                    </tr>
-                  <% end %>
-                </tbody>
-              </table>
-            </div>
-          <% end %>
-        </div>
+                      </span>
+                      <span
+                        class="sm:hidden local-time"
+                        data-utc-time={
+                          DateTime.to_iso8601(position.portfolio_transaction.transaction_date)
+                        }
+                      >
+                        {Calendar.strftime(
+                          position.portfolio_transaction.transaction_date,
+                          "%b %d, %Y"
+                        )}
+                      </span>
+                    </td>
+                    <td>
+                      <span class={
+                        if position.portfolio_transaction.action == "buy",
+                          do: "text-primary font-medium",
+                          else: "text-error font-medium"
+                      }>
+                        {String.upcase(position.portfolio_transaction.action)}
+                      </span>
+                    </td>
+                    <td class="text-right">
+                      {Money.to_string!(position.portfolio_transaction.price,
+                        fractional_digits: 4
+                      )}
+                    </td>
+                    <td class="text-right font-medium">
+                      {Money.to_string!(position.average_price, fractional_digits: 4)}
+                    </td>
+                    <td class="text-right">
+                      {Decimal.to_string(position.quantity_on_hand)}
+                    </td>
+                    <td class="text-right font-semibold text-primary">
+                      {Money.to_string!(position.amount_on_hand)}
+                    </td>
+                  </tr>
+                <% end %>
+              </tbody>
+            </table>
+          </div>
+        <% end %>
       </div>
     </div>
+    <button class="modal-backdrop" phx-click="close_positions_modal">Close</button>
   </div>
 <% end %>
 <!-- Realized Profits Modal -->
 <%= if @realized_profits_modal do %>
-  <div class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div class="relative p-2 sm:p-4">
-      <div class="bg-white rounded-lg shadow-xl max-w-full sm:max-w-4xl mx-auto mt-4 sm:mt-20">
-        <div class="flex justify-between items-center p-3 sm:p-6 border-b">
-          <h2 class="text-lg sm:text-2xl font-bold text-gray-900">
-            Realized Profits - {@realized_profits_modal.asset.name}
-          </h2>
-          <button
-            phx-click="close_realized_profits_modal"
-            class="text-gray-400 hover:text-gray-600 ml-2"
+  <div class="modal modal-open">
+    <div class="modal-box max-w-full sm:max-w-4xl p-0">
+      <div class="flex justify-between items-center p-3 sm:p-6 border-b border-base-200">
+        <h2 class="text-lg sm:text-2xl font-bold text-base-content">
+          Realized Profits - {@realized_profits_modal.asset.name}
+        </h2>
+        <button
+          phx-click="close_realized_profits_modal"
+          aria-label="Close"
+          class="text-base-content/40 hover:text-base-content/70 ml-2"
+        >
+          <svg
+            class="w-5 h-5 sm:w-6 sm:h-6"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg
-              class="w-5 h-5 sm:w-6 sm:h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M6 18L18 6M6 6l12 12"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              >
-              </path>
-            </svg>
-          </button>
-        </div>
+            </path>
+          </svg>
+        </button>
+      </div>
 
-        <div class="p-3 sm:p-6">
-          <%= if Enum.empty?(@realized_profits_modal.realized_profits) do %>
-            <p class="text-gray-500 text-center py-8">
-              No realized profits found for this asset.
-            </p>
-          <% else %>
-            <% transaction_profits =
-              Enum.filter(@realized_profits_modal.realized_profits, fn rp ->
-                rp.portfolio_transaction_id != nil
-              end)
+      <div class="p-3 sm:p-6">
+        <%= if Enum.empty?(@realized_profits_modal.realized_profits) do %>
+          <p class="text-base-content/60 text-center py-8">
+            No realized profits found for this asset.
+          </p>
+        <% else %>
+          <% transaction_profits =
+            Enum.filter(@realized_profits_modal.realized_profits, fn rp ->
+              rp.portfolio_transaction_id != nil
+            end)
 
-            dividend_profits =
-              @realized_profits_modal.realized_profits
-              |> Enum.filter(fn rp -> rp.dividend_id != nil end)
-              |> Enum.sort_by(& &1.dividend.ex_date, {:desc, Date}) %>
-            <!-- Sell Transactions Section -->
-            <div class="mb-6">
-              <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-3">
-                Sell Transactions
-              </h3>
-              <%= if Enum.empty?(transaction_profits) do %>
-                <p class="text-gray-500 text-sm py-4">
-                  No sell transactions yet.
-                </p>
-              <% else %>
-                <div class="overflow-x-auto -mx-3 sm:mx-0">
-                  <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+          dividend_profits =
+            @realized_profits_modal.realized_profits
+            |> Enum.filter(fn rp -> rp.dividend_id != nil end)
+            |> Enum.sort_by(& &1.dividend.ex_date, {:desc, Date}) %>
+          <!-- Sell Transactions Section -->
+          <div class="mb-6">
+            <h3 class="text-base sm:text-lg font-semibold text-base-content mb-3">
+              Sell Transactions
+            </h3>
+            <%= if Enum.empty?(transaction_profits) do %>
+              <p class="text-base-content/60 text-sm py-4">
+                No sell transactions yet.
+              </p>
+            <% else %>
+              <div class="overflow-x-auto -mx-3 sm:mx-0">
+                <table class="table table-sm sm:table-md">
+                  <thead>
+                    <tr>
+                      <th>Date</th>
+                      <th class="text-right">Sell Price</th>
+                      <th class="text-right">Qty Sold</th>
+                      <th class="text-right">Profit/Loss</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <%= for rp <- transaction_profits do %>
                       <tr>
-                        <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Date
-                        </th>
-                        <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Sell Price
-                        </th>
-                        <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Qty Sold
-                        </th>
-                        <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Profit/Loss
-                        </th>
+                        <td>
+                          <span
+                            class="hidden sm:inline local-time"
+                            data-utc-time={
+                              DateTime.to_iso8601(rp.portfolio_transaction.transaction_date)
+                            }
+                          >
+                            {Calendar.strftime(
+                              rp.portfolio_transaction.transaction_date,
+                              "%B %d, %Y"
+                            )}
+                          </span>
+                          <span
+                            class="sm:hidden local-time"
+                            data-utc-time={
+                              DateTime.to_iso8601(rp.portfolio_transaction.transaction_date)
+                            }
+                          >
+                            {Calendar.strftime(
+                              rp.portfolio_transaction.transaction_date,
+                              "%b %d, %Y"
+                            )}
+                          </span>
+                        </td>
+                        <td class="text-right font-medium">
+                          {Money.to_string!(rp.portfolio_transaction.price)}
+                        </td>
+                        <td class="text-right">
+                          {Decimal.to_string(rp.portfolio_transaction.quantity)}
+                        </td>
+                        <td class="text-right font-semibold">
+                          <span class={
+                            if Decimal.positive?(rp.amount.amount),
+                              do: "text-primary",
+                              else: "text-error"
+                          }>
+                            {Money.to_string!(rp.amount)}
+                          </span>
+                        </td>
                       </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                      <%= for rp <- transaction_profits do %>
-                        <tr>
-                          <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
-                            <span
-                              class="hidden sm:inline local-time"
-                              data-utc-time={
-                                DateTime.to_iso8601(rp.portfolio_transaction.transaction_date)
-                              }
-                            >
-                              {Calendar.strftime(
-                                rp.portfolio_transaction.transaction_date,
-                                "%B %d, %Y"
-                              )}
-                            </span>
-                            <span
-                              class="sm:hidden local-time"
-                              data-utc-time={
-                                DateTime.to_iso8601(rp.portfolio_transaction.transaction_date)
-                              }
-                            >
-                              {Calendar.strftime(
-                                rp.portfolio_transaction.transaction_date,
-                                "%b %d, %Y"
-                              )}
-                            </span>
-                          </td>
-                          <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-medium text-gray-900">
-                            {Money.to_string!(rp.portfolio_transaction.price)}
-                          </td>
-                          <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right text-gray-900">
-                            {Decimal.to_string(rp.portfolio_transaction.quantity)}
-                          </td>
-                          <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-semibold">
-                            <span class={
-                              if Decimal.positive?(rp.amount.amount),
-                                do: "text-emerald-600",
-                                else: "text-red-600"
-                            }>
-                              {Money.to_string!(rp.amount)}
-                            </span>
-                          </td>
-                        </tr>
-                      <% end %>
-                    </tbody>
-                  </table>
-                </div>
-              <% end %>
-            </div>
-            <!-- Dividend Payments Section -->
-            <div>
-              <h3 class="text-base sm:text-lg font-semibold text-gray-900 mb-3">
-                Dividend Payments
-              </h3>
-              <%= if Enum.empty?(dividend_profits) do %>
-                <p class="text-gray-500 text-sm py-4">
-                  No dividend payments yet.
-                </p>
-              <% else %>
-                <div class="overflow-x-auto -mx-3 sm:mx-0">
-                  <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-gray-50">
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+            <% end %>
+          </div>
+          <!-- Dividend Payments Section -->
+          <div>
+            <h3 class="text-base sm:text-lg font-semibold text-base-content mb-3">
+              Dividend Payments
+            </h3>
+            <%= if Enum.empty?(dividend_profits) do %>
+              <p class="text-base-content/60 text-sm py-4">
+                No dividend payments yet.
+              </p>
+            <% else %>
+              <div class="overflow-x-auto -mx-3 sm:mx-0">
+                <table class="table table-sm sm:table-md">
+                  <thead>
+                    <tr>
+                      <th>Ex-Date</th>
+                      <th>Pay Date</th>
+                      <th class="text-right">Dividend Per Share</th>
+                      <th class="text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <%= for rp <- dividend_profits do %>
                       <tr>
-                        <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Ex-Date
-                        </th>
-                        <th class="px-2 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Pay Date
-                        </th>
-                        <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Dividend Per Share
-                        </th>
-                        <th class="px-2 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Amount
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-200">
-                      <%= for rp <- dividend_profits do %>
-                        <tr>
-                          <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900">
+                        <td>
+                          <span class="hidden sm:inline">
+                            {Calendar.strftime(rp.dividend.ex_date, "%B %d, %Y")}
+                          </span>
+                          <span class="sm:hidden">
+                            {Calendar.strftime(rp.dividend.ex_date, "%b %d, %Y")}
+                          </span>
+                        </td>
+                        <td>
+                          <%= if rp.dividend.pay_date do %>
                             <span class="hidden sm:inline">
-                              {Calendar.strftime(rp.dividend.ex_date, "%B %d, %Y")}
+                              {Calendar.strftime(rp.dividend.pay_date, "%B %d, %Y")}
                             </span>
                             <span class="sm:hidden">
-                              {Calendar.strftime(rp.dividend.ex_date, "%b %d, %Y")}
+                              {Calendar.strftime(rp.dividend.pay_date, "%b %d, %Y")}
                             </span>
-                          </td>
-                          <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">
-                            <%= if rp.dividend.pay_date do %>
-                              <span class="hidden sm:inline">
-                                {Calendar.strftime(rp.dividend.pay_date, "%B %d, %Y")}
-                              </span>
-                              <span class="sm:hidden">
-                                {Calendar.strftime(rp.dividend.pay_date, "%b %d, %Y")}
-                              </span>
-                            <% else %>
-                              <span class="text-gray-400 italic">N/A</span>
-                            <% end %>
-                          </td>
-                          <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-medium text-gray-900">
-                            {Money.to_string!(Money.new(rp.dividend.currency, rp.dividend.value))}
-                          </td>
-                          <td class="px-2 sm:px-6 py-2 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-right font-semibold">
-                            <span class={
-                              if Decimal.positive?(rp.amount.amount),
-                                do: "text-emerald-600",
-                                else: "text-red-600"
-                            }>
-                              {Money.to_string!(rp.amount)}
-                            </span>
-                          </td>
-                        </tr>
-                      <% end %>
-                    </tbody>
-                  </table>
-                </div>
-              <% end %>
-            </div>
-          <% end %>
-        </div>
+                          <% else %>
+                            <span class="text-base-content/40 italic">N/A</span>
+                          <% end %>
+                        </td>
+                        <td class="text-right font-medium">
+                          {Money.to_string!(Money.new(rp.dividend.currency, rp.dividend.value))}
+                        </td>
+                        <td class="text-right font-semibold">
+                          <span class={
+                            if Decimal.positive?(rp.amount.amount),
+                              do: "text-primary",
+                              else: "text-error"
+                          }>
+                            {Money.to_string!(rp.amount)}
+                          </span>
+                        </td>
+                      </tr>
+                    <% end %>
+                  </tbody>
+                </table>
+              </div>
+            <% end %>
+          </div>
+        <% end %>
       </div>
     </div>
+    <button class="modal-backdrop" phx-click="close_realized_profits_modal">Close</button>
   </div>
 <% end %>
