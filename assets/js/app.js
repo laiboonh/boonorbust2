@@ -280,6 +280,9 @@ Hooks.ChartInit = {
             }
           },
           tooltip: {
+            filter: function(item) {
+              return item.dataset.label === 'Monthly Average' || item.parsed.y !== 0;
+            },
             callbacks: {
               title: function(context) { return context[0].label; },
               label: function(context) {
